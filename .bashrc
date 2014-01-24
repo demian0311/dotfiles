@@ -49,7 +49,8 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
 
    #export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0.jdk/Contents/Home
    #export JRE_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/
-   export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_25.jdk/Contents/Home
+   export JRE_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home/
+   #export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_25.jdk/Contents/Home
    export JAVA_HOME=$JRE_HOME
    export JDK_HOME=$JRE_HOME
    export PATH=$JAVA_HOME/bin:$PATH
@@ -99,20 +100,20 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    export GRADLE_HOME=$OPT/gradle
    export PATH=$GRADLE_HOME/bin:$PATH
 
-   export M3_HOME=$OPT/maven
-   export M2_HOME=$M3_HOME
-   export PATH=$M3_HOME/bin:$PATH
+   #export M3_HOME=$OPT/maven
+   #export M2_HOME=$M3_HOME
+   #export PATH=$M3_HOME/bin:$PATH
 
    # defined just like eclipse
-   export M2_REPO=~/.m2/repository
+   #export M2_REPO=~/.m2/repository
    export SVN_EDITOR=vim
    export EDITOR=vim
 
    export PATH=~/bin:$PATH
 
-   export MAVEN_OPTS="-Xmx2048m -Xms2048m -Dsurefire.useFile=false"
+   ##export MAVEN_OPTS="-Xmx2048m -Xms2048m -Dsurefire.useFile=false"
 
-   alias jekyll='/usr/local/Cellar/ruby/2.0.0-p0/bin/jekyll'
+   #alias jekyll='/usr/local/Cellar/ruby/2.0.0-p0/bin/jekyll'
 
 fi
 
