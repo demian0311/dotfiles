@@ -37,6 +37,7 @@ install "maven"
 install "openssl"		
 install "readline"	
 install "tree"
+install "icu4c"
 
 ## Stuff that needs gems
 # gems in general aren't working for me
