@@ -1,0 +1,11 @@
+[user]
+	name = Demian Neidetcher
+	email = demian0311@gmail.com
+[color]
+	ui = auto
+[push]
+	default = current
+[branch]
+	autosetuprebase = always
+[branch "*branch-name*"]
+	rebase = true
