@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# TODO: need to update all repos
+# TODO: need to start gollum wiki
+
 mkdir -p ~/.vim/backup
 
 ## Setup symlinks to dotfiles 
