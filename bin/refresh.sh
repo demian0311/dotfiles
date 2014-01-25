@@ -4,12 +4,12 @@ mkdir -p ~/.vim/backup
 
 ## Setup symlinks to dotfiles 
 function linkFile(){
-	ln -s ~/code/dotfiles/$1 ~/$1 && echo "linked $1" 
+	ln -Fs ~/code/dotfiles/$1 ~/$1 
 }
 
 #linkFile ".vim/syntax"
-ln -s ~/code/dotfiles/.vim/syntax ~/.vim/ && echo "linked .vim/syntax" 
-ln -s ~/code/dotfiles/bin/ ~/bin/ && echo "linked bin" 
+ln -Fs ~/code/dotfiles/.vim/syntax ~/.vim/
+ln -Fs ~/code/dotfiles/bin ~
 linkFile ".bashrc"
 linkFile ".vimrc"
 linkFile ".aliases.sh"
@@ -85,7 +85,7 @@ function bitbucketGitRepo(){
 
 bitbucketGitRepo "wiki"
 
-## Some Git work
+
 find ~/code -name \.git  | sed s/\.git$// | xargs -I % sh -c 'cd %;  git diff --quiet || echo "% is dirty"'
 find ~/code -name \.git  | sed s/\.git$// | xargs -I % sh -c 'cd %;  [[ -n $(git rev-list @{u}..HEAD) ]] &&  echo "% has unpushed commits"'
 
@@ -120,5 +120,4 @@ defaults write com.apple.mail AddressesIncludeNameOnPasteboard -bool false
 defaults write com.apple.addressbook ABShowDebugMenu -bool true
 # Enable Dashboard dev mode (allows keeping widgets on the desktop)
 defaults write com.apple.dashboard devmode -bool true
-echo "system settings"
 
