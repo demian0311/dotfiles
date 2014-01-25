@@ -9,7 +9,7 @@ function linkFile(){
 
 #linkFile ".vim/syntax"
 ln -s ~/code/dotfiles/.vim/syntax ~/.vim/ && echo "linked .vim/syntax" 
-ln -s ~/code/dotfiles/bin ~/bin/ && echo "linked bin" 
+ln -s ~/code/dotfiles/bin/ ~/bin/ && echo "linked bin" 
 linkFile ".bashrc"
 linkFile ".vimrc"
 linkFile ".aliases.sh"
@@ -45,8 +45,12 @@ function gemInstall(){
    gem list | grep --quiet "$1 (" || ( echo "installing $1, provide password" &&  sudo gem install $1  && echo "$1 installed" )
 }
 
-#gemInstall "gollum"
-#gemInstall "jekyll"
+gemInstall "gollum"
+gemInstall "jekyll"
+
+# I had to symlink it myself
+#ln -s /usr/local/lib/ruby/gems/2.1.0/gems/gollum-2.6.0/bin/gollum /usr/local/bin/gollum
+#ln -s /usr/local/lib/ruby/gems/2.1.0/gems/jekyll-1.4.3/bin/jekyll /usr/local/bin/jekyll
 
 #gem list | grep --quiet "gollum (" 	|| ( echo "installing gollum, please provide password if asked." &&  sudo gem install gollum  && echo "gollum installed" )
 #echo "gems"

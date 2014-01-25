@@ -1,5 +1,4 @@
 " Demian L. Neidetcher - the 2nd .vimrc
-
       
 " Settings
 set autoindent        " always do auto indent
@@ -13,7 +12,7 @@ set expandtab         " never insert tab characters, just use spaces
 "folding
 set foldmethod=indent " automatically indent on indentation
 set foldnestmax=2     " don't net folds too much
-highlight Folded guibg=black guifg=darkgrey
+highlight Folded     guibg=black guifg=darkgrey
 highlight FoldColumn guibg=black guifg=darkgrey
 
 set hlsearch          " after a search, hilight the matches
@@ -47,11 +46,6 @@ autocmd BufRead *.java iab log log.debug("" + );<esc>hhi
 autocmd BufRead *.txt  set textwidth=79 
 autocmd BufRead *.txt  match Error /\%>79v./
 autocmd BufRead *.plan iab == == <c-r>=strftime("%Y%m%d")<cr> ==
-
-" run the current script
-"//map r :!./%<cr>
-" need to do this based on the file type
-map r :!scala %<cr>
 
 " code wrangling
 " these scripts have to be on your path
