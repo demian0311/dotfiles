@@ -10,7 +10,6 @@ function linkFile(){
 	ln -Fs ~/code/dotfiles/$1 ~/$1 
 }
 
-#linkFile ".vim/syntax"
 ln -Fs ~/code/dotfiles/.vim/syntax ~/.vim/
 ln -Fs ~/code/dotfiles/bin ~
 linkFile ".bashrc"
@@ -21,7 +20,7 @@ linkFile ".gitconfig"
 ## Setup lots of software
 
 function install(){
-	brew list | grep --quiet $1 || ( brew install $1 && echo "$1 installed"   )
+	brew list | grep --quiet $1 || ( brew install $1 && echo "$1 installed" )
 }
 
 install "ruby"
@@ -40,7 +39,9 @@ install "maven"
 install "openssl"		
 install "readline"	
 install "tree"
-install "icu4c"
+install "icu4c" # needed for gollum and maybe Jekyll
+install "scala" # IntelliJ Scala Home: /usr/local/opt/scala/idea 
+install "sbt"
 
 ## Stuff that needs gems
 # gems in general aren't working for me
@@ -63,6 +64,7 @@ gemInstall "jekyll"
 
 function twcGitRepo(){
    [ -d ~/code/twc/$1 ] || git clone git@github.webapps.rr.com:liger/$1 ~/code/twc/$1;
+   cd ~/code/twc/$1; git pull;
 }
 
 twcGitRepo "soap"
@@ -73,6 +75,7 @@ twcGitRepo "online-bill-pay"
 
 function githubGitRepo(){
    [ -d ~/code/$1 ] || git clone git@github.com:demian0311/$1 ~/code/$1;
+   cd ~/code/$1; git pull;
 }
 
 githubGitRepo "javafunctional"
@@ -84,10 +87,12 @@ githubGitRepo "nextgen"
 
 function bitbucketGitRepo(){
    [ -d ~/code/$1 ] || git clone git@bitbucket.org:demian0311/$1 ~/code/$1;
+   cd ~/code/$1; git pull;
 }
 
 bitbucketGitRepo "wiki"
-
+cd ~/code/wiki; git pull
+#open "http://localhost:4567/Home"
 
 find ~/code -name \.git  | sed s/\.git$// | xargs -I % sh -c 'cd %;  git diff --quiet || echo "% is dirty"'
 find ~/code -name \.git  | sed s/\.git$// | xargs -I % sh -c 'cd %;  [[ -n $(git rev-list @{u}..HEAD) ]] &&  echo "% has unpushed commits"'

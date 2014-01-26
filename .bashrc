@@ -19,13 +19,17 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    echo '***********************************************'
 
    # TWC related
-   alias xp='cd ~/code/tw/cross-platform; git pull'
+   #alias xp='cd ~/code/tw/cross-platform; git pull'
 
    # SETUP THE NEW SBT
    #alias sbt=~/opt/sbt/bin/sbt
 
+   #SBT_OPTS="-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=256M"
+   #export SBT_OPTS="-Xmx4096m -XX:MaxPermSize=4096m -Xss4M -XX:+UseConcMarkSweepGC"
+   export SBT_OPTS="-Xmx8192m -XX:MaxPermSize=8192m -Xss8M -XX:+UseConcMarkSweepGC"
+
    # my brew stuff is all messed up, not symlinking
-   alias gpg=/usr/local/Cellar/gnupg/1.4.11/bin/gpg
+   #alias gpg=/usr/local/Cellar/gnupg/1.4.11/bin/gpg
 
    #alias .gmd='grails -Dgrails.env=mockdev -Ddisable.auto.recompile=false run-app'
 
