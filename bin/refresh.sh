@@ -1,7 +1,6 @@
 #!/bin/sh
 
 # TODO: need to update all repos
-# TODO: need to start gollum wiki
 
 mkdir -p ~/.vim/backup
 
@@ -51,6 +50,9 @@ function gemInstall(){
 
 gemInstall "gollum"
 gemInstall "jekyll"
+gemInstall "sass"
+
+
 
 # I had to symlink it myself
 #ln -s /usr/local/lib/ruby/gems/2.1.0/gems/gollum-2.6.0/bin/gollum /usr/local/bin/gollum
