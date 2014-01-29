@@ -12,7 +12,7 @@ export BASH_IT=$HOME/code/bash-it
 
 # Lock and Load a custom theme file
 # location /.bash_it/themes/
-export BASH_IT_THEME='powerline' # 1-line, neat colored arrows, solid 
+export BASH_IT_THEME='powerline-plain' # 1-line, neat colored arrows, solid 
 
 # Your place for hosting Git repos. I use this for private repos.
 #export GIT_HOSTING='git@git.domain.com'
