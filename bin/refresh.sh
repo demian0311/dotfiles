@@ -12,6 +12,7 @@ function linkFile(){
 ln -Fs ~/code/dotfiles/.vim/syntax ~/.vim/
 ln -Fs ~/code/dotfiles/bin ~
 linkFile ".bashrc"
+linkFile ".bash_profile"
 linkFile ".vimrc"
 linkFile ".aliases.sh"
 linkFile ".gitconfig"
