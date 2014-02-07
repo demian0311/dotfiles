@@ -11,6 +11,9 @@ function linkFile(){
 
 ln -Fs ~/code/dotfiles/.vim/syntax ~/.vim/
 ln -Fs ~/code/dotfiles/bin ~
+# .bash_it
+ln -Fs ~/code/bash-it ~/.bash_it
+ln -s ~/code/plan/2014.plan ~/the.plan
 linkFile ".bashrc"
 linkFile ".bash_profile"
 linkFile ".vimrc"

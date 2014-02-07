@@ -7,19 +7,18 @@
 export PATH=$PATH:~/.gem/ruby/1.8/bin:/opt/nginx/sbin
 
 # Path to the bash it configuration
-#export BASH_IT=$HOME/.bash_it
-export BASH_IT=$HOME/code/bash-it
+export BASH_IT=$HOME/.bash_it
 
 # Lock and Load a custom theme file
 # location /.bash_it/themes/
-export BASH_IT_THEME='powerline-plain' # 1-line, neat colored arrows, solid 
+export BASH_IT_THEME='powerline-plain'
 
 # Your place for hosting Git repos. I use this for private repos.
-#export GIT_HOSTING='git@git.domain.com'
+export GIT_HOSTING='git@git.domain.com'
 
 # Set my editor and git editor
-export EDITOR="/usr/bin/vim"
-export GIT_EDITOR='/usr/bin/vim'
+export EDITOR="/usr/bin/mate -w"
+export GIT_EDITOR='/usr/bin/mate -w'
 
 # Set the path nginx
 export NGINX_PATH='/opt/nginx'
