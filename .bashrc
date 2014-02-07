@@ -142,6 +142,10 @@ if [ -f ~/.aliases.sh ]; then
     . ~/.aliases.sh
 fi
 
+if [ -f ~/.git.tools ]; then
+    . ~/.git.tools
+fi
+
 # git settings
 git config --global user.name "Demian Neidetcher"
 git config --global user.email "demian0311@gmail.com"

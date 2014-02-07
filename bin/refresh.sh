@@ -15,6 +15,7 @@ linkFile ".bashrc"
 linkFile ".bash_profile"
 linkFile ".vimrc"
 linkFile ".aliases.sh"
+linkFile ".git.tools"
 linkFile ".gitconfig"
 
 ## Setup lots of software
