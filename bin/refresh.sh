@@ -46,6 +46,7 @@ install "tree"
 install "icu4c" # needed for gollum and maybe Jekyll
 install "scala" # IntelliJ Scala Home: /usr/local/opt/scala/idea 
 install "sbt"
+install "hg"
 
 ## Stuff that needs gems
 # gems in general aren't working for me
