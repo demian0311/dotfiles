@@ -116,6 +116,7 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    export PATH=~/bin:$PATH
 
    ##export MAVEN_OPTS="-Xmx2048m -Xms2048m -Dsurefire.useFile=false"
+   export MAVEN_OPTS="-Xmx2048m -Xms2048m -Dsurefire.useFile=false"
 
    #alias jekyll='/usr/local/Cellar/ruby/2.0.0-p0/bin/jekyll'
 
