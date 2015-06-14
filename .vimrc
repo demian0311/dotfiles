@@ -1,4 +1,10 @@
 " Demian L. Neidetcher - the 2nd .vimrc
+
+syntax enable
+
+"set background=dark
+set background=light
+colorscheme solarized
       
 " Settings
 set autoindent        " always do auto indent
@@ -33,14 +39,6 @@ set smarttab          " handles spaces just like tabs
 set tabstop=3         " how many spaces equal a tab
 set visualbell        " flash the screen instead of beeping
 
-"highlight Normal ctermbg=black ctermfg=white
-"highlight Normal guibg=black guifg=white
-
-" Java settings
-"autocmd BufRead *.java match Error /\%>80v./
-autocmd BufRead *.java iab println System.out.println("");
-autocmd BufRead *.java iab log log.debug("" + );<esc>hhi 
-
 " Text file settings
 "autocmd BufRead *.txt  set formatoptions=tqan
 autocmd BufRead *.txt  set textwidth=79 
@@ -57,8 +55,6 @@ map A :!s2a.py<cr>      " change the name to 'attribute'
 " navigating through tabs
 map H :tabp<cr>         " go to the previous tab  
 map L :tabn<cr>         " to to the previous tab
-"map J :
-"map K :
 
 map S :so ~/.vimrc<cr>  " re-source the .vimrc file
 
@@ -71,15 +67,15 @@ iab <html> <html><cr><head><cr></head><cr><body><cr></body><cr></html><esc>kko
 au BufRead,BufNewFile *.plan set filetype=plan 
 au! Syntax plan source ~/.vim/syntax/plan.vim
 
-"au BufRead,BufNewFile *.t2t set filetype=txt2tags 
-"au! Syntax txt2tags source ~/.vim/syntax/txt2tags.vim
+au BufRead,BufNewFile *.adoc set filetype=asciidoc 
+au! Syntax asciidoc source ~/.vim/syntax/asciidoc.vim
+
 au BufRead,BufNewFile *.md set filetype=markdown 
 
 au BufRead,BufNewFile *.scala set filetype=scala 
 au BufRead,BufNewFile *.scala set shiftwidth=2
 au! Syntax scala source ~/.vim/syntax/scala.vim
 
-" for gradle builds
 au BufRead,BufNewFile *.gradle set filetype=groovy 
 au BufRead,BufNewFile *.sbt set filetype=scala 
 
@@ -90,12 +86,3 @@ au BufRead,BufNewFile *.sbt set filetype=scala
 " remove the gui menus
 :set guioptions-=m
 :set guioptions-=T
-:set bg=dark
-:set syntax=on
-
-" some nerd tree settings
-map nt :NERDTreeToggle<CR>
-map ntb :Bookmark
-
-syntax on
-colorscheme koehler

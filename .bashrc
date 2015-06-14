@@ -27,6 +27,7 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    #SBT_OPTS="-XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=256M"
    #export SBT_OPTS="-Xmx4096m -XX:MaxPermSize=4096m -Xss4M -XX:+UseConcMarkSweepGC"
    export SBT_OPTS="-Xmx8192m -XX:MaxPermSize=8192m -Xss8M -XX:+UseConcMarkSweepGC"
+   #export SBT_OPTS="-Xmx8192m -Xss8M -XX:+UseConcMarkSweepGC"
 
    # my brew stuff is all messed up, not symlinking
    #alias gpg=/usr/local/Cellar/gnupg/1.4.11/bin/gpg
@@ -36,6 +37,7 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    #alias grails1='export GRAILS_HOME=$GRAILS1_HOME && $GRAILS1_HOME/bin/grails'
    #alias grails2='export GRAILS_HOME=$GRAILS2_HOME && $GRAILS2_HOME/bin/grails'
    #alias grails='export GRAILS_HOME=~/opt/.grails-2.2.4 && ~/opt/.grails-2.2.1/bin/grails'
+   #alias grails='export GRAILS_HOME=~/opt/.grails-3.0.1 && ~/opt/.grails-3.0.1/bin/grails'
 
    alias grails221='export GRAILS_HOME=~/opt/.grails-2.2.1 && ~/opt/.grails-2.2.1/bin/grails'
    alias grails230='export GRAILS_HOME=~/opt/.grails-2.3.0 && ~/opt/.grails-2.3.0/bin/grails'
@@ -51,10 +53,9 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
 
    export PATH="/usr/local/bin:$PATH"
 
-   #export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0.jdk/Contents/Home
+   export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0.jdk/Contents/Home
    #export JRE_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home/
-   export JRE_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home/
-   #export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.7.0_25.jdk/Contents/Home
+   #export JRE_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home/
    export JAVA_HOME=$JRE_HOME
    export JDK_HOME=$JRE_HOME
    export PATH=$JAVA_HOME/bin:$PATH
@@ -73,6 +74,8 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    if [ -f /etc/bash_completion ]; then
        . /etc/bash_completion
    fi
+
+   export PATH=$PATH:$OPT/sipp-3.3.990
 
    # Java Options, Groovy uses this too
    #export JAVA_OPTS="-Xmx2048m -Xms2048m"
@@ -167,3 +170,13 @@ fi
 
 #THIS MUST BE AT THE END OF THE FILE FOR GVM TO WORK!!!
 [[ -s "/Users/demian/.gvm/bin/gvm-init.sh" ]] && source "/Users/demian/.gvm/bin/gvm-init.sh"
+
+#function gen-cst {
+#        cd ~/code/twc/cst && \
+#        rm -frv .idea .idea_modules && \
+#        rm -frv ~/Library/Caches/IntelliJIdea13 && \
+#        find ./ -name target | xargs rm -frv && \
+#        sbt gen-idea 
+#}
+
+source ~/.bash_functions

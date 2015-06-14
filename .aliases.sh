@@ -22,3 +22,5 @@ alias network.connections='lsof -l -i +L -R -V'
 alias network.established='lsof -l -i +L -R -V | grep ESTABLISHED'
 
 alias serve='python -c "import SimpleHTTPServer;SimpleHTTPServer.test()"' 
+
+alias gCoverage='./grailsw test-app -unit -coverage -xml --non-interactive --plain-output; open ./target/test-reports/cobertura/index.html'
