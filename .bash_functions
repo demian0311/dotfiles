@@ -10,10 +10,20 @@ function j7 {
 }
 
 function j8 {
-   export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0.jdk/Contents/Home
-   export JAVA_HOME=$JRE_HOME
-   export JDK_HOME=$JRE_HOME
-   export PATH=$JAVA_HOME/bin:$PATH
+   #if [$HOSTNAME == 'thor']; then
+   if [ "$HOSTNAME" = thor ]; then
+      echo 'success'
+      export JRE_HOME="$(/usr/libexec/java_home)"
+      export JAVA_HOME=$JRE_HOME
+      export JDK_HOME=$JRE_HOME
+      export PATH=$JAVA_HOME/bin:$PATH
+   else
+      echo "not Thor, must be work computer"
+      export JRE_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0.jdk/Contents/Home
+      export JAVA_HOME=$JRE_HOME
+      export JDK_HOME=$JRE_HOME
+      export PATH=$JAVA_HOME/bin:$PATH
+   fi
 
    java -version
 }
@@ -47,6 +57,8 @@ function r-cd {
 
 
 function r-cov {
+   j8
+   r-cd
    cd ~/code/layered/router/
    ./gradlew cobertura 
    if [ $? -ne 0 ]; then
