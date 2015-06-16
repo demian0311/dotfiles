@@ -62,6 +62,14 @@ function c-cd {
    cd ~/code/twc/cst/
 }
 
+function c-test {
+   j8
+   c-cd
+   sbt test
+}
+
+
+
 // Layered
 
 function r-cd {
