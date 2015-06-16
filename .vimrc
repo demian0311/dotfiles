@@ -4,7 +4,7 @@ syntax enable
 
 "set background=dark
 set background=light
-colorscheme solarized
+colorscheme desert
       
 " Settings
 set autoindent        " always do auto indent
