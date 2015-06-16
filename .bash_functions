@@ -45,6 +45,19 @@ function o-cov {
    fi
 }
 
+function o-check {
+   j8
+   o-cd 
+   ./grailsw codenarc
+
+   if [ $? -ne 0 ]; then
+      echo "something failed, will not open codenarc"
+   else
+      echo "opening coverage report"
+      open ./target/CodeNarc-Report.html
+   fi
+}
+
 function c-cd {
    cd ~/code/twc/cst/
 }
@@ -54,7 +67,6 @@ function c-cd {
 function r-cd {
    cd ~/code/layered/router/
 }
-
 
 function r-cov {
    j8
@@ -68,6 +80,12 @@ function r-cov {
       echo "opening coverage report"
       open ./build/reports/cobertura/index.html
    fi
+}
+
+function r-check {
+   j8
+   r-cd
+   ./gradlew check
 }
 
 function r-mongo {
