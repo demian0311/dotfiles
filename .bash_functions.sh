@@ -27,7 +27,6 @@ function j7 {
 }
 
 function j8 {
-   #if [$HOSTNAME == 'thor']; then
    if [ "$HOSTNAME" = thor ]; then
       export JRE_HOME="$(/usr/libexec/java_home)"
       export JAVA_HOME=$JRE_HOME
@@ -42,85 +41,89 @@ function j8 {
    #java -version
 }
 
-
-function o-cd {
-   cd ~/code/twc/online-bill-pay/
+function pass {
+   echo -e "$(tput setaf 2)##### PASS #####$(tput sgr0)"
+   say "pass"
 }
 
-function o-cov {
-   o-cd
-   echo "OBP Coverage"
-   ./grailsw test-app -unit -coverage -xml --non-interactive --plain-output
-   if [ $? -ne 0 ]; then
-      echo "something failed, will not open coverage report"
-   else
-      echo "opening coverage report"
-      open ./target/test-reports/cobertura/index.html
-   fi
+function fail {
+   echo -e "$(tput setaf 1)##### FAIL #####$(tput sgr0)"
+   say "fail"
 }
 
-function o-check {
-   j8
-   o-cd 
-   ./grailsw codenarc
-
-   if [ $? -ne 0 ]; then
-      say "fail"
-      echo "something failed, will not open codenarc"
-   else
-      say "pass"
-      echo "opening coverage report"
-      open ./target/CodeNarc-Report.html
-   fi
-}
-
-function c-cd {
-   cd ~/code/twc/cst/
-}
-
-function c-test {
-   j8
-   c-cd
-   sbt test
-}
-
-
-
-# Layered
-
-function r-cd {
+function cd.r {
    cd ~/code/layered/router/
 }
 
-function r-cov {
+function cov.r {
    j8
-   r-cd
-   cd ~/code/layered/router/
+   cd.r
    ./gradlew clean
    ./gradlew cobertura 
    if [ $? -ne 0 ]; then
-      echo "something failed, opening tests report"
+      fail
       open ./build/reports/tests/index.html
    else 
-      echo "opening coverage report"
+      pass
       open ./build/reports/cobertura/index.html
    fi
 }
 
-function r-check {
+function check.r {
    j8
-   r-cd
+   cd.r
    ./gradlew check
 
    if [ $? -ne 0 ]; then
-      decho "fail"
-      say "fail"
+      fail
    else
-      echo "pass"
-      say "pass"
+      pass
    fi
 }
 
-function r-mongo {
+function mongo.r {
    mongod --dbpath ~/data/db
 }
+
+# function cd.o {
+#    cd ~/code/twc/online-bill-pay/
+# }
+# 
+# function cov.o {
+#    o-cd
+#    echo "OBP Coverage"
+#    ./grailsw test-app -unit -coverage -xml --non-interactive --plain-output
+#    if [ $? -ne 0 ]; then
+#       echo "something failed, will not open coverage report"
+#    else
+#       echo "opening coverage report"
+#       open ./target/test-reports/cobertura/index.html
+#    fi
+# }
+# 
+# function check.o {
+#    j8
+#    o-cd 
+#    ./grailsw codenarc
+# 
+#    if [ $? -ne 0 ]; then
+#       say "fail"
+#       echo "something failed, will not open codenarc"
+#    else
+#       say "pass"
+#       echo "opening coverage report"
+#       open ./target/CodeNarc-Report.html
+#    fi
+# }
+
+# function c-cd {
+#    cd ~/code/twc/cst/
+# }
+# 
+# function c-test {
+#    j8
+#    c-cd
+#    sbt test
+# }
+
+
