@@ -9,7 +9,8 @@ if [[ "$unamestr" == 'Linux' ]]; then
 elif [[ "$unamestr" == 'Darwin' ]]; then
    echo -n ''
 
-   alias gvim='/Applications/MacVim.app/Contents/MacOS/Vim -g'
+   #alias gvim='/Applications/MacVim.app/Contents/MacOS/Vim -g'
+
    alias md5sum="md5"
 
    export PATH="/usr/local/bin:$PATH"
@@ -18,8 +19,10 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
    export JAVA_HOME=$JRE_HOME
    export JDK_HOME=$JRE_HOME
    export PATH=$JAVA_HOME/bin:$PATH
+   
 
-   VIM_APP_DIR=/usr/local/Cellar/macvim/7.3-61/MacVim.app
+   #VIM_APP_DIR=/usr/local/Cellar/macvim/7.3-61/MacVim.app
+   VIM_APP_DIR=/usr/local/Cellar/vim/7.4.712
    export PATH=$VIM_APP_DIR/Contents/MacOS:$PATH
 
    # enable programmable completion features (you don't need to enable

@@ -1,23 +1,24 @@
 " Demian L. Neidetcher - the 2nd .vimrc
 
-syntax enable
-
-"set background=dark
-set background=light
-colorscheme desert
-      
 " Settings
 set autoindent        " always do auto indent
 set autoread          " if the file changed under us, update
 set autowriteall      " do automatic backups
 set backup            " before over-writing a file, make a backup
 set backupdir=~/.vim/backup  " put backups and temp files in a ~/.vim directory
-set directory=~/.vim  " 
+set runtimepath=~/code/dotfiles/.vim,$VIMRUNTIME
 set expandtab         " never insert tab characters, just use spaces
+
+syntax enable
+
+set background=dark
+"set background=light
+colorscheme solarized
 
 "folding
 set foldmethod=indent " automatically indent on indentation
 set foldnestmax=2     " don't net folds too much
+
 highlight Folded     guibg=black guifg=darkgrey
 highlight FoldColumn guibg=black guifg=darkgrey
 
@@ -34,7 +35,7 @@ set shiftround        " when >< shifting, round off to the nearest shiftwidth
 set shiftwidth=3      " how far to do indents
 set showmatch         " jump to the matching pair briefly
 set smartcase         " if you type in uppercase chars in a search, ignore ignorecase
-set smartindent       " indent like for Java/ C programs
+"set smartindent       " indent like for Java/ C programs
 set smarttab          " handles spaces just like tabs
 set tabstop=3         " how many spaces equal a tab
 set visualbell        " flash the screen instead of beeping
