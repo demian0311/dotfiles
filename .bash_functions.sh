@@ -81,6 +81,18 @@ function check.r {
    fi
 }
 
+function pitest {
+   j8
+   cd.r
+   ./gradlew pitest
+   if [ $? -ne 0 ]; then
+      fail
+   else
+      pass
+      open $(find ./build/reports/pitest -name index.html | head -n 1)
+   fi   
+}
+
 function mongo.r {
    mongod --dbpath ~/data/db
 }

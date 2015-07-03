@@ -5,7 +5,7 @@ set autoindent        " always do auto indent
 set autoread          " if the file changed under us, update
 set autowriteall      " do automatic backups
 set backup            " before over-writing a file, make a backup
-set backupdir=~/.vim/backup  " put backups and temp files in a ~/.vim directory
+set backupdir=~/code/dotfiles/.vim/backup  " put backups and temp files in a ~/.vim directory
 set runtimepath=~/code/dotfiles/.vim,$VIMRUNTIME
 set expandtab         " never insert tab characters, just use spaces
 
