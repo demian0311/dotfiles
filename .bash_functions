@@ -51,8 +51,10 @@ function o-check {
    ./grailsw codenarc
 
    if [ $? -ne 0 ]; then
+      say "fail"
       echo "something failed, will not open codenarc"
    else
+      say "pass"
       echo "opening coverage report"
       open ./target/CodeNarc-Report.html
    fi
@@ -80,6 +82,7 @@ function r-cov {
    j8
    r-cd
    cd ~/code/layered/router/
+   ./gradlew clean
    ./gradlew cobertura 
    if [ $? -ne 0 ]; then
       echo "something failed, opening tests report"
@@ -94,6 +97,14 @@ function r-check {
    j8
    r-cd
    ./gradlew check
+
+   if [ $? -ne 0 ]; then
+      decho "fail"
+      say "fail"
+   else
+      echo "pass"
+      say "pass"
+   fi
 }
 
 function r-mongo {

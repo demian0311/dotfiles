@@ -1,9 +1,14 @@
-alias ls='ls -G'
+alias ls='ls -G -p'
 alias ll='ls -Ghalt'
 alias l='ls -Ghlt'
+alias lsd="ls | grep --color=never '^d'"
 alias v='vim'
 alias vi='vim'
 alias c='cd'
+
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
 
 alias g='git'
 alias gd='git diff --color-words'
@@ -15,6 +20,13 @@ alias pj='ps -ef | grep java'
 alias pt='ps -ef | grep tomcat'
 alias kj='kill -9 `jps -mv | grep jetty | cut -f1 --delimiter=" "`'
 alias kg='kill -9 `jps -mv | grep grails | cut -f1 --delimiter=" "`'
+
+# IP addresses
+alias ip="dig +short myip.opendns.com @resolver1.opendns.com"
+alias localip="ipconfig getifaddr en0"
+alias ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
+
+alias map="xargs -n1"
 
 # Often useful to prefix with SUDO to see more system level network usage
 alias network.ports='netstat -a -n | grep -i "LISTEN "'
