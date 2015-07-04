@@ -81,7 +81,7 @@ function check.r {
    fi
 }
 
-function pitest {
+function mutest.r {
    j8
    cd.r
    ./gradlew pitest
