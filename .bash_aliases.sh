@@ -21,9 +21,9 @@ alias gl="git log --graph --abbrev-commit --decorate --date=relative --format=fo
 #alias kg='kill -9 `jps -mv | grep grails | cut -f1 --delimiter=" "`'
 
 # IP addresses
-alias ip="dig +short myip.opendns.com @resolver1.opendns.com"
-alias localip="ipconfig getifaddr en0"
-alias ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
+alias network.ip="dig +short myip.opendns.com @resolver1.opendns.com"
+alias network.localip="ipconfig getifaddr en0"
+alias network.ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
 
 alias map="xargs -n1"
 
@@ -33,5 +33,3 @@ alias network.connections='lsof -l -i +L -R -V'
 alias network.established='lsof -l -i +L -R -V | grep ESTABLISHED'
 
 alias serve='python -c "import SimpleHTTPServer;SimpleHTTPServer.test()"' 
-
-alias gCoverage='./grailsw test-app -unit -coverage -xml --non-interactive --plain-output; open ./target/test-reports/cobertura/index.html'

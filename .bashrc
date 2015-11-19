@@ -34,7 +34,7 @@ elif [[ "$unamestr" == 'Darwin' ]]; then
 
    export OPT=~/opt
    # Java Options, Groovy uses this too
-   export JAVA_OPTS="-Xmx4096m -Xms4096m"
+   #export JAVA_OPTS="-Xmx4096m -Xms4096m"
 
    export SCALA_HOME=$OPT/scala
    export PATH=$SCALA_HOME/bin:$PATH
@@ -84,7 +84,7 @@ git config --global color.ui "auto"
 git config --global push.default "current"
 
 # http://b.sricola.com/post/16174981053/bash-autocomplete-for-ssh
-complete -W "$(echo $(grep '^ssh ' .bash_history | sort -u | sed 's/^ssh //'))" ssh
+complete -W "$(echo $(grep '^ssh ' ~/.bash_history | sort -u | sed 's/^ssh //'))" ssh
 complete -W "$(echo $(grep "Host " ~/.ssh/config | awk '{print $2}' | tr "\n" " "))" ssh
 
 export PATH="~/code/twc/potion/bin:$PATH"
@@ -99,4 +99,5 @@ export DOTFILES=~/code/dotfiles
 source $DOTFILES/.bash_aliases.sh
 source $DOTFILES/.bash_functions.sh
 source $DOTFILES/.bash_prompt.sh
+
 j8

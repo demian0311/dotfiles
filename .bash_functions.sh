@@ -59,11 +59,11 @@ function cov.r {
    j8
    cd.r
    ./gradlew clean
-   ./gradlew cobertura 
+   ./gradlew cobertura
    if [ $? -ne 0 ]; then
       fail
       open ./build/reports/tests/index.html
-   else 
+   else
       pass
       open ./build/reports/cobertura/index.html
    fi
@@ -90,52 +90,52 @@ function mutest.r {
    else
       pass
       open $(find ./build/reports/pitest -name index.html | head -n 1)
-   fi   
+   fi
+}
+
+function mutest.t {
+   j8
+   cd.t
+   ./gradlew pitest
+   if [ $? -ne 0 ]; then
+      fail
+   else
+      pass
+      open $(find ./build/reports/pitest -name index.html | head -n 1)
+   fi
 }
 
 function mongo.r {
    mongod --dbpath ~/data/db
 }
 
-# function cd.o {
-#    cd ~/code/twc/online-bill-pay/
-# }
-# 
-# function cov.o {
-#    o-cd
-#    echo "OBP Coverage"
-#    ./grailsw test-app -unit -coverage -xml --non-interactive --plain-output
-#    if [ $? -ne 0 ]; then
-#       echo "something failed, will not open coverage report"
-#    else
-#       echo "opening coverage report"
-#       open ./target/test-reports/cobertura/index.html
-#    fi
-# }
-# 
-# function check.o {
-#    j8
-#    o-cd 
-#    ./grailsw codenarc
-# 
-#    if [ $? -ne 0 ]; then
-#       say "fail"
-#       echo "something failed, will not open codenarc"
-#    else
-#       say "pass"
-#       echo "opening coverage report"
-#       open ./target/CodeNarc-Report.html
-#    fi
-# }
 
-# function c-cd {
-#    cd ~/code/twc/cst/
-# }
-# 
-# function c-test {
-#    j8
-#    c-cd
-#    sbt test
-# }
+function cd.t {
+   cd ~/code/layered/terminator/
+}
 
+function check.t {
+   j8
+   cd.t
+   ./gradlew check
 
+   if [ $? -ne 0 ]; then
+      fail
+   else
+      pass
+   fi
+}
+
+function cov.t {
+   j8
+   cd.t
+   ./gradlew clean
+   ./gradlew cobertura
+   if [ $? -ne 0 ]; then
+      fail
+      open ./build/reports/tests/index.html
+   else
+      pass
+      open ./build/reports/cobertura/index.html
+   fi
+}
