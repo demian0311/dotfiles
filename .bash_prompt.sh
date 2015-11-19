@@ -18,7 +18,7 @@ WHITE="\[\033[1;37m\]"
 NOCOLOR="\[\033[0m\]"
 
 function cool_prompt {
-  PS1="$BLUE[\t] \u@$BLUE \W $ $NOCOLOR"
+  PS1="$RED\t|$GREEN\u$NOCOLOR@$GREEN\h$BLUE:\W> $NOCOLOR"
 }
 
 PROMPT_COMMAND=cool_prompt
