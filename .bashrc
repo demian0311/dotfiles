@@ -99,5 +99,6 @@ export DOTFILES=~/code/dotfiles
 source $DOTFILES/.bash_aliases.sh
 source $DOTFILES/.bash_functions.sh
 source $DOTFILES/.bash_prompt.sh
+export PATH="$DOTFILES/bin:$PATH"
 
 j8
