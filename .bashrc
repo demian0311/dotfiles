@@ -1,4 +1,4 @@
-# Demian Neidetcher
+#Demian Neidetcher
 
 platform='unknown'
 unamestr=`uname`
