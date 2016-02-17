@@ -95,6 +95,8 @@ if [ -f ~/code/twc/devops/scripts/liger_aliases.sh ]; then
    .  ~/code/twc/devops/scripts/liger_aliases.sh 
 fi
 
+export TWC_USERNAME=dneidetcher
+
 export DOTFILES=~/code/dotfiles
 source $DOTFILES/.bash_aliases.sh
 source $DOTFILES/.bash_functions.sh
