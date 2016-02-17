@@ -9,10 +9,12 @@ function servedir() {
 	python -c $'import SimpleHTTPServer;\nmap = SimpleHTTPServer.SimpleHTTPRequestHandler.extensions_map;\nmap[""] = "text/plain";\nfor key, value in map.items():\n\tmap[key] = value + ";charset=UTF-8";\nSimpleHTTPServer.test();' "$port";
 }
 
+# a nicer tree piped to less
 function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRX;
 }
 
+# DNS help
 function digga() {
 	dig +nocmd "$1" any +multiline +noall +answer;
 }
@@ -55,68 +57,44 @@ function cd.r {
    cd ~/code/layered/router/
 }
 
-function cov.r {
-   j8
-   cd.r
-   ./gradlew clean
-   ./gradlew cobertura
-   if [ $? -ne 0 ]; then
-      fail
-      open ./build/reports/tests/index.html
-   else
-      pass
-      open ./build/reports/cobertura/index.html
-   fi
-}
-
-function check.r {
-   j8
-   cd.r
-   ./gradlew check
-
-   if [ $? -ne 0 ]; then
-      fail
-   else
-      pass
-   fi
-}
-
-function mutest.r {
-   j8
-   cd.r
-   ./gradlew pitest
-   if [ $? -ne 0 ]; then
-      fail
-   else
-      pass
-      open $(find ./build/reports/pitest -name index.html | head -n 1)
-   fi
-}
-
-function mutest.t {
-   j8
-   cd.t
-   ./gradlew pitest
-   if [ $? -ne 0 ]; then
-      fail
-   else
-      pass
-      open $(find ./build/reports/pitest -name index.html | head -n 1)
-   fi
-}
-
-function mongo.r {
-   mongod --dbpath ~/data/db
-}
-
-
 function cd.t {
    cd ~/code/layered/terminator/
 }
 
-function check.t {
+function cd.h {
+   cd ~/code/layered/heimdall/
+}
+
+function cd.a {
+   cd ~/code/layered/asgard/
+}
+
+function g.test {
    j8
-   cd.t
+   ./gradlew test 
+   if [ $? -ne 0 ]; then
+      fail
+      open ./build/reports/tests/index.html
+   else
+      pass
+   fi
+
+}
+
+function g.cov {
+   j8
+   ./gradlew clean cobertura
+   if [ $? -ne 0 ]; then
+      fail
+      open ./build/reports/tests/index.html
+   else
+      pass
+      open ./build/reports/cobertura/index.html
+   fi
+}
+
+function g.check {
+   j8
    ./gradlew check
 
    if [ $? -ne 0 ]; then
@@ -126,16 +104,21 @@ function check.t {
    fi
 }
 
-function cov.t {
+function g.mutest {
    j8
-   cd.t
-   ./gradlew clean
-   ./gradlew cobertura
+   ./gradlew pitest
    if [ $? -ne 0 ]; then
       fail
-      open ./build/reports/tests/index.html
    else
       pass
-      open ./build/reports/cobertura/index.html
+      open $(find ./build/reports/pitest -name index.html | head -n 1)
    fi
+}
+
+function g.run {
+   j8
+   PROJECT=`basename $PWD`
+   tail -f ${PROJECT}.log &
+   echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+   ./gradlew bootRun 
 }

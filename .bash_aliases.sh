@@ -12,8 +12,10 @@ alias ....="cd ../../.."
 alias g='git'
 alias gd='git diff --color-words'
 alias gs='git status --short'
-#alias gl="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --"
 alias gl="git log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all"
+
+# This is the find I always want to use when working in code directories 
+alias cfind="find . -type f -not -iwholename '*.idea*' -not -iwholename '*.git*' -not -iwholename '*.gradle*' -not -iwholename '*build*'"
 
 #alias pj='ps -ef | grep java'
 #alias pt='ps -ef | grep tomcat'
