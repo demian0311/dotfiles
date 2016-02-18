@@ -1,7 +1,24 @@
 #!/usr/local/bin/fish
 
-##### Custom Settings
+##### Custom Fish Settings
 fish_vi_mode
+
+
+##### Environment Specific
+switch (hostname)
+case "kabar.local"
+   echo "Configuring Mule"
+   set -x MULE_HOME "/Users/demian/opt/mule-enterprise-standalone-3.7.2"
+   alias cd.i="cd ~/code/twc/mule-services/ivr/" 
+   alias cd.cs="cd ~/code/twc/cim-service/" 
+   alias cd.cu="cd ~/code/twc/cim-ui/" 
+case '*'
+   echo "Not Configuring Mule"
+   alias cd.r="cd ~/code/layered/router/"
+   alias cd.t="cd ~/code/layered/terminator/"
+   alias cd.h="cd ~/code/layered/heimdall/"
+   alias cd.a="cd ~/code/layered/asgard/"
+end
 
 # git settings
 git config --global user.name "Demian Neidetcher"
@@ -31,31 +48,18 @@ alias gl="git log --graph --abbrev-commit --decorate --date=relative --format=fo
 
 # This is the find I always want to use when working in code directories 
 alias cfind="find . -type f -not -iwholename '*.idea*' -not -iwholename '*.git*' -not -iwholename '*.gradle*' -not -iwholename '*build*'"
-
-#alias pj='ps -ef | grep java'
-#alias pt='ps -ef | grep tomcat'
-#alias kj='kill -9 `jps -mv | grep jetty | cut -f1 --delimiter=" "`'
-#alias kg='kill -9 `jps -mv | grep grails | cut -f1 --delimiter=" "`'
-
-# IP addresses
-alias network.ip="dig +short myip.opendns.com @resolver1.opendns.com"
-alias network.localip="ipconfig getifaddr en0"
-alias network.ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
-
 alias map="xargs -n1"
 
 # Often useful to prefix with SUDO to see more system level network usage
-alias network.ports='netstat -a -n | grep -i "LISTEN "'
-alias network.connections='lsof -l -i +L -R -V'
-alias network.established='lsof -l -i +L -R -V | grep ESTABLISHED'
+alias net.ip="dig +short myip.opendns.com @resolver1.opendns.com"
+alias net.localip="ipconfig getifaddr en0"
+alias net.ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
+alias net.ports='netstat -a -n | grep -i "LISTEN "'
+alias net.connections='lsof -l -i +L -R -V'
+alias net.established='lsof -l -i +L -R -V | grep ESTABLISHED'
+alias net.dns='dig +nocmd "$argv" any +multiline +noall +answer;'
 
 alias serve='python -c "import SimpleHTTPServer;SimpleHTTPServer.test()"' 
-alias digga='dig +nocmd "$argv" any +multiline +noall +answer;'
-
-alias cd.r="cd ~/code/layered/router/"
-alias cd.t="cd ~/code/layered/terminator/"
-alias cd.h="cd ~/code/layered/heimdall/"
-alias cd.a="cd ~/code/layered/asgard/"
 
 ###### Functions
 
