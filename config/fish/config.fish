@@ -10,15 +10,38 @@ fish_vi_mode
 ##### Environment Specific
 switch (hostname)
 case "kabar.local"
+   set -x TWC_USERNAME "dneidetcher" 
    set -x MULE_HOME "/Users/demian/opt/mule-enterprise-standalone-3.7.2"
    alias cd.i="cd ~/code/twc/mule-services/ivr/" 
    alias cd.cs="cd ~/code/twc/cim-service/" 
    alias cd.cu="cd ~/code/twc/cim-ui/" 
+
+   function g.cov 
+      ./gradlew jacocoTestReport
+      if [ $status -ne 0 ]
+         fail
+         open ./build/reports/tests/index.html
+      else
+         pass
+         open ./build/reports/jacoco/test/html/index.html
+      end
+   end
 case '*'
    alias cd.r="cd ~/code/layered/router/"
    alias cd.t="cd ~/code/layered/terminator/"
    alias cd.h="cd ~/code/layered/heimdall/"
    alias cd.a="cd ~/code/layered/asgard/"
+
+   function g.cov 
+      ./gradlew clean cobertura
+      if [ $status -ne 0 ]
+         fail
+         open ./build/reports/tests/index.html
+      else
+         pass
+         open ./build/reports/cobertura/index.html
+      end
+   end
 end
 
 # git settings
@@ -86,17 +109,6 @@ function g.test
    else
       pass
    end 
-end
-
-function g.cov 
-   ./gradlew clean cobertura
-   if [ $status -ne 0 ]
-      fail
-      open ./build/reports/tests/index.html
-   else
-      pass
-      open ./build/reports/cobertura/index.html
-   end
 end
 
 function g.check 

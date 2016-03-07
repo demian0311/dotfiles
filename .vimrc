@@ -13,7 +13,6 @@ set expandtab         " never insert tab characters, just use spaces
 syntax enable
 
 set background=dark
-set background=light
 colorscheme solarized
 
 "folding
