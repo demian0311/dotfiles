@@ -33,13 +33,14 @@ case '*'
    alias cd.a="cd ~/code/layered/asgard/"
 
    function g.cov 
-      ./gradlew clean cobertura
+      ./gradlew clean coverage
+
       if [ $status -ne 0 ]
          fail
          open ./build/reports/tests/index.html
       else
          pass
-         open ./build/reports/cobertura/index.html
+         #open ./build/reports/cobertura/index.html
       end
    end
 end
