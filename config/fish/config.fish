@@ -128,7 +128,7 @@ function g.mutest
       fail
    else
       pass
-      #open $(find ./build/reports/pitest -name index.html | head -n 1)
+      open ./build/reports/pitest/index.html
    end
 end
 
