@@ -27,6 +27,8 @@ case "kabar.local"
       end
    end
 case '*'
+   set -gx PATH $PATH ~/opt/grails-3.1.6/bin/ 
+
    alias cd.r="cd ~/code/layered/router/"
    alias cd.t="cd ~/code/layered/terminator/"
    alias cd.h="cd ~/code/layered/heimdall/"
