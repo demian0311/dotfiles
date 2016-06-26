@@ -94,14 +94,14 @@ function pass
    tput setaf 2
    echo -e "##### PASS #####"
    tput sgr0
-   say "pass"
+   say "pass" -v "Trinoids"
 end
 
 function fail
    tput setaf 1
    echo -e "##### FAIL #####"
-   tput sgr0
-   say "fail"
+   iiut sgr0
+   say "fail" -v "Trinoids"
 end
 
 function g.test 
