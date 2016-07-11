@@ -100,7 +100,7 @@ end
 function fail
    tput setaf 1
    echo -e "##### FAIL #####"
-   iiut sgr0
+   tput sgr0
    say "fail" -v "Trinoids"
 end
 
