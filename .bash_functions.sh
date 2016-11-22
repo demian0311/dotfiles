@@ -54,19 +54,15 @@ function fail {
 }
 
 function cd.r {
-   cd ~/code/layered/router/
-}
-
-function cd.t {
-   cd ~/code/layered/terminator/
+   cd ~/code/onvoy/router/
 }
 
 function cd.h {
-   cd ~/code/layered/heimdall/
+   cd ~/code/onvoy/heimdall/
 }
 
 function cd.a {
-   cd ~/code/layered/asgard/
+   cd ~/code/onvoy/asgard/
 }
 
 function g.test {
