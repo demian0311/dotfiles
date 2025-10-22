@@ -11,3 +11,4 @@ ln -s /Users/demian/code/dotfiles/.bashrc .bashrc
 ln -s /Users/demian/code/dotfiles/.vimrc .vimrc 
 ln -s /Users/demian/code/dotfiles/.ideavimrc .ideavimrc 
 ```
+-- foo
