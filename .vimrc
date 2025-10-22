@@ -12,7 +12,7 @@ set expandtab         " never insert tab characters, just use spaces
 
 syntax enable
 set background=dark
-colorscheme solarized
+colorscheme habamax 
 
 "folding
 set foldmethod=indent " automatically indent on indentation
@@ -61,8 +61,6 @@ map S :so ~/.vimrc<cr>  " re-source the .vimrc file
 " abbreviations
 iab dln Demian L. Neidetcher
 iab currDate <c-r>=strftime("%Y.%m.%d %H:%M")<cr>
-iab teh the
-iab <html> <html><cr><head><cr></head><cr><body><cr></body><cr></html><esc>kko
 
 au BufRead,BufNewFile *.plan set filetype=plan 
 au! Syntax plan source ~/.vim/syntax/plan.vim
