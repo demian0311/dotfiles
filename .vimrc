@@ -1,5 +1,12 @@
 " Demian L. Neidetcher - the 2nd .vimrc
 
+call plug#begin('~/.vim/plugged')
+Plug 'tpope/vim-sensible'
+call plug#end()
+
+
+" PlugInstall, PlugClean
+
 " Settings
 set autoindent        " always do auto indent
 set autoread          " if the file changed under us, update
@@ -12,7 +19,6 @@ set expandtab         " never insert tab characters, just use spaces
 
 syntax enable
 set background=dark
-colorscheme habamax 
 
 "folding
 set foldmethod=indent " automatically indent on indentation
@@ -84,3 +90,5 @@ au BufRead,BufNewFile *.sbt set filetype=scala
 " remove the gui menus
 :set guioptions-=m
 :set guioptions-=T
+
+colorscheme nord
