@@ -1,6 +1,5 @@
-alias ls='ls -G -p'
-alias ll='ls -Ghalt'
-alias l='ls -Ghlt'
+alias l='eza -lha --color-scale=size --group-directories-first --git --git-repos'
+alias cat='bat -p --theme Coldark-Dark'
 alias v='vim'
 alias vi='vim'
 alias c='cd'
@@ -9,25 +8,22 @@ alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 
-alias g='git'
-alias gd='git diff --color-words'
-alias gs='git status --short'
-alias gl="git log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all"
+export FZF_DEFAULT_OPTS="--height=30% --layout reverse --style full --preview 'bat -p --theme Coldark-Dark {}'"
+# this gets you vim ** and cd **
+source <(fzf --zsh)
+
+#alias g='git'
+#alias gd='git diff --color-words'
+#alias gs='git status --short'
+#alias gl="git log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all"
 
 # This is the find I always want to use when working in code directories 
 alias cfind="find . -type f -not -iwholename '*.idea*' -not -iwholename '*.git*' -not -iwholename '*.gradle*' -not -iwholename '*build*'"
 
-#alias pj='ps -ef | grep java'
-#alias pt='ps -ef | grep tomcat'
-#alias kj='kill -9 `jps -mv | grep jetty | cut -f1 --delimiter=" "`'
-#alias kg='kill -9 `jps -mv | grep grails | cut -f1 --delimiter=" "`'
-
 # IP addresses
 alias network.ip="dig +short myip.opendns.com @resolver1.opendns.com"
 alias network.localip="ipconfig getifaddr en0"
-alias network.ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
-
-alias map="xargs -n1"
+#alias network.ips="ifconfig -a | grep -o 'inet6\? \(addr:\)\?\s\?\(\(\([0-9]\+\.\)\{3\}[0-9]\+\)\|[a-fA-F0-9:]\+\)' | awk '{ sub(/inet6? (addr:)? ?/, \"\"); print }'"
 
 # Often useful to prefix with SUDO to see more system level network usage
 alias network.ports='netstat -a -n | grep -i "LISTEN "'

@@ -8,3 +8,4 @@ source "$HOME/.sdkman/bin/sdkman-init.sh"
 source "$HOME/code/dotfiles/.zsh.aliases.sh"
 
 
+
