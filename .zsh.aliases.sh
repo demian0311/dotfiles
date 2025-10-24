@@ -8,7 +8,7 @@ alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 
-export FZF_DEFAULT_OPTS="--height=30% --layout reverse --style full --preview 'bat -p --theme Coldark-Dark {}'"
+export FZF_DEFAULT_OPTS="--height=30% --layout reverse --style full --preview 'bat --color always -p --theme Coldark-Dark {}'"
 # this gets you vim ** and cd **
 source <(fzf --zsh)
 
