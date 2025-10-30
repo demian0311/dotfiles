@@ -6,7 +6,7 @@ Plug 'preservim/nerdtree'
 call plug#end()
 " PlugInstall, PlugClean
 
- Toggle NERDTree with <Leader>n (e.g., \n or Space+n)
+" Toggle NERDTree with <Leader>n (e.g., \n or Space+n)
 " nnoremap <Leader>n :NERDTreeToggle<CR>
 
 " Settings
