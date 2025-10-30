@@ -2,10 +2,12 @@
 
 call plug#begin('~/.vim/plugged')
 Plug 'tpope/vim-sensible'
+Plug 'preservim/nerdtree'
 call plug#end()
-
-
 " PlugInstall, PlugClean
+
+ Toggle NERDTree with <Leader>n (e.g., \n or Space+n)
+" nnoremap <Leader>n :NERDTreeToggle<CR>
 
 " Settings
 set autoindent        " always do auto indent
