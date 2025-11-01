@@ -1,0 +1,40 @@
+bat
+brotli
+btop
+c-ares
+ca-certificates
+certifi
+eza
+fzf
+htop
+icu4c@77
+jq
+libgit2
+libnghttp2
+libnghttp3
+libngtcp2
+libssh2
+libuv
+libyaml
+lz4
+mpdecimal
+ncurses
+node
+oniguruma
+openssl@3
+pcre2
+posting
+python@3.14
+readline
+simdjson
+sqlite
+tig
+tree-sitter
+uv
+uvwasi
+xz
+zstd
+
+ bruno
+ podman-desktop
+ visual-studio-code
