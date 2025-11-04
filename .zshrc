@@ -37,5 +37,7 @@ eval "$(zoxide init zsh)"
 source <(fzf --zsh)
 source ~/.zsh.aliases.sh
 
-~/bin/banner.sh
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
 
+~/bin/banner.sh
