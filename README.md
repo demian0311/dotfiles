@@ -12,4 +12,5 @@ ln -s /Users/demian/code/dotfiles/.vimrc .vimrc
 ln -s /Users/demian/code/dotfiles/.ideavimrc .ideavimrc 
 ```
 -- 
-test
+
+- [ ] Need to commit Nord color for vim

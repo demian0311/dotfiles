@@ -38,6 +38,6 @@ source <(fzf --zsh)
 source ~/.zsh.aliases.sh
 
 eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
+ssh-add -q ~/.ssh/id_ed25519_demian0311
 
 ~/bin/banner.sh
