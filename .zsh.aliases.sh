@@ -5,7 +5,7 @@ alias bat='bat --paging never --color always -p --theme Coldark-Dark'
 alias cat='bat'
 alias v='vim'
 alias vi='vim'
-alias c='cd'
+alias cd='z'
 
 alias ..="cd .."
 alias ...="cd ../.."
