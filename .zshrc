@@ -14,6 +14,8 @@ case $HOST in
    MAC-HM32XJ06N0)
       #PS1='%F{$NORD_RED}%~%f %F{$NORD_GREEN}❱%f %F{$NORD_BLUE}'
       PS1='%~ ❱ '
+      eval "$(ssh-agent -s)"
+      ssh-add -q ~/.ssh/id_ed25519_demian0311
       ;;
    *)
       # Fallback: Default Nord
@@ -36,8 +38,5 @@ eval "$(zoxide init zsh)"
 # Set up fzf key bindings and fuzzy completion
 source <(fzf --zsh)
 source ~/.zsh.aliases.sh
-
-eval "$(ssh-agent -s)"
-ssh-add -q ~/.ssh/id_ed25519_demian0311
 
 ~/bin/banner.sh
