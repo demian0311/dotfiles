@@ -1,8 +1,14 @@
 bindkey -v
 
+# Enable truecolor (24-bit) in supported terminals
+if [[ "$COLORTERM" == "truecolor" ]] || [[ "$TERM" == "xterm-256color" ]]; then
+    export COLORTERM=truecolor
+fi
+
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/opt/homebrew/bin/"
 export PATH="$PATH:/opt/homebrew/bin//"
+export PATH="$PATH:~/bin/"
 
 autoload -Uz compinit
 compinit -i  # -i = ignore insecure directories
