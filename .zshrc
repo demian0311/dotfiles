@@ -8,7 +8,8 @@ fi
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/opt/homebrew/bin/"
 export PATH="$PATH:/opt/homebrew/bin//"
-export PATH="$PATH:~/bin/"
+#export PATH="$PATH:~/bin/"
+export PATH="$HOME/bin/:$PATH"
 
 autoload -Uz compinit
 compinit -i  # -i = ignore insecure directories
