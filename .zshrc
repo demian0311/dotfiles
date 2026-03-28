@@ -10,6 +10,7 @@ export PATH="$PATH:/opt/homebrew/bin/"
 export PATH="$PATH:/opt/homebrew/bin//"
 #export PATH="$PATH:~/bin/"
 export PATH="$HOME/bin/:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
 
 autoload -Uz compinit
 compinit -i  # -i = ignore insecure directories
@@ -36,7 +37,6 @@ esac
 # shell autocompletes for uv
 eval "$(uv generate-shell-completion zsh)"
 eval "$(uvx --generate-shell-completion zsh)"
-eval "$(zoxide init zsh)"
 
 # Set up fzf key bindings and fuzzy completion
 source <(fzf --zsh)
@@ -45,6 +45,14 @@ source ~/.zsh.aliases.sh
 ~/bin/banner.sh
 
 # Added by LM Studio CLI (lms)
+<<<<<<< Updated upstream
 export PATH="$PATH:/Users/demian.neidetcher/.cache/lm-studio/bin"
 # End of LM Studio CLI section
 
+=======
+export PATH="$PATH:/Users/demian/.lmstudio/bin"
+# End of LM Studio CLI section
+#
+
+eval "$(zoxide init zsh)"
+>>>>>>> Stashed changes
