@@ -38,9 +38,12 @@ WAIT_COLOR = '#c0504d'     # same red as the row, so pill and row agree
 # is, the bar says how full the context is. cmux rejects an empty status value,
 # so a pill with nothing to show carries a zero-width space.
 BLANK = '​'
-BAR_CELLS = 6
-BAR_FULL = '▰'
-BAR_EMPTY = '▱'
+# Ten cells, each subdivided into eighths by the partial-block glyphs, so the
+# bar resolves to ~1.25% without being twenty characters wide.
+BAR_CELLS = 10
+BAR_FULL = '█'
+BAR_EMPTY = '░'
+BAR_PARTIALS = ('', '▏', '▎', '▍', '▌', '▋', '▊', '▉')
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
 # The ROW colour is session state, not context — context is the progress bar.
@@ -103,8 +106,11 @@ def context_bar():
             pct = float(f.read().strip())
     except Exception:
         return ''
-    filled = int(round(pct / 100.0 * BAR_CELLS))
-    return BAR_FULL * filled + BAR_EMPTY * (BAR_CELLS - filled)
+    pct = max(0.0, min(100.0, pct))
+    eighths = int(round(pct / 100.0 * BAR_CELLS * 8))
+    full, rest = divmod(eighths, 8)
+    bar = BAR_FULL * full + BAR_PARTIALS[rest]
+    return bar + BAR_EMPTY * (BAR_CELLS - len(bar))
 
 
 def paint(icon, color, lead=''):
