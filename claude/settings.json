@@ -13,7 +13,7 @@
       "Grep",
       "Task",
       "TodoWrite",
-      "Write(~/.claude/**)"
+      "Edit(~/.claude/**)"
     ],
     "deny": [
       "Read(**/.env)",
