@@ -145,7 +145,7 @@ cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
 | red `#c0504d` | stopped: waiting on you | `cmux-throbber.py stop` (Stop) |
 | blue `#3b6ea5` | no Claude in this workspace, just a terminal | `cmux-session-end.py`, and `.zshrc`'s `_cmux_row_idle` precmd |
 
-Never run `workspace-action --action set-color` by hand — a manual colour is a state claim that the next hook overwrites, and while it stands it lies. Change the meaning by editing the hook (all four live in `~/code/dotfiles/claude/`, symlinked into `~/.claude/`), never the row.
+The status **pill** beside the row is hook-owned too — `cmux-throbber.py` and `cmux-session-start.py` share the `claude_code` key, and a bare cmux install leaves it reading `Running` on a session that has nothing in it. Never run `workspace-action --action set-color` by hand — a manual colour is a state claim that the next hook overwrites, and while it stands it lies. Change the meaning by editing the hook (all four live in `~/code/dotfiles/claude/`, symlinked into `~/.claude/`), never the row.
 
 ## Working Rules
 
