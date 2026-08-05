@@ -90,6 +90,72 @@ def run(args):
     )
 
 
+def active_dir(workspace):
+    """One marker file per working pane, grouped by workspace.
+
+    The row belongs to a WORKSPACE but a spinner belongs to a PANE, and a
+    workspace can hold several panes each running their own agent. Without this,
+    the first pane to finish painted the row red while its neighbour was still
+    working — which is exactly what a red row with a live spinner looked like.
+    """
+    path = os.path.join(os.environ.get('TMPDIR', '/tmp'),
+                        'claude-cmux-active', workspace or 'noworkspace')
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception:
+        pass
+    return path
+
+
+def workspace_id():
+    try:
+        out = subprocess.run(
+            [cli(), 'identify', '--id-format', 'uuids'],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            timeout=5, env=env(), text=True,
+        ).stdout
+        return (json.loads(out).get('caller') or {}).get('workspace_id')
+    except Exception:
+        return None
+
+
+def alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except Exception:
+        return False
+
+
+def agent_pid():
+    """Walk up from this hook to the claude process that spawned it.
+
+    Hooks run under a shell, so the parent is not always the agent; six hops is
+    plenty. Used by the spin loop to notice a session that died without ever
+    running its Stop hook — an interrupted or crashed turn used to leave a
+    spinner running for the full hour.
+    """
+    pid = os.getppid()
+    for _ in range(6):
+        if pid <= 1:
+            break
+        try:
+            out = subprocess.run(['ps', '-p', str(pid), '-o', 'ppid=,command='],
+                                 stdout=subprocess.PIPE, text=True, timeout=5).stdout.strip()
+        except Exception:
+            break
+        if not out:
+            break
+        parent, _, command = out.partition(' ')
+        if '/claude' in command or command.startswith('claude'):
+            return pid
+        try:
+            pid = int(parent)
+        except ValueError:
+            break
+    return None
+
+
 def ctx_path():
     panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
     return os.path.join(os.environ.get('TMPDIR', '/tmp'), 'claude-cmux-ctx-%s' % panel)
@@ -122,6 +188,29 @@ def paint(icon, color, lead=''):
     run(args)
 
 
+def others_working(workspace, me):
+    """Panes in this workspace still working — stale markers reaped on the way."""
+    live = []
+    directory = active_dir(workspace)
+    for name in os.listdir(directory) if os.path.isdir(directory) else []:
+        if name == me:
+            continue
+        marker = os.path.join(directory, name)
+        try:
+            with open(marker) as f:
+                pid = f.read().strip()
+        except Exception:
+            pid = ''
+        if pid and alive(pid):
+            live.append(name)
+        else:
+            try:
+                os.remove(marker)
+            except Exception:
+                pass
+    return live
+
+
 def stop():
     # No pid file means we were never spinning on this row — leave it alone.
     try:
@@ -138,7 +227,17 @@ def stop():
             os.remove(path)
         except Exception:
             pass
-    # A finished turn IS the waiting state: nothing moves until you type.
+
+    panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
+    workspace = state.get('workspace')
+    try:
+        os.remove(os.path.join(active_dir(workspace), panel))
+    except Exception:
+        pass
+    # A finished turn IS the waiting state — but only if this row has no other
+    # pane still working, or we would red out a neighbour that is mid-turn.
+    if others_working(workspace, panel):
+        return
     try:
         row_color(ROW_STOPPED)
         paint(WAIT_ICON, WAIT_COLOR)
@@ -148,16 +247,24 @@ def stop():
 
 def start():
     stop()  # never leave two spinners racing on one row
+    workspace = workspace_id()
+    agent = agent_pid()
     child = subprocess.Popen(
         [sys.executable, os.path.abspath(__file__), '_spin'],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        env=os.environ.copy(),
+        env=dict(os.environ, CMUX_THROBBER_AGENT_PID=str(agent or '')),
         start_new_session=True,
     )
     try:
         with open(pid_path(), 'w') as f:
-            json.dump({'pid': child.pid}, f)
+            json.dump({'pid': child.pid, 'workspace': workspace}, f)
+    except Exception:
+        pass
+    try:
+        panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
+        with open(os.path.join(active_dir(workspace), panel), 'w') as f:
+            f.write(str(agent or os.getpid()))
     except Exception:
         pass
     try:
@@ -170,9 +277,33 @@ def start():
 
 
 def spin():
+    """Paint until something says otherwise — and check what that something is.
+
+    Three ways to stop, because relying on the Stop hook alone left spinners
+    running on rows that had already gone red: the hook never fires for an
+    interrupted or crashed turn.
+    """
     deadline = time.time() + MAX_SECONDS
+    agent = os.environ.get('CMUX_THROBBER_AGENT_PID') or ''
+    me = str(os.getpid())
     i = 0
     while time.time() < deadline:
+        # 1. a newer spinner owns this pane, or stop() removed the file
+        try:
+            with open(pid_path()) as f:
+                if str(json.load(f).get('pid')) != me:
+                    return
+        except Exception:
+            return
+        # 2. the agent that asked for this spinner is gone
+        if agent and not alive(agent):
+            try:
+                row_color(ROW_STOPPED)
+                paint(WAIT_ICON, WAIT_COLOR)
+                os.remove(pid_path())
+            except Exception:
+                pass
+            return
         try:
             if os.path.exists(wait_path()):
                 paint(WAIT_ICON, WAIT_COLOR)
