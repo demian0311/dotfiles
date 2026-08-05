@@ -1,4 +1,6 @@
 {
+  "cleanupPeriodDays": 99999,
+  "skillListingBudgetFraction": 0.08,
   "permissions": {
     "allow": [
       "WebSearch",
@@ -13,7 +15,21 @@
       "TodoWrite",
       "Write(~/.claude/**)"
     ],
-    "deny": [],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*_rsa)",
+      "Read(**/id_rsa*)",
+      "Read(**/.aws/**)",
+      "Read(**/.ssh/**)",
+      "Read(**/.npmrc)",
+      "Read(**/credentials)",
+      "Read(**/credentials.json)",
+      "Read(**/.env.signing)"
+    ],
     "defaultMode": "bypassPermissions"
   },
   "hooks": {
@@ -46,6 +62,27 @@
         ]
       }
     ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '\\a'"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/demian/.claude/cmux-throbber.py waiting",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -58,13 +95,24 @@
         ]
       }
     ],
-    "Notification": [
+    "SessionStart": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/demian/.claude/cmux-relabel-on-clear.sh",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "printf '\\a'"
+            "command": "python3 /Users/demian/.claude/cmux-session-start.py",
+            "timeout": 10
           }
         ]
       }
@@ -85,6 +133,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f \"$TMPDIR/claude-cmux-needsinput-$CMUX_PANEL_ID.flag\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -92,9 +152,9 @@
     "command": "python3 /Users/demian/.claude/statusline.py"
   },
   "enabledPlugins": {
-    "rust-analyzer-lsp@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
-    "token-optimizer@alexgreensh-token-optimizer": true
+    "token-optimizer@alexgreensh-token-optimizer": true,
+    "mattpocock-skills@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "alexgreensh-token-optimizer": {
