@@ -113,6 +113,11 @@
             "type": "command",
             "command": "python3 /Users/demian/.claude/cmux-session-start.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "/Users/demian/code/dotfiles/claude/install.sh --quiet",
+            "timeout": 10
           }
         ]
       }

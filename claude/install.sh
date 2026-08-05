@@ -1,20 +1,32 @@
 #!/usr/bin/env bash
-# Link the tracked Claude Code config in this repo into ~/.claude.
+# Put the tracked Claude Code config in this repo where Claude Code will read it.
 #
-# Idempotent and safe to re-run. Claude Code sometimes rewrites settings.json
-# by replacing the file, which turns the symlink back into a regular file —
-# re-running this restores the link (the replaced file is kept as a .bak-<date>
-# alongside it, so nothing written since the last link is lost silently).
+# Two mechanisms, because the two files differ:
+#
+#   CLAUDE.md      ~/.claude/CLAUDE.md is a one-line "@<path>" import pointing
+#                  here. That is Claude Code's own documented memory-import
+#                  syntax, so there is no link for anything to replace.
+#   everything else  symlinked into ~/.claude.
+#
+# Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
+# when settings change, and a rewrite that replaces the file leaves a plain file
+# where the symlink was. This adopts such a file back into the repo before
+# re-linking, so the newer version wins; the displaced copy is kept as a
+# .bak-<timestamp> next to it.
+#
+# Usage: install.sh [--quiet]   # --quiet reports repairs only, for hook use.
 
 set -euo pipefail
+
+quiet=false
+[ "${1:-}" = "--quiet" ] && quiet=true
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 target_dir="$HOME/.claude"
 
-# Files linked from claude/<name> to ~/.claude/<name>.
+# Files symlinked from claude/<name> to ~/.claude/<name>.
 links=(
   settings.json
-  CLAUDE.md
   set-title.py
   statusline.py
   cmux-relabel-on-clear.sh
@@ -23,6 +35,9 @@ links=(
   cmux-throbber.py
 )
 
+# Reported only when not --quiet: the run changed nothing.
+say_ok() { $quiet || printf "$@"; }
+
 mkdir -p "$target_dir"
 
 for name in "${links[@]}"; do
@@ -30,12 +45,12 @@ for name in "${links[@]}"; do
   dest="$target_dir/$name"
 
   if [ ! -e "$src" ]; then
-    printf 'skip   %s (not in repo)\n' "$name"
+    say_ok 'skip   %s (not in repo)\n' "$name"
     continue
   fi
 
   if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
-    printf 'ok     %s\n' "$name"
+    say_ok 'ok     %s\n' "$name"
     continue
   fi
 
@@ -55,3 +70,32 @@ for name in "${links[@]}"; do
   ln -sfn "$src" "$dest"
   printf 'link   %s\n' "$name"
 done
+
+# CLAUDE.md: a pointer file, not a link. Anything Claude Code appends to the
+# global memory lands in the pointer and shows up here as an unexpected extra
+# line, which is louder than a silently replaced symlink.
+pointer="$target_dir/CLAUDE.md"
+want="@$repo_dir/CLAUDE.md"
+
+if [ -f "$pointer" ] && [ ! -L "$pointer" ] && [ "$(command cat "$pointer")" = "$want" ]; then
+  say_ok 'ok     CLAUDE.md (import pointer)\n'
+else
+  if [ -e "$pointer" ] || [ -L "$pointer" ]; then
+    # A plain pointer file with anything else in it is a global memory Claude
+    # Code appended (the "#" shortcut writes here). Move it into the tracked
+    # file rather than dropping it — it was written to be kept.
+    if [ ! -L "$pointer" ]; then
+      extra="$(grep -vxF "$want" "$pointer" | sed -e '/^[[:space:]]*$/d')"
+      if [ -n "$extra" ]; then
+        backup="$pointer.bak-$(date +%Y%m%d-%H%M%S)"
+        cp "$pointer" "$backup"
+        printf '\n%s\n' "$extra" >> "$repo_dir/CLAUDE.md"
+        printf 'adopt  CLAUDE.md (%s line(s) appended to the repo copy; original kept as %s)\n' \
+          "$(printf '%s\n' "$extra" | wc -l | tr -d ' ')" "$(basename "$backup")"
+      fi
+    fi
+    rm -f "$pointer"
+  fi
+  printf '%s\n' "$want" > "$pointer"
+  printf 'write  CLAUDE.md (import pointer -> %s)\n' "$repo_dir/CLAUDE.md"
+fi

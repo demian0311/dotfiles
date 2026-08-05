@@ -24,20 +24,29 @@ ln -s ~/code/dotfiles/config/ghostty/config      ~/.config/ghostty/config
 ln -s ~/code/dotfiles/config/ghostty/themes      ~/.config/ghostty/themes
 ```
 
-`claude/` works the same way, one symlink per file into `~/.claude/`. Run the
-linker instead of doing it by hand:
+`claude/` goes into `~/.claude/` two different ways, because the two kinds of
+file behave differently. Run the installer rather than doing it by hand:
 
 ``` bash
-~/code/dotfiles/claude/install.sh
+~/code/dotfiles/claude/install.sh          # --quiet reports repairs only
 ```
 
-It is idempotent, so re-running it is the fix for drift. That matters because
-Claude Code rewrites `settings.json` when settings change, and a rewrite that
-replaces the file leaves a regular file where the symlink was — edits then land
-in `~/.claude` and never reach the repo. `install.sh` copies such a file back
-into the repo before re-linking, so the newer version wins; the displaced file
-is kept as `~/.claude/<name>.bak-<timestamp>`. Check `git status` here after
-changing Claude settings.
+`CLAUDE.md` uses Claude Code's own memory-import syntax: `~/.claude/CLAUDE.md`
+is a regular one-line file reading `@/Users/demian/code/dotfiles/claude/CLAUDE.md`.
+Nothing is linked, so nothing can be replaced. If Claude Code appends a memory to
+the global file, it lands in the pointer, and the installer moves those lines into
+the tracked copy instead of dropping them.
+
+Everything else is symlinked. `settings.json` has no import mechanism, so it has
+to be, and a settings write that replaces the file would leave a plain file where
+the link was. The installer adopts such a file back into the repo before
+re-linking, so the newer version wins instead of being clobbered by a stale repo
+copy; the displaced file is kept as `~/.claude/<name>.bak-<timestamp>`.
+
+A `SessionStart` hook runs `install.sh --quiet`, so drift is repaired at the start
+of every Claude session and prints nothing unless something needed fixing. Still
+worth a `git status` here after changing settings — a repair updates the repo but
+does not commit it.
 -- 
 
 - [ ] Need to commit Nord color for vim
