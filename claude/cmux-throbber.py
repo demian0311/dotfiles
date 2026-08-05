@@ -28,6 +28,15 @@ COLOR = '#3b6ea5'          # slate blue; red stays reserved for hands-on work
 KEY = 'claude_code'        # cmux's own pill — animate it rather than sit beside it
 MAX_SECONDS = 60 * 60      # backstop: never spin longer than an hour
 
+# Waiting-for-you beats spinning: a spinner on a session that is blocked on a
+# permission prompt is a lie, and cmux's own "Needs input" pill would be
+# overwritten by the next frame anyway. The Notification hook raises this flag,
+# a PostToolUse `rm` drops it the moment the turn is moving again.
+WAIT_ICON = 'person.crop.circle.fill'
+WAIT_COLOR = '#c9a227'     # slate gold — reads as "your turn" without shouting
+WAIT_TEXT = 'Needs input'
+WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
+
 
 def cli():
     return os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
@@ -35,6 +44,12 @@ def cli():
 
 def env():
     return dict(os.environ, CMUX_QUIET='1')
+
+
+def wait_path():
+    panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
+    return os.path.join(os.environ.get('TMPDIR', '/tmp'),
+                        'claude-cmux-needsinput-%s.flag' % panel)
 
 
 def pid_path():
@@ -113,10 +128,11 @@ def stop():
         os.kill(int(state['pid']), signal.SIGTERM)
     except Exception:
         pass
-    try:
-        os.remove(pid_path())
-    except Exception:
-        pass
+    for path in (pid_path(), wait_path()):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
     try:
         restore(state.get('saved'))
     except Exception:
@@ -145,7 +161,10 @@ def spin():
     i = 0
     while time.time() < deadline:
         try:
-            run(['set-status', KEY, FRAMES[i % len(FRAMES)], '--color', COLOR])
+            if os.path.exists(wait_path()):
+                run(['set-status', KEY, WAIT_TEXT, '--icon', WAIT_ICON, '--color', WAIT_COLOR])
+            else:
+                run(['set-status', KEY, FRAMES[i % len(FRAMES)], '--color', COLOR])
         except Exception:
             return
         i += 1
@@ -160,15 +179,29 @@ def main():
         spin()
         return
     # Hook payloads arrive on stdin; drained so the hook never blocks on a pipe.
+    payload = {}
     try:
         if not sys.stdin.isatty():
-            json.loads(sys.stdin.read() or '{}')
+            payload = json.loads(sys.stdin.read() or '{}') or {}
     except Exception:
-        pass
+        payload = {}
     if action == 'start':
+        try:
+            os.remove(wait_path())
+        except Exception:
+            pass
         start()
     elif action == 'stop':
         stop()
+    elif action == 'waiting':
+        if payload.get('notification_type') in WAIT_TYPES:
+            try:
+                open(wait_path(), 'w').close()
+            except Exception:
+                pass
+            # Assert it now too: the notification may arrive with no spinner
+            # running, and cmux writes its own bell pill at the same moment.
+            run(['set-status', KEY, WAIT_TEXT, '--icon', WAIT_ICON, '--color', WAIT_COLOR])
 
 
 try:
