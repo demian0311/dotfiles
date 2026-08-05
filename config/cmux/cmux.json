@@ -423,11 +423,18 @@
   // The row colour now carries session state (yellow empty, green working, red
   // waiting on you, blue no Claude), so the wordy "Claude is waiting for your
   // input" line under each title says nothing the colour has not already said.
+  // showPorts is off because the ports moved INTO the status pill, to the right
+  // of the context bar (cmux-throbber.py reads them back out of
+  // `cmux sidebar-state`). Same trade as the progress row: one line, not two.
+  // Turning it back on shows every port twice — drop the ports() call in the
+  // throbber if you prefer cmux's row, which is clickable and updates while the
+  // session is idle.
   "sidebar": {
     "showBranchDirectory": false,
     "branchLayout": "inline",
     "stackBranchDirectory": false,
-    "showNotificationMessage": false
+    "showNotificationMessage": false,
+    "showPorts": false
   },
 
   // Reclaim the Metal renderer of off-screen terminals sooner. The saved

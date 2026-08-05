@@ -82,6 +82,22 @@ BAR_COLOR_WARN = '#c9a227'
 BAR_COLOR_URGENT = '#cc7a33'
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
+# Listening ports ride at the RIGHT END of the pill, after the bar, which is what
+# lets cmux's own port row be switched off (`sidebar.showPorts: false` in
+# ~/.config/cmux/cmux.json) — the same one-line-not-two trade already made for
+# cmux's progress row.
+#
+# The ports come FROM cmux rather than from an lsof here, because cmux scopes
+# detection to the processes this workspace owns. Every scan we could run scopes
+# by directory instead, and half these workspaces are the same directory — a
+# neighbour's dev server would be printed on this row as if it were ours.
+#
+# The cost of moving it into the pill: it is text now, so it does not open on
+# click, and it only refreshes while a turn is running or has just stopped. A
+# workspace with no agent in it shows no port at all.
+PORTS_INTERVAL = 5.0       # seconds between sidebar-state reads
+PORTS_MAX = 3              # a sidebar row is narrow; three is already too many
+
 # The ROW colour is session state, not context — context is the progress bar.
 #   red     stopped: waiting on you, nothing is moving
 #   green   an agent is working
@@ -252,9 +268,46 @@ def context_color(default):
     return default
 
 
+_ports = {'at': 0.0, 'text': ''}
+
+
+def ports():
+    """`:4322` per port listening in this workspace, or '' when there are none.
+
+    Cached: `sidebar-state` is a socket round trip (~140ms), cheap every few
+    seconds and wasteful on every 0.4s frame. A failed read keeps the last
+    answer rather than blinking the port off the row.
+    """
+    now = time.time()
+    if now - _ports['at'] < PORTS_INTERVAL:
+        return _ports['text']
+    text = _ports['text']
+    try:
+        out = subprocess.run(
+            [cli(), 'sidebar-state'],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            timeout=5, env=env(), text=True,
+        ).stdout
+        for line in out.splitlines():
+            if line.startswith('ports='):
+                raw = line.split('=', 1)[1].strip()
+                found = [] if raw in ('', 'none') else raw.replace(',', ' ').split()
+                text = ' '.join(':' + p for p in found[:PORTS_MAX])
+                break
+    except Exception:
+        pass
+    _ports['at'] = now
+    _ports['text'] = text
+    return text
+
+
 def paint(icon, color, lead=''):
-    """One pill: an icon, then the context bar. `lead` goes in front of the bar."""
-    value = (lead + ' ' if lead else '') + context_bar()
+    """One pill: an icon, the context bar, then whatever is listening here.
+
+    `lead` goes in front of the bar; ports go after it, so the two things that
+    change on their own — the frame and the bar — stay put on the left.
+    """
+    value = ' '.join(p for p in (lead, context_bar(), ports()) if p)
     args = ['set-status', KEY, value or BLANK, '--color', color]
     if icon:
         args += ['--icon', icon]
