@@ -66,15 +66,20 @@ BAR_EMPTY = '□'
 
 # Colour = urgency, shapes = amount. Two jobs, two channels.
 #
-# ⚠️ The red is deliberately NOT WAIT_COLOR's brick. Red already means "waiting
-# on you" here, and a second red would blur the one signal that gets you to look
-# at the row. This one is hotter and more orange, and — more importantly — a
+# ⚠️ The urgent colour is deliberately NOT WAIT_COLOR's brick. Red already means
+# "waiting on you" here, and a second red would blur the one signal that gets you
+# to look at the row. It is hotter and more orange, and — more importantly — a
 # blocked session never shows it at all: every wait path passes WAIT_COLOR
 # explicitly, so the ramp only ever paints a session that is actually working.
-BAR_WARN_AT = 60           # amber: filling, worth knowing
-BAR_URGENT_AT = 85         # red: nearly out, act now
-BAR_COLOR_WARN = '#c98f2b'
-BAR_COLOR_URGENT = '#cc4125'
+#
+# Both are Diagrammo slate accents (globals.css) rather than hand-picked hexes,
+# so nothing in cmux is off-palette: slate ORANGE is what keeps "nearly out"
+# distinct from the brick red row while staying in the palette — slate red IS
+# the brick, and using it here is the collision the paragraph above rules out.
+BAR_WARN_AT = 60           # slate yellow: filling, worth knowing
+BAR_URGENT_AT = 85         # slate orange: nearly out, act now
+BAR_COLOR_WARN = '#c9a227'
+BAR_COLOR_URGENT = '#cc7a33'
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
 # The ROW colour is session state, not context — context is the progress bar.
