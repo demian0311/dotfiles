@@ -2,6 +2,7 @@
 import json
 import sys
 import os
+import subprocess
 import time
 
 data = json.load(sys.stdin)
@@ -173,3 +174,85 @@ if right:
     print(f" {left}    {right}")
 else:
     print(f" {left}")
+
+# ---------------------------------------------------------------------------
+# Mirror the same numbers onto the cmux sidebar row for this workspace, so a
+# session's context pressure is readable without opening its pane.
+#   colour bar  green -> gold -> amber as context fills
+#   progress    the context percentage itself
+#   chip        the 5-hour and weekly quota burn
+# Red (#c0504d) is deliberately never used here: it stays free to mean "I am
+# driving this workspace by hand".
+# Cleared again by cmux-session-end.py on SessionEnd. Best effort throughout —
+# any failure leaves the status line above untouched.
+# ---------------------------------------------------------------------------
+
+CTX_COLORS = ((75, '#cc7a33'), (50, '#c9a227'), (0, '#5b9357'))
+
+
+def _bucket(p):
+    for floor, color in CTX_COLORS:
+        if p >= floor:
+            return color
+    return CTX_COLORS[-1][1]
+
+
+def push_to_cmux():
+    if not os.environ.get('CMUX_PANEL_ID'):
+        return
+    cli = os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
+
+    color = _bucket(pct)
+    # Only redraw on a visible change: colour bucket, 5% of context, 10% of quota.
+    state = {
+        'color': color,
+        'ctx': int(pct // 5),
+        'five': int(five_pct // 10) if five_pct is not None else None,
+        'week': int(week_pct // 10) if week_pct is not None else None,
+    }
+    state_path = os.path.join(
+        os.environ.get('TMPDIR', '/tmp'),
+        'claude-cmux-%s.json' % (session_id or 'nosession'),
+    )
+    try:
+        with open(state_path) as f:
+            previous = json.load(f)
+    except Exception:
+        previous = {}
+    if previous == state:
+        return
+
+    env = dict(os.environ, CMUX_QUIET='1')
+
+    def fire(args):
+        subprocess.Popen(
+            [cli] + args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=True,
+        )
+
+    if previous.get('color') != state['color']:
+        fire(['workspace-action', '--action', 'set-color', '--color', color])
+    if previous.get('ctx') != state['ctx']:
+        fire(['set-progress', '%.2f' % (pct / 100.0), '--label', 'ctx %.0f%%' % pct])
+    if five_pct is not None and (
+        previous.get('five') != state['five'] or previous.get('week') != state['week']
+    ):
+        quota = '5h %.0f%%' % five_pct
+        if week_pct is not None:
+            quota += ' · wk %.0f%%' % week_pct
+        fire(['set-status', 'quota', quota, '--icon', 'gauge', '--color', _bucket(five_pct)])
+
+    try:
+        with open(state_path, 'w') as f:
+            json.dump(state, f)
+    except Exception:
+        pass
+
+
+try:
+    push_to_cmux()
+except Exception:
+    pass
