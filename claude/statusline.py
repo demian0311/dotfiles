@@ -176,11 +176,13 @@ else:
     print(f" {left}")
 
 # ---------------------------------------------------------------------------
-# Mirror the same numbers onto the cmux sidebar row for this workspace, so a
-# session's context pressure is readable without opening its pane.
+# Mirror context pressure onto the cmux sidebar row for this workspace, so a
+# session's fill is readable without opening its pane.
 #   colour bar  green -> gold -> amber as context fills
 #   progress    the context percentage itself
-#   chip        the 5-hour and weekly quota burn
+# Numbers are deliberately NOT written here — C/S/W already sit in the footer
+# above, and a pill repeating them is the same fact twice. The bar and the
+# colour earn their place by being readable on rows that are not focused.
 # Red (#c0504d) is deliberately never used here: it stays free to mean "I am
 # driving this workspace by hand".
 # Cleared again by cmux-session-end.py on SessionEnd. Best effort throughout —
@@ -203,12 +205,10 @@ def push_to_cmux():
     cli = os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
 
     color = _bucket(pct)
-    # Only redraw on a visible change: colour bucket, 5% of context, 10% of quota.
+    # Only redraw on a visible change: colour bucket, or 5% of context.
     state = {
         'color': color,
         'ctx': int(pct // 5),
-        'five': int(five_pct // 10) if five_pct is not None else None,
-        'week': int(week_pct // 10) if week_pct is not None else None,
     }
     state_path = os.path.join(
         os.environ.get('TMPDIR', '/tmp'),
@@ -237,13 +237,6 @@ def push_to_cmux():
         fire(['workspace-action', '--action', 'set-color', '--color', color])
     if previous.get('ctx') != state['ctx']:
         fire(['set-progress', '%.2f' % (pct / 100.0)])
-    if five_pct is not None and (
-        previous.get('five') != state['five'] or previous.get('week') != state['week']
-    ):
-        quota = '5h %.0f%%' % five_pct
-        if week_pct is not None:
-            quota += ' · wk %.0f%%' % week_pct
-        fire(['set-status', 'quota', quota, '--icon', 'gauge', '--color', _bucket(five_pct)])
 
     try:
         with open(state_path, 'w') as f:
