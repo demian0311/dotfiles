@@ -16,6 +16,7 @@ worth more than the RAM, which is the same reason cmux's own Agent Hibernation i
 left off (see cmux issue #9591).
 """
 import argparse
+import datetime
 import os
 import re
 import signal
@@ -146,6 +147,8 @@ def main():
     ap.add_argument('--kill', action='store_true', help='SIGTERM the flagged servers')
     ap.add_argument('--min-age', type=int, default=60, help='grace period in minutes (default 60)')
     ap.add_argument('--quiet', action='store_true', help='only write pills, print nothing')
+    ap.add_argument('--log', metavar='PATH',
+                    help='append one dated line per run that flags something (silent when clean)')
     args = ap.parse_args()
 
     tree = process_tree()
@@ -193,6 +196,20 @@ def main():
                 print('  pid %-7s %6.0f MB  :%-6s %-22s %s'
                       % (i['pid'], i['rss'] / 1048576, ','.join(i['ports']),
                          i['title'] or '(no workspace)', i['command'][:70]))
+
+    # A clean run writes nothing: the log should answer "did this ever fire?"
+    # at a glance, not bury the answer under a heartbeat.
+    if args.log and flagged:
+        stamp = datetime.datetime.now().isoformat(timespec='seconds')
+        detail = ', '.join('%s :%s %.0fMB' % (i['title'] or '?', ','.join(i['ports']),
+                                              i['rss'] / 1048576)
+                           for i in flagged)
+        try:
+            with open(os.path.expanduser(args.log), 'a') as f:
+                f.write('%s\t%d idle server(s)\t%.0f MB\t%s\n'
+                        % (stamp, len(flagged), sum(i['rss'] for i in flagged) / 1048576, detail))
+        except Exception:
+            pass
 
     if args.kill and flagged:
         for i in flagged:
