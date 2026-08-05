@@ -25,7 +25,7 @@ import time
 FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧'
 INTERVAL = 0.4
 COLOR = '#3b6ea5'          # slate blue; red stays reserved for hands-on work
-KEY = 'agent'
+KEY = 'claude_code'        # cmux's own pill — animate it rather than sit beside it
 MAX_SECONDS = 60 * 60      # backstop: never spin longer than an hour
 
 
@@ -54,26 +54,74 @@ def run(args):
     )
 
 
-def stop():
-    path = pid_path()
+def snapshot():
+    """What cmux had in the pill before we took it over, so stop() can put it back."""
     try:
-        with open(path) as f:
-            pid = int(f.read().strip())
-        os.kill(pid, signal.SIGTERM)
+        out = subprocess.run(
+            [cli(), 'list-status'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+            env=env(),
+            text=True,
+        ).stdout
     except Exception:
-        pass
-    try:
-        os.remove(path)
-    except Exception:
-        pass
-    try:
+        return None
+    for line in out.splitlines():
+        if not line.startswith(KEY + '='):
+            continue
+        rest = line[len(KEY) + 1:]
+        saved = {'value': rest, 'icon': None, 'color': None, 'priority': None}
+        for field in ('icon', 'color', 'priority'):
+            marker = ' %s=' % field
+            at = saved['value'].find(marker)
+            if at != -1:
+                saved[field] = saved['value'][at + len(marker):].split(' ')[0]
+                saved['value'] = saved['value'][:at]
+        return saved
+    return None
+
+
+def restore(saved):
+    if not saved or not saved.get('value'):
         run(['clear-status', KEY])
+        return
+    args = ['set-status', KEY, saved['value']]
+    if saved.get('icon'):
+        args += ['--icon', saved['icon']]
+    if saved.get('color'):
+        args += ['--color', saved['color']]
+    if saved.get('priority'):
+        args += ['--priority', saved['priority']]
+    run(args)
+
+
+def stop():
+    # No pid file means we were never spinning on this row — leave the pill
+    # exactly as cmux left it. (Restoring unconditionally here once wiped
+    # cmux's own pill before start() had a chance to snapshot it.)
+    try:
+        with open(pid_path()) as f:
+            state = json.load(f)
+    except Exception:
+        return
+    try:
+        os.kill(int(state['pid']), signal.SIGTERM)
+    except Exception:
+        pass
+    try:
+        os.remove(pid_path())
+    except Exception:
+        pass
+    try:
+        restore(state.get('saved'))
     except Exception:
         pass
 
 
 def start():
     stop()  # never leave two spinners racing on one row
+    saved = snapshot()
     child = subprocess.Popen(
         [sys.executable, os.path.abspath(__file__), '_spin'],
         stdout=subprocess.DEVNULL,
@@ -83,7 +131,7 @@ def start():
     )
     try:
         with open(pid_path(), 'w') as f:
-            f.write(str(child.pid))
+            json.dump({'pid': child.pid, 'saved': saved}, f)
     except Exception:
         pass
 
@@ -93,7 +141,7 @@ def spin():
     i = 0
     while time.time() < deadline:
         try:
-            run(['set-status', KEY, FRAMES[i % len(FRAMES)], '--color', COLOR, '--priority', '90'])
+            run(['set-status', KEY, FRAMES[i % len(FRAMES)], '--color', COLOR])
         except Exception:
             return
         i += 1
