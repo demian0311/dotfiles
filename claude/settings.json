@@ -34,6 +34,28 @@
             "command": "afplay /System/Library/Sounds/Blow.aiff"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/demian/.claude/cmux-throbber.py stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/demian/.claude/cmux-throbber.py start",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Notification": [
@@ -54,6 +76,11 @@
           {
             "type": "command",
             "command": "python3 /Users/demian/.claude/cmux-session-end.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 /Users/demian/.claude/cmux-throbber.py stop",
             "timeout": 10
           }
         ]
