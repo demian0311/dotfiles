@@ -13,6 +13,15 @@ Only `startup` and `clear` are empty. A `resume` has a conversation behind it an
 a `compact` is a turn in flight — painting either yellow would claim a session is
 idle while it is mid-thought.
 
+It also RESETS THE PILL, not just the row. cmux registers every session it sees
+with lifecycle `running` and only leaves that state on a Stop hook or an idle
+notification — neither of which a `/clear` produces, because no turn ever ran.
+Measured 2026-08-05: one cleared pane sat on a green "Running" pill for 37
+minutes with no hook event of any kind between its SessionStart and the next
+prompt. A sibling pane happened to get Claude Code's 60-second idle notification
+and recovered; that rescue is incidental, not the mechanism, so the only reliable
+fix is to state the empty state here rather than wait to be corrected.
+
 It also drops the marker that tells a plain shell prompt whether this workspace
 still has a live Claude in it: without one, every new terminal in a workspace
 would paint the row blue over a session that is running fine. SessionEnd removes
@@ -28,9 +37,29 @@ import sys
 ROW_EMPTY = '#c9a227'          # muted gold, same family as the other three
 EMPTY_SOURCES = ('startup', 'clear')
 
+# The pill cmux writes its own lifecycle into — the same key cmux-throbber.py
+# animates, so the two never sit beside each other saying different things.
+PILL_KEY = 'claude_code'
+# Whose turn it is, in the row's own colour. The icon has to be passed
+# explicitly: cmux keeps the previous one when the flag is omitted, and the
+# previous one is the lightning bolt that means Running.
+PILL_ICON = 'person.crop.circle.fill'
+PILL_BLANK = '​'               # zero-width space; cmux rejects an empty value
+THROBBER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cmux-throbber.py')
+
 
 def cli():
     return os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
+
+
+def run(args):
+    subprocess.run(
+        [cli()] + args,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=5,
+        env=dict(os.environ, CMUX_QUIET='1'),
+    )
 
 
 def live_dir(workspace):
@@ -111,14 +140,33 @@ def main():
     if payload.get('source') not in EMPTY_SOURCES:
         return
 
+    # A spinner outlives a /clear: the claude process is the same one, so the
+    # child's own "did my agent die" check never trips and it would keep
+    # repainting frames over everything below. Its Stop hook only fires for a
+    # turn that ended, and a cleared session's last turn may have been
+    # interrupted instead. Painting red on the way out is fine — the row and
+    # pill below land after it.
     try:
         subprocess.run(
-            [cli(), 'workspace-action', '--action', 'set-color', '--color', ROW_EMPTY],
+            [sys.executable, THROBBER, 'stop'],
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            timeout=5,
-            env=dict(os.environ, CMUX_QUIET='1'),
+            timeout=10,
         )
+    except Exception:
+        pass
+    # The bar belongs to the conversation that just went away; leaving it drawn
+    # would show the old fill until the status line next writes.
+    try:
+        os.remove(os.path.join(os.environ.get('TMPDIR', '/tmp'),
+                               'claude-cmux-ctx-%s' % panel))
+    except Exception:
+        pass
+
+    try:
+        run(['workspace-action', '--action', 'set-color', '--color', ROW_EMPTY])
+        run(['set-status', PILL_KEY, PILL_BLANK, '--color', ROW_EMPTY, '--icon', PILL_ICON])
     except Exception:
         pass
 
