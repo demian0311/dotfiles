@@ -47,9 +47,10 @@ BAR_PARTIALS = ('', '▏', '▎', '▍', '▌', '▋', '▊', '▉')
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
 # The ROW colour is session state, not context — context is the progress bar.
-#   red    stopped: waiting on you, nothing is moving
-#   green  an agent is working
-#   blue   no agent here, just a terminal
+#   red     stopped: waiting on you, nothing is moving
+#   green   an agent is working
+#   blue    no agent here, just a terminal
+#   yellow  a Claude session with nothing in it yet (cmux-session-start.py)
 ROW_STOPPED = '#c0504d'
 ROW_WORKING = '#5b9357'
 ROW_IDLE = '#3b6ea5'
@@ -134,20 +135,26 @@ def agent_pid():
     plenty. Used by the spin loop to notice a session that died without ever
     running its Stop hook — an interrupted or crashed turn used to leave a
     spinner running for the full hour.
+
+    Matched on `comm` (the executable), not the command line. The hook's wrapper
+    shell runs `source ~/.claude/shell-snapshots/…`, so a substring test against
+    the command line matches at the FIRST hop and returns the wrapper's own pid —
+    a process that exits seconds later, which the spin loop then reads as "the
+    agent died". Verified 2026-08-05 by walking the chain by hand.
     """
     pid = os.getppid()
     for _ in range(6):
         if pid <= 1:
             break
         try:
-            out = subprocess.run(['ps', '-p', str(pid), '-o', 'ppid=,command='],
+            out = subprocess.run(['ps', '-p', str(pid), '-o', 'ppid=,comm='],
                                  stdout=subprocess.PIPE, text=True, timeout=5).stdout.strip()
         except Exception:
             break
         if not out:
             break
-        parent, _, command = out.partition(' ')
-        if '/claude' in command or command.startswith('claude'):
+        parent, _, comm = out.partition(' ')
+        if os.path.basename(comm.strip()) == 'claude':
             return pid
         try:
             pid = int(parent)

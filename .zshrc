@@ -161,3 +161,39 @@ diagrammo-run-fumadocs() {
   _diagrammo_open 3010 "http://localhost:3010"
   pnpm dev --port 3010
 }
+
+# ---- cmux sidebar row colour: this workspace has no Claude in it -----------
+# The row colour is session state. Claude's own hooks own three of the four
+# states (green working, red waiting on you, yellow a session with nothing in
+# it); this is the fourth — a workspace where no Claude session is open at all.
+# Without it a terminal that never ran Claude, or one whose session was killed
+# rather than exited, keeps whatever colour the last session left behind.
+#
+# Markers under $TMPDIR/claude-cmux-live/<workspace>/ are written by
+# ~/.claude/cmux-session-start.py, one per pane, holding the claude pid. A flag
+# file makes this a transition rather than a repaint on every prompt: one cmux
+# call when the last session goes away, none while nothing changes.
+_cmux_row_idle() {
+  [[ -n "$CMUX_WORKSPACE_ID" ]] || return
+  command -v cmux >/dev/null 2>&1 || return
+  local tmp="${TMPDIR:-/tmp}"
+  local dir="$tmp/claude-cmux-live/$CMUX_WORKSPACE_ID"
+  local flag="$tmp/claude-cmux-idle-$CMUX_WORKSPACE_ID"
+  local marker pid live=0
+  for marker in "$dir"/*(N); do
+    pid=$(<"$marker") 2>/dev/null
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      live=1
+    else
+      rm -f "$marker"
+    fi
+  done
+  if (( live )); then
+    rm -f "$flag"
+    return
+  fi
+  [[ -f "$flag" ]] && return
+  cmux workspace-action --action set-color --color '#3b6ea5' >/dev/null 2>&1 && : > "$flag"
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd _cmux_row_idle
