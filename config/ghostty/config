@@ -1,0 +1,7 @@
+# Ghostty config — read by cmux (and by Ghostty.app if you ever use it directly).
+# Terminal colours come from the themes in ./themes/, set via `cmux themes set`.
+
+# cmux's Ghostty fork defaults to 50 MB of scrollback PER SURFACE; stock Ghostty
+# uses 10 MB. With ~30 open surfaces that ceiling is the difference between
+# ~300 MB and ~1.5 GB of buffer. Compression stays on, so real usage is lower.
+scrollback-limit = 10000000

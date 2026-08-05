@@ -1,0 +1,26 @@
+# Diagrammo Slate — dark
+# Mirrors dgmo/src/palettes/slate.ts (dark).
+
+background = #161b22
+foreground = #e6eaef
+cursor-color = #5b9bd5
+cursor-text = #161b22
+selection-background = #38424f
+selection-foreground = #f2f4f7
+
+palette = 0=#202833
+palette = 1=#e07b6e
+palette = 2=#74b56e
+palette = 3=#d9bd5a
+palette = 4=#5b9bd5
+palette = 5=#a585c9
+palette = 6=#45b3a3
+palette = 7=#9aa5b1
+palette = 8=#38424f
+palette = 9=#e07b6e
+palette = 10=#74b56e
+palette = 11=#e0975a
+palette = 12=#62b0d9
+palette = 13=#a585c9
+palette = 14=#45b3a3
+palette = 15=#f2f4f7

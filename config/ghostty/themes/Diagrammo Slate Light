@@ -1,0 +1,27 @@
+# Diagrammo Slate — light
+# Mirrors dgmo/src/palettes/slate.ts (light). Colors 10–13 use the palette's
+# AA-on-white text variants so bright text stays readable on a white background.
+
+background = #ffffff
+foreground = #1f2933
+cursor-color = #3b6ea5
+cursor-text = #ffffff
+selection-background = #d4dae1
+selection-foreground = #1f2933
+
+palette = 0=#1f2933
+palette = 1=#c0504d
+palette = 2=#5b9357
+palette = 3=#c9a227
+palette = 4=#3b6ea5
+palette = 5=#7d5ba6
+palette = 6=#3a9188
+palette = 7=#5b6672
+palette = 8=#7e8a97
+palette = 9=#c0504d
+palette = 10=#3f7a3b
+palette = 11=#836611
+palette = 12=#4f96c4
+palette = 13=#6b4d8f
+palette = 14=#3a9188
+palette = 15=#1f2933
