@@ -1,14 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch", "WebFetch", "Bash", "Read", "Write",
-      "Edit", "Glob", "Grep", "Task", "TodoWrite",
+      "WebSearch",
+      "WebFetch",
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "Task",
+      "TodoWrite",
       "Write(~/.claude/**)"
     ],
     "deny": [],
     "defaultMode": "bypassPermissions"
   },
-  "skipDangerousModePermissionPrompt": true,
   "hooks": {
     "Stop": [
       {
@@ -39,6 +46,18 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Users/demian/.claude/cmux-session-end.py",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -46,6 +65,21 @@
     "command": "python3 /Users/demian/.claude/statusline.py"
   },
   "enabledPlugins": {
-    "rust-analyzer-lsp@claude-plugins-official": true
-  }
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "token-optimizer@alexgreensh-token-optimizer": true
+  },
+  "extraKnownMarketplaces": {
+    "alexgreensh-token-optimizer": {
+      "source": {
+        "source": "github",
+        "repo": "alexgreensh/token-optimizer"
+      }
+    }
+  },
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark-ansi",
+  "editorMode": "vim",
+  "agentPushNotifEnabled": true
 }
