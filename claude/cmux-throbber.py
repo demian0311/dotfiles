@@ -33,8 +33,11 @@ MAX_SECONDS = 60 * 60      # backstop: never spin longer than an hour
 # overwritten by the next frame anyway. The Notification hook raises this flag,
 # a PostToolUse `rm` drops it the moment the turn is moving again.
 WAIT_ICON = 'person.crop.circle.fill'
-WAIT_COLOR = '#c9a227'     # slate gold — reads as "your turn" without shouting
-WAIT_TEXT = 'Needs input'
+WAIT_COLOR = '#c0504d'     # same red as the row, so pill and row agree
+# Icon only: the red row already says "waiting on you", so the words repeated it.
+# cmux rejects an empty status value, so the value is a zero-width space — the
+# pill renders as the icon alone.
+WAIT_TEXT = '​'
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
 # The ROW colour is session state, not context — context is the progress bar.
