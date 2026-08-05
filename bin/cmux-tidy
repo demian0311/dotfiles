@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""Surface dev servers nobody is connected to, on the cmux workspace row that owns them.
+
+A dev server that is LISTENing with zero ESTABLISHED connections has no browser,
+no test runner and no proxy attached — it is holding RAM for nobody. That is a
+far better staleness signal than a process name or an age cutoff alone, so it is
+the one this uses; age is only a grace period so a server that just booted is
+never flagged.
+
+  cmux-tidy                 report, and put a pill on each workspace that owns one
+  cmux-tidy --kill          also SIGTERM the flagged servers
+  cmux-tidy --min-age 30    grace period in minutes (default 60)
+
+Claude sessions are counted but NEVER killed: a finished agent's unread output is
+worth more than the RAM, which is the same reason cmux's own Agent Hibernation is
+left off (see cmux issue #9591).
+"""
+import argparse
+import os
+import re
+import signal
+import subprocess
+import sys
+
+CLI_CANDIDATES = [
+    os.environ.get('CMUX_BUNDLED_CLI_PATH', ''),
+    '/Applications/cmux.app/Contents/Resources/bin/cmux',
+    '/opt/homebrew/bin/cmux',
+]
+PILL_KEY = 'tidy'
+PILL_COLOR = '#cc7a33'          # slate amber — red stays reserved for hands-on work
+AGENT_LABELS = ('cmux', 'ssh', 'sshd')
+CLAUDE_LABEL = re.compile(r'^\d+\.\d+\.\d+$')   # cmux labels Claude by its version
+
+
+def cli():
+    for path in CLI_CANDIDATES:
+        if path and os.path.exists(path):
+            return path
+    return 'cmux'
+
+
+def cmux(args, capture=False):
+    env = dict(os.environ, CMUX_QUIET='1')
+    return subprocess.run(
+        [cli()] + args,
+        stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=20,
+        env=env,
+        text=True,
+    ).stdout
+
+
+def process_tree():
+    """pid -> (workspace_ref, workspace_title, rss_bytes, label), from cmux's own attribution."""
+    rows = []
+    for line in cmux(['top', '--all', '--processes', '--format', 'tsv'], capture=True).splitlines():
+        parts = line.split('\t')
+        if len(parts) >= 6:
+            rows.append(parts)
+
+    parent_of, kind_of, label_of, rss_of = {}, {}, {}, {}
+    for cpu, rss, count, kind, ident, parent, *rest in rows:
+        kind_of[ident] = kind
+        parent_of[ident] = parent
+        label_of[ident] = rest[0] if rest else ''
+        try:
+            rss_of[ident] = int(rss)
+        except ValueError:
+            rss_of[ident] = 0
+
+    def workspace_for(ident, depth=0):
+        while ident and depth < 20:
+            if kind_of.get(ident) == 'workspace':
+                return ident
+            ident = parent_of.get(ident)
+            depth += 1
+        return None
+
+    out = {}
+    for ident, kind in kind_of.items():
+        if kind != 'process':
+            continue
+        ws = workspace_for(parent_of.get(ident))
+        out[ident] = {
+            'workspace': ws,
+            'title': label_of.get(ws, '') if ws else '',
+            'rss': rss_of.get(ident, 0),
+            'label': label_of.get(ident, ''),
+        }
+    return out
+
+
+def sockets(pids):
+    """pid -> {'listen': [ports], 'established': n} for the pids that hold TCP sockets."""
+    if not pids:
+        return {}
+    out = subprocess.run(
+        ['lsof', '-nP', '-iTCP', '-a', '-p', ','.join(pids)],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    ).stdout
+    state = {}
+    for line in out.splitlines()[1:]:
+        parts = line.split()
+        if len(parts) < 9:
+            continue
+        pid, name, kind = parts[1], parts[-2], parts[-1]
+        entry = state.setdefault(pid, {'listen': [], 'established': 0})
+        if kind == '(LISTEN)':
+            entry['listen'].append(name.rsplit(':', 1)[-1])
+        elif kind == '(ESTABLISHED)':
+            entry['established'] += 1
+    return state
+
+
+def age_seconds(pid):
+    """BSD ps has no `etimes`, only `etime` as [[dd-]hh:]mm:ss — parse that."""
+    try:
+        raw = subprocess.run(['ps', '-p', pid, '-o', 'etime='],
+                             stdout=subprocess.PIPE, text=True).stdout.strip()
+    except Exception:
+        return 0
+    if not raw:
+        return 0
+    days, _, clock = raw.rpartition('-')
+    parts = [int(p) for p in clock.split(':')]
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    seconds = parts[0] * 3600 + parts[1] * 60 + parts[2]
+    if days:
+        seconds += int(days) * 86400
+    return seconds
+
+
+def command_of(pid):
+    try:
+        return subprocess.run(['ps', '-p', pid, '-o', 'command='],
+                              stdout=subprocess.PIPE, text=True).stdout.strip()
+    except Exception:
+        return ''
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--kill', action='store_true', help='SIGTERM the flagged servers')
+    ap.add_argument('--min-age', type=int, default=60, help='grace period in minutes (default 60)')
+    ap.add_argument('--quiet', action='store_true', help='only write pills, print nothing')
+    args = ap.parse_args()
+
+    tree = process_tree()
+    if not tree:
+        if not args.quiet:
+            print('cmux is not running, or reported no processes')
+        return 0
+
+    net = sockets(list(tree))
+    claude = [p for p, i in tree.items() if CLAUDE_LABEL.match(i['label'])]
+    flagged, per_workspace = [], {}
+
+    for pid, info in tree.items():
+        s = net.get(pid)
+        if not s or not s['listen'] or s['established']:
+            continue
+        if info['label'] in AGENT_LABELS or CLAUDE_LABEL.match(info['label']):
+            continue
+        if age_seconds(pid) < args.min_age * 60:
+            continue
+        info = dict(info, pid=pid, ports=s['listen'], command=command_of(pid))
+        flagged.append(info)
+        if info['workspace']:
+            per_workspace.setdefault(info['workspace'], []).append(info)
+
+    for ws in {i['workspace'] for i in tree.values() if i['workspace']}:
+        mine = per_workspace.get(ws)
+        if mine:
+            mb = sum(i['rss'] for i in mine) / 1048576
+            label = '%d idle server%s · %.0f MB' % (len(mine), '' if len(mine) == 1 else 's', mb)
+            cmux(['set-status', PILL_KEY, label, '--icon', 'leaf', '--color', PILL_COLOR,
+                  '--workspace', ws])
+        else:
+            cmux(['clear-status', PILL_KEY, '--workspace', ws])
+
+    if not args.quiet:
+        total = sum(i['rss'] for i in flagged) / 1048576
+        agents = sum(tree[p]['rss'] for p in claude) / 1048576
+        print('%d claude session(s), %.0f MB — never touched by this tool' % (len(claude), agents))
+        if not flagged:
+            print('no idle servers: everything listening has something connected')
+        else:
+            print('%d idle server(s), %.0f MB:' % (len(flagged), total))
+            for i in sorted(flagged, key=lambda x: -x['rss']):
+                print('  pid %-7s %6.0f MB  :%-6s %-22s %s'
+                      % (i['pid'], i['rss'] / 1048576, ','.join(i['ports']),
+                         i['title'] or '(no workspace)', i['command'][:70]))
+
+    if args.kill and flagged:
+        for i in flagged:
+            try:
+                os.kill(int(i['pid']), signal.SIGTERM)
+            except Exception as exc:
+                print('  could not kill %s: %s' % (i['pid'], exc))
+        if not args.quiet:
+            print('sent SIGTERM to %d server(s)' % len(flagged))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
