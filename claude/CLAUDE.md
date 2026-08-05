@@ -238,7 +238,7 @@ Mechanics:
 
 ## Where Rules Live
 
-- **`~/.claude/CLAUDE.md`** (this file) — how I work, everywhere. Communication, questions, execution, the rules above. It and `~/.claude/settings.json` are **symlinks into `~/code/dotfiles/claude/`**, so edit the path under `dotfiles` (the harness refuses to write through a symlink) and commit there — an uncommitted change to either is a change to the live config. `claude/install.sh` relinks everything and is the repair when Claude Code's own settings write replaces a link with a plain file.
+- **`~/.claude/CLAUDE.md`** (this file) — how I work, everywhere. Communication, questions, execution, the rules above. **The real file is `~/code/dotfiles/claude/CLAUDE.md`** — `~/.claude/CLAUDE.md` is a one-line `@import` pointing at it, and `~/.claude/settings.json` is a symlink to its neighbour. Edit the `dotfiles` path (the harness refuses to write through a symlink) and commit there; an uncommitted change to either is a change to the live config. `claude/install.sh` restores both and runs on every SessionStart, so drift repairs itself.
 - **`<project>/CLAUDE.md`** — the map of that project: layout, workflows, release paths, project-wide conventions.
 - **`<repo>/CLAUDE.md`** in a subdirectory — rules that only apply inside it. Commands, architecture notes, local landmines. These load only when the work enters that subtree, so repo-specific detail belongs here, NOT in the project root file.
 - **Memory** (`memory/` + `MEMORY.md`) — durable facts and decisions with a history: what was decided, when, and why. Not rules.
