@@ -34,10 +34,13 @@ MAX_SECONDS = 60 * 60      # backstop: never spin longer than an hour
 # a PostToolUse `rm` drops it the moment the turn is moving again.
 WAIT_ICON = 'person.crop.circle.fill'
 WAIT_COLOR = '#c0504d'     # same red as the row, so pill and row agree
-# Icon only: the red row already says "waiting on you", so the words repeated it.
-# cmux rejects an empty status value, so the value is a zero-width space — the
-# pill renders as the icon alone.
-WAIT_TEXT = '​'
+# No words anywhere: the row colour says the state, the icon says whose turn it
+# is, the bar says how full the context is. cmux rejects an empty status value,
+# so a pill with nothing to show carries a zero-width space.
+BLANK = '​'
+BAR_CELLS = 6
+BAR_FULL = '▰'
+BAR_EMPTY = '▱'
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
 # The ROW colour is session state, not context — context is the progress bar.
@@ -84,56 +87,37 @@ def run(args):
     )
 
 
-def snapshot():
-    """What cmux had in the pill before we took it over, so stop() can put it back."""
+def ctx_path():
+    panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
+    return os.path.join(os.environ.get('TMPDIR', '/tmp'), 'claude-cmux-ctx-%s' % panel)
+
+
+def context_bar():
+    """The status line leaves the context percentage here; draw it as blocks.
+
+    Riding in the pill rather than cmux's own progress row keeps the icon and
+    the bar on ONE line instead of two.
+    """
     try:
-        out = subprocess.run(
-            [cli(), 'list-status'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            timeout=5,
-            env=env(),
-            text=True,
-        ).stdout
+        with open(ctx_path()) as f:
+            pct = float(f.read().strip())
     except Exception:
-        return None
-    for line in out.splitlines():
-        if not line.startswith(KEY + '='):
-            continue
-        rest = line[len(KEY) + 1:]
-        saved = {'value': rest, 'icon': None, 'color': None, 'priority': None}
-        # Every field is located against the untouched line — trimming `value`
-        # as we go once cut the ` color=` marker off before it was read.
-        cut = len(rest)
-        for field in ('icon', 'color', 'priority'):
-            marker = ' %s=' % field
-            at = rest.find(marker)
-            if at != -1:
-                saved[field] = rest[at + len(marker):].split(' ')[0]
-                cut = min(cut, at)
-        saved['value'] = rest[:cut]
-        return saved
-    return None
+        return ''
+    filled = int(round(pct / 100.0 * BAR_CELLS))
+    return BAR_FULL * filled + BAR_EMPTY * (BAR_CELLS - filled)
 
 
-def restore(saved):
-    if not saved or not saved.get('value'):
-        run(['clear-status', KEY])
-        return
-    args = ['set-status', KEY, saved['value']]
-    if saved.get('icon'):
-        args += ['--icon', saved['icon']]
-    if saved.get('color'):
-        args += ['--color', saved['color']]
-    if saved.get('priority'):
-        args += ['--priority', saved['priority']]
+def paint(icon, color, lead=''):
+    """One pill: an icon, then the context bar. `lead` goes in front of the bar."""
+    value = (lead + ' ' if lead else '') + context_bar()
+    args = ['set-status', KEY, value or BLANK, '--color', color]
+    if icon:
+        args += ['--icon', icon]
     run(args)
 
 
 def stop():
-    # No pid file means we were never spinning on this row — leave the pill
-    # exactly as cmux left it. (Restoring unconditionally here once wiped
-    # cmux's own pill before start() had a chance to snapshot it.)
+    # No pid file means we were never spinning on this row — leave it alone.
     try:
         with open(pid_path()) as f:
             state = json.load(f)
@@ -148,20 +132,16 @@ def stop():
             os.remove(path)
         except Exception:
             pass
-    try:
-        restore(state.get('saved'))
-    except Exception:
-        pass
     # A finished turn IS the waiting state: nothing moves until you type.
     try:
         row_color(ROW_STOPPED)
+        paint(WAIT_ICON, WAIT_COLOR)
     except Exception:
         pass
 
 
 def start():
     stop()  # never leave two spinners racing on one row
-    saved = snapshot()
     child = subprocess.Popen(
         [sys.executable, os.path.abspath(__file__), '_spin'],
         stdout=subprocess.DEVNULL,
@@ -171,11 +151,14 @@ def start():
     )
     try:
         with open(pid_path(), 'w') as f:
-            json.dump({'pid': child.pid, 'saved': saved}, f)
+            json.dump({'pid': child.pid}, f)
     except Exception:
         pass
     try:
         row_color(ROW_WORKING)
+        # cmux's own progress row is redundant now that the bar rides in the
+        # pill; dropping it is the line of vertical space this buys back.
+        run(['clear-progress'])
     except Exception:
         pass
 
@@ -186,9 +169,9 @@ def spin():
     while time.time() < deadline:
         try:
             if os.path.exists(wait_path()):
-                run(['set-status', KEY, WAIT_TEXT, '--icon', WAIT_ICON, '--color', WAIT_COLOR])
+                paint(WAIT_ICON, WAIT_COLOR)
             else:
-                run(['set-status', KEY, FRAMES[i % len(FRAMES)], '--color', COLOR])
+                paint(None, COLOR, lead=FRAMES[i % len(FRAMES)])
         except Exception:
             return
         i += 1
@@ -225,7 +208,7 @@ def main():
                 pass
             # Assert it now too: the notification may arrive with no spinner
             # running, and cmux writes its own bell pill at the same moment.
-            run(['set-status', KEY, WAIT_TEXT, '--icon', WAIT_ICON, '--color', WAIT_COLOR])
+            paint(WAIT_ICON, WAIT_COLOR)
             row_color(ROW_STOPPED)
 
 

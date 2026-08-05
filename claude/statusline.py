@@ -176,52 +176,28 @@ else:
     print(f" {left}")
 
 # ---------------------------------------------------------------------------
-# Mirror context fill onto the cmux sidebar row for this workspace as a progress
-# bar, so it is readable without opening the pane.
-# The row's COLOUR is not context — it is session state, written by the hooks in
-# cmux-throbber.py: red stopped/waiting on you, green working, blue no agent.
-# Numbers are deliberately NOT written here either: C/S/W already sit in the
-# footer above, and a pill repeating them is the same fact twice.
+# Hand the context percentage to cmux-throbber.py, which draws it as a block bar
+# inside the sidebar pill — icon then bar, one line, instead of cmux's separate
+# progress row underneath.
+# The row's COLOUR is not context either: it is session state, written by the
+# same hooks — red stopped/waiting on you, green working, blue no agent.
+# Numbers are deliberately NOT written anywhere on the row: C/S/W already sit in
+# the footer above, and repeating them is the same fact twice.
 # Cleared again by cmux-session-end.py on SessionEnd. Best effort throughout —
 # any failure leaves the status line above untouched.
 # ---------------------------------------------------------------------------
 
 def push_to_cmux():
-    if not os.environ.get('CMUX_PANEL_ID'):
+    panel = os.environ.get('CMUX_PANEL_ID')
+    if not panel:
         return
-    cli = os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
-
-    # Only redraw on a visible change: 5% of context.
-    state = {'ctx': int(pct // 5)}
-    state_path = os.path.join(
-        os.environ.get('TMPDIR', '/tmp'),
-        'claude-cmux-%s.json' % (session_id or 'nosession'),
-    )
+    # A plain file, keyed by pane like everything else the throbber owns. No
+    # cmux call from here at all any more: the spin loop reads this each tick,
+    # so a render costs one small write instead of spawning a process.
+    path = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'claude-cmux-ctx-%s' % panel)
     try:
-        with open(state_path) as f:
-            previous = json.load(f)
-    except Exception:
-        previous = {}
-    if previous == state:
-        return
-
-    env = dict(os.environ, CMUX_QUIET='1')
-
-    def fire(args):
-        subprocess.Popen(
-            [cli] + args,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-            start_new_session=True,
-        )
-
-    if previous.get('ctx') != state['ctx']:
-        fire(['set-progress', '%.2f' % (pct / 100.0)])
-
-    try:
-        with open(state_path, 'w') as f:
-            json.dump(state, f)
+        with open(path, 'w') as f:
+            f.write('%.1f' % pct)
     except Exception:
         pass
 

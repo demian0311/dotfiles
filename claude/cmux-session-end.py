@@ -39,14 +39,16 @@ def main():
         except Exception:
             pass
 
-    state_path = os.path.join(
-        os.environ.get('TMPDIR', '/tmp'),
-        'claude-cmux-%s.json' % (session_id or 'nosession'),
-    )
-    try:
-        os.remove(state_path)
-    except Exception:
-        pass
+    tmp = os.environ.get('TMPDIR', '/tmp')
+    panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
+    for path in (
+        os.path.join(tmp, 'claude-cmux-%s.json' % (session_id or 'nosession')),
+        os.path.join(tmp, 'claude-cmux-ctx-%s' % panel),
+    ):
+        try:
+            os.remove(path)
+        except Exception:
+            pass
 
 
 try:
