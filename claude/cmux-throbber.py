@@ -37,6 +37,14 @@ WAIT_COLOR = '#c9a227'     # slate gold — reads as "your turn" without shoutin
 WAIT_TEXT = 'Needs input'
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
+# The ROW colour is session state, not context — context is the progress bar.
+#   red    stopped: waiting on you, nothing is moving
+#   green  an agent is working
+#   blue   no agent here, just a terminal
+ROW_STOPPED = '#c0504d'
+ROW_WORKING = '#5b9357'
+ROW_IDLE = '#3b6ea5'
+
 
 def cli():
     return os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
@@ -57,6 +65,10 @@ def pid_path():
     # pane sits in, and that is what the cmux CLI targets by default.
     panel = os.environ.get('CMUX_PANEL_ID', 'nopanel')
     return os.path.join(os.environ.get('TMPDIR', '/tmp'), 'claude-cmux-throbber-%s.pid' % panel)
+
+
+def row_color(color):
+    run(['workspace-action', '--action', 'set-color', '--color', color])
 
 
 def run(args):
@@ -137,6 +149,11 @@ def stop():
         restore(state.get('saved'))
     except Exception:
         pass
+    # A finished turn IS the waiting state: nothing moves until you type.
+    try:
+        row_color(ROW_STOPPED)
+    except Exception:
+        pass
 
 
 def start():
@@ -152,6 +169,10 @@ def start():
     try:
         with open(pid_path(), 'w') as f:
             json.dump({'pid': child.pid, 'saved': saved}, f)
+    except Exception:
+        pass
+    try:
+        row_color(ROW_WORKING)
     except Exception:
         pass
 
@@ -202,6 +223,7 @@ def main():
             # Assert it now too: the notification may arrive with no spinner
             # running, and cmux writes its own bell pill at the same moment.
             run(['set-status', KEY, WAIT_TEXT, '--icon', WAIT_ICON, '--color', WAIT_COLOR])
+            row_color(ROW_STOPPED)
 
 
 try:

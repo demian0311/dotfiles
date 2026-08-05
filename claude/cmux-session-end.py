@@ -24,9 +24,9 @@ def main():
     cli = os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
     env = dict(os.environ, CMUX_QUIET='1')
     for args in (
-        ['workspace-action', '--action', 'clear-color'],
+        # Blue is the third row state: no agent here any more, just a terminal.
+        ['workspace-action', '--action', 'set-color', '--color', '#3b6ea5'],
         ['clear-progress'],
-        ['clear-status', 'quota'],
     ):
         try:
             subprocess.run(

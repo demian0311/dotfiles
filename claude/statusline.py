@@ -176,40 +176,23 @@ else:
     print(f" {left}")
 
 # ---------------------------------------------------------------------------
-# Mirror context pressure onto the cmux sidebar row for this workspace, so a
-# session's fill is readable without opening its pane.
-#   colour bar  green -> gold -> amber as context fills
-#   progress    the context percentage itself
-# Numbers are deliberately NOT written here — C/S/W already sit in the footer
-# above, and a pill repeating them is the same fact twice. The bar and the
-# colour earn their place by being readable on rows that are not focused.
-# Red (#c0504d) is deliberately never used here: it stays free to mean "I am
-# driving this workspace by hand".
+# Mirror context fill onto the cmux sidebar row for this workspace as a progress
+# bar, so it is readable without opening the pane.
+# The row's COLOUR is not context — it is session state, written by the hooks in
+# cmux-throbber.py: red stopped/waiting on you, green working, blue no agent.
+# Numbers are deliberately NOT written here either: C/S/W already sit in the
+# footer above, and a pill repeating them is the same fact twice.
 # Cleared again by cmux-session-end.py on SessionEnd. Best effort throughout —
 # any failure leaves the status line above untouched.
 # ---------------------------------------------------------------------------
-
-CTX_COLORS = ((75, '#cc7a33'), (50, '#c9a227'), (0, '#5b9357'))
-
-
-def _bucket(p):
-    for floor, color in CTX_COLORS:
-        if p >= floor:
-            return color
-    return CTX_COLORS[-1][1]
-
 
 def push_to_cmux():
     if not os.environ.get('CMUX_PANEL_ID'):
         return
     cli = os.environ.get('CMUX_BUNDLED_CLI_PATH') or 'cmux'
 
-    color = _bucket(pct)
-    # Only redraw on a visible change: colour bucket, or 5% of context.
-    state = {
-        'color': color,
-        'ctx': int(pct // 5),
-    }
+    # Only redraw on a visible change: 5% of context.
+    state = {'ctx': int(pct // 5)}
     state_path = os.path.join(
         os.environ.get('TMPDIR', '/tmp'),
         'claude-cmux-%s.json' % (session_id or 'nosession'),
@@ -233,8 +216,6 @@ def push_to_cmux():
             start_new_session=True,
         )
 
-    if previous.get('color') != state['color']:
-        fire(['workspace-action', '--action', 'set-color', '--color', color])
     if previous.get('ctx') != state['ctx']:
         fire(['set-progress', '%.2f' % (pct / 100.0)])
 
