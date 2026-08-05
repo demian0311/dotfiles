@@ -34,12 +34,6 @@ esac
 #source "$HOME/.sdkman/bin/sdkman-init.sh"
 #source "$HOME/code/dotfiles/.zsh.aliases.sh"
 
-# shell autocompletes for uv
-eval "$(uv generate-shell-completion zsh)"
-eval "$(uvx --generate-shell-completion zsh)"
-
-# Set up fzf key bindings and fuzzy completion
-source <(fzf --zsh)
 source ~/.zsh.aliases.sh
 
 ~/bin/banner.sh
