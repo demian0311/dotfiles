@@ -38,12 +38,43 @@ WAIT_COLOR = '#c0504d'     # same red as the row, so pill and row agree
 # is, the bar says how full the context is. cmux rejects an empty status value,
 # so a pill with nothing to show carries a zero-width space.
 BLANK = '​'
-# Ten cells, each subdivided into eighths by the partial-block glyphs, so the
-# bar resolves to ~1.25% without being twenty characters wide.
+# 🔴 Geometric Shapes (U+25A0/U+25A1), NOT Block Elements — changed 2026-08-05
+# because the block bar rendered ragged, with the cells at visibly different
+# heights.
+#
+# The cause is font fallback, not spacing, which is why no amount of tuning the
+# old glyphs fixed it: the sidebar label font is PROPORTIONAL and carries none
+# of these characters, so each one resolved through a different fallback face
+# with its own height, width and baseline. `█` and `░` are not even the same
+# kind of glyph — one is a solid block, the other a 25% stipple — so they landed
+# in different fonts and sat at different heights beside each other. The seven
+# partial-width blocks made it worse by design: `▏▎▍▌▋▊▉` are SUPPOSED to be
+# seven different widths, so the bar's last cell was never the width of the
+# ones before it.
+#
+# ■ and □ are one shape in two states, from one block of one family. They
+# cannot disagree about height, because they are the same glyph filled or
+# outlined.
+#
+# The cost is resolution: no partial cell, so the bar steps in 10% rather than
+# ~1.25%. That is what the colour ramp below is for — nobody reads a sidebar
+# meter to the percent, they read it for "am I fine / getting full / nearly
+# out", and colour answers that better than a fractional cell ever did.
 BAR_CELLS = 10
-BAR_FULL = '█'
-BAR_EMPTY = '░'
-BAR_PARTIALS = ('', '▏', '▎', '▍', '▌', '▋', '▊', '▉')
+BAR_FULL = '■'
+BAR_EMPTY = '□'
+
+# Colour = urgency, shapes = amount. Two jobs, two channels.
+#
+# ⚠️ The red is deliberately NOT WAIT_COLOR's brick. Red already means "waiting
+# on you" here, and a second red would blur the one signal that gets you to look
+# at the row. This one is hotter and more orange, and — more importantly — a
+# blocked session never shows it at all: every wait path passes WAIT_COLOR
+# explicitly, so the ramp only ever paints a session that is actually working.
+BAR_WARN_AT = 60           # amber: filling, worth knowing
+BAR_URGENT_AT = 85         # red: nearly out, act now
+BAR_COLOR_WARN = '#c98f2b'
+BAR_COLOR_URGENT = '#cc4125'
 WAIT_TYPES = ('permission_prompt', 'agent_needs_input', 'idle_prompt', 'elicitation_dialog')
 
 # The ROW colour is session state, not context — context is the progress bar.
@@ -168,22 +199,52 @@ def ctx_path():
     return os.path.join(os.environ.get('TMPDIR', '/tmp'), 'claude-cmux-ctx-%s' % panel)
 
 
+def context_pct():
+    """How full the context is, or None if the status line has not said yet."""
+    try:
+        with open(ctx_path()) as f:
+            return max(0.0, min(100.0, float(f.read().strip())))
+    except Exception:
+        return None
+
+
 def context_bar():
-    """The status line leaves the context percentage here; draw it as blocks.
+    """The status line leaves the context percentage here; draw it as boxes.
 
     Riding in the pill rather than cmux's own progress row keeps the icon and
     the bar on ONE line instead of two.
     """
-    try:
-        with open(ctx_path()) as f:
-            pct = float(f.read().strip())
-    except Exception:
+    pct = context_pct()
+    if pct is None:
         return ''
-    pct = max(0.0, min(100.0, pct))
-    eighths = int(round(pct / 100.0 * BAR_CELLS * 8))
-    full, rest = divmod(eighths, 8)
-    bar = BAR_FULL * full + BAR_PARTIALS[rest]
-    return bar + BAR_EMPTY * (BAR_CELLS - len(bar))
+    filled = int(round(pct / 100.0 * BAR_CELLS))
+    filled = max(0, min(BAR_CELLS, filled))
+    # Both ends are guarded, because rounding lies loudest exactly where the
+    # bar is read hardest. Without these, 4% drew as empty — indistinguishable
+    # from a fresh session, and easy to read as "the bar is broken" — and 99%
+    # drew as FULL, which is the one reading that must stay true. A bar that
+    # cries full early is a bar you learn to ignore.
+    if pct > 0:
+        filled = max(1, filled)
+    if pct < 100:
+        filled = min(BAR_CELLS - 1, filled)
+    return BAR_FULL * filled + BAR_EMPTY * (BAR_CELLS - filled)
+
+
+def context_color(default):
+    """`default` until the context is worth mentioning, then amber, then red.
+
+    Only ever reached from the working path — the wait states pass WAIT_COLOR
+    themselves, so a session blocked on you keeps its one meaning.
+    """
+    pct = context_pct()
+    if pct is None:
+        return default
+    if pct >= BAR_URGENT_AT:
+        return BAR_COLOR_URGENT
+    if pct >= BAR_WARN_AT:
+        return BAR_COLOR_WARN
+    return default
 
 
 def paint(icon, color, lead=''):
@@ -315,7 +376,10 @@ def spin():
             if os.path.exists(wait_path()):
                 paint(WAIT_ICON, WAIT_COLOR)
             else:
-                paint(None, COLOR, lead=FRAMES[i % len(FRAMES)])
+                # The one path the ramp applies to: actually working. Every
+                # other call site passes WAIT_COLOR, so "red pill" keeps
+                # meaning "your turn" unless the session is mid-turn.
+                paint(None, context_color(COLOR), lead=FRAMES[i % len(FRAMES)])
         except Exception:
             return
         i += 1
