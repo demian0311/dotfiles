@@ -236,7 +236,7 @@ def push_to_cmux():
     if previous.get('color') != state['color']:
         fire(['workspace-action', '--action', 'set-color', '--color', color])
     if previous.get('ctx') != state['ctx']:
-        fire(['set-progress', '%.2f' % (pct / 100.0), '--label', 'ctx %.0f%%' % pct])
+        fire(['set-progress', '%.2f' % (pct / 100.0)])
     if five_pct is not None and (
         previous.get('five') != state['five'] or previous.get('week') != state['week']
     ):
