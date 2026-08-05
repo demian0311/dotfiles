@@ -72,12 +72,16 @@ def snapshot():
             continue
         rest = line[len(KEY) + 1:]
         saved = {'value': rest, 'icon': None, 'color': None, 'priority': None}
+        # Every field is located against the untouched line — trimming `value`
+        # as we go once cut the ` color=` marker off before it was read.
+        cut = len(rest)
         for field in ('icon', 'color', 'priority'):
             marker = ' %s=' % field
-            at = saved['value'].find(marker)
+            at = rest.find(marker)
             if at != -1:
-                saved[field] = saved['value'][at + len(marker):].split(' ')[0]
-                saved['value'] = saved['value'][:at]
+                saved[field] = rest[at + len(marker):].split(' ')[0]
+                cut = min(cut, at)
+        saved['value'] = rest[:cut]
         return saved
     return None
 
