@@ -24,9 +24,20 @@ ln -s ~/code/dotfiles/config/ghostty/config      ~/.config/ghostty/config
 ln -s ~/code/dotfiles/config/ghostty/themes      ~/.config/ghostty/themes
 ```
 
-`claude/` works the same way, one symlink per file into `~/.claude/` — except
-`settings.json`, which Claude Code rewrites itself, so the repo keeps a copy
-that has to be re-recorded by hand after settings changes.
+`claude/` works the same way, one symlink per file into `~/.claude/`. Run the
+linker instead of doing it by hand:
+
+``` bash
+~/code/dotfiles/claude/install.sh
+```
+
+It is idempotent, so re-running it is the fix for drift. That matters because
+Claude Code rewrites `settings.json` when settings change, and a rewrite that
+replaces the file leaves a regular file where the symlink was — edits then land
+in `~/.claude` and never reach the repo. `install.sh` copies such a file back
+into the repo before re-linking, so the newer version wins; the displaced file
+is kept as `~/.claude/<name>.bak-<timestamp>`. Check `git status` here after
+changing Claude settings.
 -- 
 
 - [ ] Need to commit Nord color for vim
