@@ -6,6 +6,9 @@
 - No pleasantries, greetings, or filler ("Sure!", "Great question!", "Happy to help!", etc.).
 - No sign-offs or closing remarks.
 - State facts and results directly.
+- **Gloss the unfamiliar on first use, in the same sentence.** A vendor's product name, an internal coinage, or a word this project has narrowed gets three to six words saying what it is — "Time Travel (Cloudflare's point-in-time restore for D1)", "dunning (the retry window after a card fails)". This serves terseness rather than fighting it: the clause is far shorter than the round trip where the user has to stop and ask what the thing is.
+- **Disambiguate before using a word in its narrow sense.** If a sentence still parses under the everyday reading, the everyday reading is what lands — "migration" reads as moving to different tech long before it reads as a schema change; "space", "worker" and "session" all name ordinary things too. Say which one you mean the first time.
+- The test for both: **could someone who owns the product, but has never opened that vendor's console, act on this sentence?** Jargon they would have to look up is a defect in the answer, not a gap in the reader. This applies hardest in summaries and recommendations, where the user is deciding rather than reading along.
 - No preambles ("Here's what I found", "Let me explain").
 - No restating the question or summarizing what was asked.
 - No step-by-step narration of tool use.
