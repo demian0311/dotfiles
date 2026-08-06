@@ -1,0 +1,464 @@
+#!/usr/bin/env python3
+"""Answer "is this laptop about to need a restart, and what do I close first?" in the sidebar.
+
+Sibling to cmux-tidy, which asks a different question. cmux-tidy asks "is anything
+LISTENing that nobody is connected to" — idleness, regardless of size — and it never
+counts Claude sessions, on purpose. This one asks "what is heavy, right now" and counts
+everything, because on a machine running seven agent sessions the Claude processes ARE
+the weight and restarting one is a real option.
+
+Two things get surfaced:
+
+  A pill per workspace, `<size> <what>` — the ranked list of what to close, sitting on
+  the rows you would close. Quiet by default: only workspaces over --floor get one, so a
+  pill appearing at all already means something. When the machine goes tight, EVERY
+  workspace gets one, so the sidebar becomes a complete kill-list exactly when you need
+  it to be and stays uncluttered the rest of the time.
+
+  A notification when headroom actually runs out, naming the top workspaces. Fires on the
+  crossing, not every run, and repeats at most every --renotify minutes.
+
+The machine gauge is swap + the compressor, not "free RAM". macOS deliberately leaves
+almost no RAM free, so free RAM never predicts anything; what predicts a thrash is how
+much has stopped fitting. Both numbers only go up under load and come back slowly, which
+is exactly the "you have some warning" property that free RAM lacks.
+
+  cmux-mem                  write the pills once, notify if the machine is tight
+  cmux-mem --report         also print the ranked table and the gauge
+  cmux-mem --daemon         keep doing it, forever, one instance per machine
+  cmux-mem --off            remove every pill this tool set, and stop
+
+IT CANNOT RUN FROM launchd. cmux's socket is `cmuxOnly` by default and answers
+"Access denied - only processes started inside cmux can connect" to anything launchd
+starts, so a LaunchAgent for this is a file that runs every two minutes and achieves
+nothing, silently, forever. (cmux-tidy has one of those. It has never worked.) What the
+socket actually checks is inherited at spawn, not live parentage — a process started
+from a cmux shell keeps its access after being orphaned to PID 1, verified 2026-08-06 —
+so `--daemon` launched once from any cmux terminal survives that terminal closing. The
+loop is started from .zshrc, guarded to one instance, and dies with cmux itself.
+
+Thresholds are fractions of physical RAM, not fixed sizes, so they survive a new laptop.
+The defaults are a first calibration and --report prints them next to the live reading,
+so drifting them is a one-flag experiment rather than a code edit.
+"""
+import argparse
+import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+CLI_CANDIDATES = [
+    os.environ.get('CMUX_BUNDLED_CLI_PATH', ''),
+    '/Applications/cmux.app/Contents/Resources/bin/cmux',
+    '/opt/homebrew/bin/cmux',
+]
+
+PILL_KEY = 'mem'                # cmux-tidy owns 'tidy', the hooks own 'claude_code'
+PILL_ICON = 'memorychip'
+PILL_PRIORITY = '40'            # behind claude_code, which is the one you look at first
+
+COLOR_NOTED = '#7d8590'         # over the floor — worth knowing, not worth acting on
+COLOR_HEAVY = '#c9922b'
+COLOR_TOP = '#c0504d'           # the one to close first
+
+CLAUDE_LABEL = re.compile(r'^\d+\.\d+\.\d+$')   # cmux labels Claude by its version
+STATE_FILE = os.path.expanduser('~/Library/Caches/cmux-mem.json')
+
+GB = 1024 ** 3
+
+# Fractions of physical RAM. Swap alone is the sharper signal — it is pure overflow —
+# so it trips at a lower share than swap+compressor combined.
+SWAP_TIGHT, SWAP_CRITICAL = 0.18, 0.38
+SPILL_TIGHT, SPILL_CRITICAL = 0.45, 0.70
+
+
+def cli():
+    for path in CLI_CANDIDATES:
+        if path and os.path.exists(path):
+            return path
+    return 'cmux'
+
+
+def cmux(args, capture=False):
+    env = dict(os.environ, CMUX_QUIET='1')
+    try:
+        return subprocess.run(
+            [cli()] + args,
+            stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+            env=env,
+            text=True,
+        ).stdout or ''
+    except Exception:
+        return ''
+
+
+def sysctl(name):
+    # Absolute path on purpose. launchd hands a minimal PATH, and every reading here
+    # fails SOFT to zero — a missing sysctl would have quietly reported a machine with
+    # no memory and no pressure, i.e. permanently fine, which is the one failure this
+    # tool must never have. Caught exactly that way during install.
+    try:
+        out = subprocess.run(['/usr/sbin/sysctl', '-n', name], stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, text=True, timeout=10).stdout.strip()
+    except Exception:
+        return ''
+    return out
+
+
+def machine():
+    """What has stopped fitting in RAM, and what macOS itself thinks of that."""
+    try:
+        physical = int(sysctl('hw.memsize'))
+    except ValueError:
+        physical = 0
+    try:
+        compressed = int(sysctl('vm.compressor_bytes_used'))
+    except ValueError:
+        compressed = 0
+    try:
+        # 1 normal, 2 warn, 4 critical. macOS's own signal, and the one apps get told
+        # about — late, but never wrong, so it can only escalate a verdict here.
+        pressure = int(sysctl('kern.memorystatus_vm_pressure_level'))
+    except ValueError:
+        pressure = 1
+
+    swap = 0
+    match = re.search(r'used\s*=\s*([\d.]+)([KMGT])', sysctl('vm.swapusage'))
+    if match:
+        scale = {'K': 1024, 'M': 1024 ** 2, 'G': GB, 'T': 1024 ** 4}[match.group(2)]
+        swap = int(float(match.group(1)) * scale)
+
+    spill = compressed + swap
+    if not physical:
+        # Never fall back to 'ok' here: a gauge that reads fine because it is broken is
+        # worse than no gauge, because you stop checking by hand.
+        state = 'unknown'
+    elif (pressure >= 4 or swap >= SWAP_CRITICAL * physical
+            or spill >= SPILL_CRITICAL * physical):
+        state = 'critical'
+    elif (pressure >= 2 or swap >= SWAP_TIGHT * physical
+            or spill >= SPILL_TIGHT * physical):
+        state = 'tight'
+    else:
+        state = 'ok'
+    return {'physical': physical, 'swap': swap, 'compressed': compressed,
+            'spill': spill, 'pressure': pressure, 'state': state}
+
+
+def workspaces():
+    """[{ref, title, rss, dominant}] heaviest first, from cmux's own process attribution.
+
+    RSS is summed across a workspace's process tree, so pages shared between those
+    processes are counted more than once and a total can exceed what freeing the
+    workspace would actually return. It is the right number for RANKING, which is all
+    it is used for; the machine gauge above is the one that says how bad things are.
+    """
+    rows = []
+    for line in cmux(['top', '--all', '--processes', '--format', 'tsv'],
+                     capture=True).splitlines():
+        parts = line.split('\t')
+        if len(parts) >= 6:
+            rows.append(parts)
+    if not rows:
+        return []
+
+    kind_of, parent_of, label_of, rss_of = {}, {}, {}, {}
+    for cpu, rss, count, kind, ident, parent, *rest in rows:
+        kind_of[ident] = kind
+        parent_of[ident] = parent
+        label_of[ident] = rest[0] if rest else ''
+        try:
+            rss_of[ident] = int(rss)
+        except ValueError:
+            rss_of[ident] = 0
+
+    def workspace_for(ident, depth=0):
+        while ident and depth < 20:
+            if kind_of.get(ident) == 'workspace':
+                return ident
+            ident = parent_of.get(ident)
+            depth += 1
+        return None
+
+    # A process is reported under its surface AND again under any tag that claims it,
+    # so walk pids once and keep the first workspace each resolves to.
+    heaviest = {}
+    for ident, kind in kind_of.items():
+        if kind != 'process':
+            continue
+        ws = workspace_for(parent_of.get(ident))
+        if not ws:
+            continue
+        label = label_of.get(ident, '')
+        name = 'claude' if CLAUDE_LABEL.match(label) else (label or '?')
+        current = heaviest.get(ws)
+        if current is None or rss_of.get(ident, 0) > current[1]:
+            heaviest[ws] = (name, rss_of.get(ident, 0))
+
+    out = []
+    for ident, kind in kind_of.items():
+        if kind != 'workspace':
+            continue
+        out.append({
+            'ref': ident,
+            'title': label_of.get(ident, '') or '(untitled)',
+            'rss': rss_of.get(ident, 0),
+            'dominant': heaviest.get(ident, ('', 0))[0],
+        })
+    return sorted(out, key=lambda w: -w['rss'])
+
+
+def human(n):
+    if n >= GB:
+        return '%.1fG' % (n / GB)
+    return '%.0fM' % (n / (1024 ** 2))
+
+
+def read_state():
+    try:
+        with open(STATE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def write_state(data):
+    try:
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        with open(STATE_FILE, 'w') as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
+
+def clear_all(ws):
+    for w in ws:
+        cmux(['clear-status', PILL_KEY, '--workspace', w['ref']])
+
+
+PIDFILE = os.path.expanduser('~/Library/Caches/cmux-mem.pid')
+
+
+def already_running():
+    """True if another --daemon holds the pidfile. Stale pidfiles self-heal."""
+    try:
+        with open(PIDFILE) as f:
+            pid = int(f.read().strip())
+    except Exception:
+        return False
+    if pid == os.getpid():
+        return False
+    try:
+        os.kill(pid, 0)          # signal 0 tests existence without touching it
+    except OSError:
+        return False
+    return True
+
+
+def run_once(args, tidy_due):
+    ws = workspaces()
+    if not ws:
+        return False             # cmux is gone; the daemon should stop rather than spin
+    m = machine()
+    if args.pretend:
+        m['state'] = args.pretend
+    paint(args, m, ws)
+    if tidy_due:
+        drive_tidy()
+    return True
+
+
+def drive_tidy():
+    """Run its sibling on the same borrowed socket access.
+
+    cmux-tidy's own LaunchAgent cannot reach cmux either, so its idle-server pills were
+    never appearing. Rather than leave a second dead scheduler on the machine, this loop
+    drives it — one working timer beats two broken ones.
+    """
+    sibling = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cmux-tidy')
+    if not os.path.exists(sibling):
+        return
+    try:
+        subprocess.run([sys.executable, sibling, '--quiet',
+                        '--log', os.path.expanduser('~/Library/Logs/cmux-tidy.log')],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+    except Exception:
+        pass
+
+
+def paint(args, m, ws):
+    """Set every pill, and notify if headroom just ran out."""
+    floor = args.floor * GB
+    heavy = args.heavy * GB
+    # When headroom is gone, every row carries its weight — the sidebar becomes the
+    # whole kill-list. When it is fine, only the outliers do.
+    alarming = m['state'] in ('tight', 'critical')
+    top_ref = ws[0]['ref'] if ws else None
+
+    for w in ws:
+        if not alarming and w['rss'] < floor:
+            cmux(['clear-status', PILL_KEY, '--workspace', w['ref']])
+            continue
+        if w['ref'] == top_ref and alarming:
+            color = COLOR_TOP
+        elif w['rss'] >= heavy:
+            color = COLOR_HEAVY
+        else:
+            color = COLOR_NOTED
+        label = human(w['rss'])
+        if w['dominant']:
+            label += ' ' + w['dominant']
+        cmux(['set-status', PILL_KEY, label, '--icon', PILL_ICON, '--color', color,
+              '--priority', PILL_PRIORITY, '--workspace', w['ref']])
+
+    now = datetime.datetime.now()
+    prev = read_state()
+    fired = prev.get('state', 'ok')
+    last = prev.get('at')
+    stale = True
+    if last:
+        try:
+            stale = (now - datetime.datetime.fromisoformat(last)).total_seconds() > args.renotify * 60
+        except Exception:
+            stale = True
+
+    worsened = {'ok': 0, 'unknown': 0, 'tight': 1, 'critical': 2}
+    should_notify = (alarming and not args.no_notify
+                     and (worsened[m['state']] > worsened.get(fired, 0) or stale))
+
+    if should_notify:
+        # Name what is running as well as the workspace: a row still labelled "clear"
+        # identifies nothing, and those are exactly the forgotten ones that get heavy.
+        names = ', '.join('%s (%s %s)' % (w['title'], human(w['rss']), w['dominant'])
+                          for w in ws[:2])
+        cmux(['notify',
+              '--title', 'Memory is %s' % ('critical' if m['state'] == 'critical' else 'getting tight'),
+              '--subtitle', '%s no longer fits in RAM' % human(m['spill']),
+              '--body', 'Heaviest: %s. Every workspace now shows its size.' % names])
+        write_state({'state': m['state'], 'at': now.isoformat(timespec='seconds')})
+    elif m['state'] == 'ok' and fired != 'ok':
+        write_state({})
+
+    if args.log and m['state'] != 'ok':
+        try:
+            with open(os.path.expanduser(args.log), 'a') as f:
+                f.write('%s\t%s\tswap %s\tcompressed %s\t%s\n'
+                        % (now.isoformat(timespec='seconds'), m['state'],
+                           human(m['swap']), human(m['compressed']),
+                           ', '.join('%s %s' % (w['title'], human(w['rss'])) for w in ws[:3])))
+        except Exception:
+            pass
+
+
+def daemon(args):
+    if already_running():
+        return 0
+    try:
+        os.makedirs(os.path.dirname(PIDFILE), exist_ok=True)
+        with open(PIDFILE, 'w') as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+    tidy_every = max(1, int(args.tidy_interval * 60 / args.interval))
+    tick = 0
+    try:
+        while True:
+            # cmux going away is the daemon's exit condition, not an error: the socket
+            # access it is holding cannot be re-acquired from outside cmux anyway, so a
+            # loop that kept retrying would spin forever achieving nothing.
+            if not run_once(args, tidy_due=(args.tidy and tick % tidy_every == 0)):
+                break
+            tick += 1
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        try:
+            if open(PIDFILE).read().strip() == str(os.getpid()):
+                os.remove(PIDFILE)
+        except Exception:
+            pass
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--daemon', action='store_true',
+                    help='loop forever; one instance per machine, must start inside cmux')
+    ap.add_argument('--interval', type=int, default=120,
+                    help='seconds between passes in --daemon (default 120)')
+    ap.add_argument('--tidy', action='store_true', default=True,
+                    help='also drive cmux-tidy, whose own scheduler cannot reach cmux')
+    ap.add_argument('--no-tidy', dest='tidy', action='store_false')
+    ap.add_argument('--tidy-interval', type=int, default=15,
+                    help='minutes between cmux-tidy passes (default 15)')
+    ap.add_argument('--floor', type=float, default=0.7,
+                    help='GB below which a calm machine shows no pill (default 0.7)')
+    ap.add_argument('--heavy', type=float, default=1.2,
+                    help='GB at which a workspace pill turns amber (default 1.2)')
+    ap.add_argument('--renotify', type=int, default=45,
+                    help='minutes before the same warning repeats (default 45)')
+    ap.add_argument('--report', action='store_true', help='print the gauge and the ranking')
+    ap.add_argument('--off', action='store_true', help='remove every pill this tool set')
+    ap.add_argument('--no-notify', action='store_true', help='pills only, never notify')
+    ap.add_argument('--pretend', choices=('ok', 'tight', 'critical'),
+                    help='force the verdict, to see what a bad day looks like before you have one')
+    ap.add_argument('--log', metavar='PATH',
+                    help='append one dated line per run that warns (silent when calm)')
+    args = ap.parse_args()
+
+    if args.daemon:
+        return daemon(args)
+
+    ws = workspaces()
+    if not ws:
+        if args.report:
+            print('cmux is not running, or this is not a process it started —')
+            print('the socket only answers processes launched inside cmux.')
+        return 0
+
+    if args.off:
+        clear_all(ws)
+        write_state({})
+        if args.report:
+            print('cleared the memory pill from %d workspace(s)' % len(ws))
+        return 0
+
+    m = machine()
+    if args.pretend:
+        m['state'] = args.pretend
+    paint(args, m, ws)
+
+    if args.report:
+        if m['state'] == 'unknown':
+            print('Could not read this machine: sysctl gave nothing back, so the gauge')
+            print('is dead and only the workspace ranking below is real.')
+            for w in ws:
+                print('  %8s  %-10s %s' % (human(w['rss']), w['dominant'], w['title']))
+            return 1
+        phys = m['physical'] or 1
+        verdict = {'ok': 'fine', 'tight': 'getting tight',
+                   'critical': 'out of headroom — close something'}[m['state']]
+        print('This machine: %s — %s' % (human(phys), verdict))
+        print('  no longer fits in RAM   %s  (%.0f%% of %s)'
+              % (human(m['spill']), 100 * m['spill'] / phys, human(phys)))
+        print('    of which swapped to disk  %s   warns at %s, critical at %s'
+              % (human(m['swap']), human(SWAP_TIGHT * phys), human(SWAP_CRITICAL * phys)))
+        print('    of which compressed       %s' % human(m['compressed']))
+        print('  combined warns at %s, critical at %s'
+              % (human(SPILL_TIGHT * phys), human(SPILL_CRITICAL * phys)))
+        print("  macOS's own pressure level %d (1 normal, 2 warn, 4 critical)" % m['pressure'])
+        print()
+        print('Workspaces, heaviest first (shared pages double-count; use for ranking):')
+        for w in ws:
+            print('  %8s  %-10s %s' % (human(w['rss']), w['dominant'], w['title']))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

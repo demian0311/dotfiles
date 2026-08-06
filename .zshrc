@@ -191,3 +191,27 @@ _cmux_row_idle() {
 }
 autoload -Uz add-zsh-hook
 add-zsh-hook precmd _cmux_row_idle
+
+# ---- cmux memory gauge: how big is each workspace, and is the machine ok -----
+# Starts bin/cmux-mem's loop, which puts each workspace's size on its own sidebar
+# row and warns before the laptop runs out of headroom.
+#
+# A shell is the ONLY thing that can start it. cmux's socket is `cmuxOnly`, so it
+# refuses every process launched from outside cmux — a LaunchAgent for this runs
+# forever and silently achieves nothing, which is exactly what cmux-tidy's has
+# been doing. Access is inherited at spawn rather than checked live, so the loop
+# keeps working after this terminal closes and it is orphaned to PID 1.
+#
+# The pidfile test keeps a new terminal from paying for a Python start just to be
+# told the daemon is already up.
+_cmux_mem_daemon() {
+  [[ -n "$CMUX_WORKSPACE_ID" ]] || return
+  local bin="$HOME/code/dotfiles/bin/cmux-mem"
+  local pidfile="$HOME/Library/Caches/cmux-mem.pid"
+  [[ -x "$bin" ]] || return
+  if [[ -f "$pidfile" ]] && kill -0 "$(<"$pidfile")" 2>/dev/null; then
+    return
+  fi
+  ( nohup "$bin" --daemon --log "$HOME/Library/Logs/cmux-mem.log" >/dev/null 2>&1 & )
+}
+_cmux_mem_daemon
