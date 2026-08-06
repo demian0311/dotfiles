@@ -1,0 +1,109 @@
+#!/bin/bash
+# Take a fixed dev port back, so the server about to start BINDS it instead of
+# quietly moving next door.
+#
+#   claim-port 4321              free it, or explain who has it and fail
+#   claim-port 4321 4322 1420    several at once
+#   claim-port --dry-run 4321    say what would be killed, kill nothing
+#
+# Why this exists. Dev servers are polite about collisions, and the politeness is
+# the bug. Astro documents it outright — "If the given port is already in use,
+# Astro will automatically try the next available port" — so every `pnpm dev` on
+# an already-served repo silently starts a SECOND server rather than telling you
+# the first is still up. On 2026-08-06 that had left six of them alive on :4321
+# through :4326 for the same docs site, the oldest a day old, together holding
+# 2.6 GB on a 16 GB laptop. Nothing was broken and nothing was reported; the
+# machine just got slower until it needed a restart.
+#
+# So the standard is: a dev port is a fixed address, not a suggestion. Claim it,
+# then bind it. One server per port, per repo, always.
+#
+# WHAT IT WILL AND WILL NOT KILL. Only a listener whose working directory is
+# inside the same checkout you run this from — found by walking up from $PWD to
+# the enclosing git repo, or its parent when repos sit side by side in a
+# workspace. Anything else holding the port is someone else's: it is named and
+# the command FAILS rather than guessing, because silently killing a stranger's
+# process to take its port is worse than the collision. That failure is the
+# point — the caller stops instead of drifting to the next port.
+
+set -u
+
+DRY=0
+PORTS=()
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run|-n) DRY=1 ;;
+    -h|--help)
+      sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+      exit 0 ;;
+    ''|*[!0-9]*)
+      echo "claim-port: not a port: $arg" >&2
+      exit 2 ;;
+    *) PORTS+=("$arg") ;;
+  esac
+done
+
+if [ ${#PORTS[@]} -eq 0 ]; then
+  echo "claim-port: give me at least one port" >&2
+  exit 2
+fi
+
+# The scope root: the enclosing git repo, or its parent if that repo is one of
+# several checkouts sitting side by side (this workspace, and its `-wt-` git
+# worktree siblings, are laid out exactly that way). Falls back to $PWD so the
+# tool is never MORE destructive than the directory it was run from.
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -n "$repo_root" ] && [ -d "$repo_root/../.git" ]; then
+  SCOPE="$(cd "$repo_root/.." && pwd)"
+elif [ -n "$repo_root" ]; then
+  SCOPE="$repo_root"
+else
+  SCOPE="$PWD"
+fi
+
+cwd_of() {
+  lsof -p "$1" -a -d cwd -Fn 2>/dev/null | grep '^n' | head -1 | cut -c2-
+}
+
+status=0
+
+for port in "${PORTS[@]}"; do
+  holders="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | sort -u)"
+  [ -z "$holders" ] && continue
+
+  for pid in $holders; do
+    cwd="$(cwd_of "$pid")"
+    cmd="$(ps -o command= -p "$pid" 2>/dev/null | cut -c1-80)"
+
+    case "$cwd" in
+      "$SCOPE"|"$SCOPE"/*)
+        if [ "$DRY" = 1 ]; then
+          echo "claim-port: would free :$port from pid $pid ($cmd)"
+          continue
+        fi
+        kill "$pid" 2>/dev/null
+        # Give it a moment to release the socket, then insist. A dev server that
+        # ignores SIGTERM still holds the port, and a half-freed port is the same
+        # collision we are here to prevent.
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+          kill -0 "$pid" 2>/dev/null || break
+          sleep 0.3
+        done
+        if kill -0 "$pid" 2>/dev/null; then
+          kill -9 "$pid" 2>/dev/null
+          sleep 0.3
+        fi
+        echo "claim-port: freed :$port (was pid $pid, $cmd)"
+        ;;
+      *)
+        echo "claim-port: :$port is held by pid $pid, which is NOT in $SCOPE" >&2
+        echo "claim-port:   cwd $cwd" >&2
+        echo "claim-port:   $cmd" >&2
+        echo "claim-port: refusing to kill it. Stop it yourself, or use another port." >&2
+        status=1
+        ;;
+    esac
+  done
+done
+
+exit $status
