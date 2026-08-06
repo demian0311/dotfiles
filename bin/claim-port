@@ -2,9 +2,17 @@
 # Take a fixed dev port back, so the server about to start BINDS it instead of
 # quietly moving next door.
 #
-#   claim-port 4321              free it, or explain who has it and fail
+#   claim-port 4321              free it, or explain who has it and stop
 #   claim-port 4321 4322 1420    several at once
-#   claim-port --dry-run 4321    say what would be killed, kill nothing
+#   claim-port --dry-run 4321    say what would happen, change nothing
+#   claim-port --force 4321      take it even from a server someone is using
+#
+# EXIT CODES, because the three outcomes are genuinely different:
+#   0  the port is yours — it was free, or the thing holding it was abandoned and is gone
+#   3  a LIVE server for this repo is already on it; nothing was killed, go use it
+#   1  something outside this checkout holds it; nothing was killed, sort it out yourself
+# Callers abort on any non-zero, so `dev` never starts a second server. Only 1 is a
+# problem — 3 means the thing you wanted is already running.
 #
 # Why this exists. Dev servers are polite about collisions, and the politeness is
 # the bug. Astro documents it outright — "If the given port is already in use,
@@ -18,6 +26,13 @@
 # So the standard is: a dev port is a fixed address, not a suggestion. Claim it,
 # then bind it. One server per port, per repo, always.
 #
+# BUT NOT AT ANY COST. Killing was the whole behaviour until it took a docs server out
+# from under someone who was reading it, mid-session, on 2026-08-06. An abandoned server
+# and a working one look identical from the port alone — what tells them apart is whether
+# anything is CONNECTED to it, the same discriminator cmux-tidy uses. So a holder with a
+# live connection is reused and reported, never killed; only an abandoned one is taken.
+# `--force` overrides, for when you know the connection is a tab you left open yesterday.
+#
 # WHAT IT WILL AND WILL NOT KILL. Only a listener whose working directory is
 # inside the same checkout you run this from — found by walking up from $PWD to
 # the enclosing git repo, or its parent when repos sit side by side in a
@@ -29,12 +44,14 @@
 set -u
 
 DRY=0
+FORCE=0
 PORTS=()
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY=1 ;;
+    --force|-f) FORCE=1 ;;
     -h|--help)
-      sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
       exit 0 ;;
     ''|*[!0-9]*)
       echo "claim-port: not a port: $arg" >&2
@@ -65,7 +82,23 @@ cwd_of() {
   lsof -p "$1" -a -d cwd -Fn 2>/dev/null | grep '^n' | head -1 | cut -c2-
 }
 
+# How many clients are actually talking to that pid on that port. A dev server with a
+# browser attached holds at least one (the page, and usually an HMR socket); an abandoned
+# one holds none. This is the whole in-use/stale distinction — a port number alone cannot
+# make it, which is why killing on sight was wrong.
+connections_on() {
+  lsof -nP -iTCP:"$2" -sTCP:ESTABLISHED -a -p "$1" 2>/dev/null | tail -n +2 | wc -l | tr -d ' '
+}
+
+# 0 clean · 1 held by something outside the scope · 3 held by a live server of ours.
+# Worst wins, and "outside" outranks "live" because it needs a human either way.
 status=0
+note_status() {
+  case "$1:$status" in
+    1:*) status=1 ;;
+    3:0) status=3 ;;
+  esac
+}
 
 for port in "${PORTS[@]}"; do
   holders="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | sort -u)"
@@ -77,6 +110,18 @@ for port in "${PORTS[@]}"; do
 
     case "$cwd" in
       "$SCOPE"|"$SCOPE"/*)
+        live="$(connections_on "$pid" "$port")"
+        if [ "${live:-0}" -gt 0 ] && [ "$FORCE" = 0 ]; then
+          # Somebody is reading this. Starting a second server would be the very
+          # accumulation this tool exists to stop, and killing it would take a page out
+          # from under them — so do neither, and say where the running one is.
+          echo "claim-port: :$port is already serving — $live connection(s), pid $pid"
+          echo "claim-port:   http://localhost:$port"
+          echo "claim-port:   $cmd"
+          echo "claim-port: leaving it alone. Use it, or --force to take the port anyway."
+          note_status 3
+          continue
+        fi
         if [ "$DRY" = 1 ]; then
           echo "claim-port: would free :$port from pid $pid ($cmd)"
           continue
@@ -100,7 +145,7 @@ for port in "${PORTS[@]}"; do
         echo "claim-port:   cwd $cwd" >&2
         echo "claim-port:   $cmd" >&2
         echo "claim-port: refusing to kill it. Stop it yourself, or use another port." >&2
-        status=1
+        note_status 1
         ;;
     esac
   done
