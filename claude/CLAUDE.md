@@ -102,20 +102,21 @@ Rules:
 
 ## Progress Checklists
 
-Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. Same color scheme as everything else.
+Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. **It uses ballot boxes, NOT the 🟢/🟡/🔴 dots** — those mean *priority* in a Next-steps list, and reusing them here would make two different objects look identical.
 
 ```
 Audit and split the instruction files
 
-  🟢 Audit workspace CLAUDE.md
-  🟢 Migrate generic rules to global
-  🟡 Reconcile memory vs CLAUDE.md
-  🔴 Commit across three repos
-  🔴 Push main branches
+  ☑ Audit workspace CLAUDE.md
+  ☑ Migrate generic rules to global
+  ▸ Reconcile memory vs CLAUDE.md
+  ☐ Commit across three repos
+  ☐ Push main branches
 ```
 
-- 🟢 done · 🟡 in progress right now · 🔴 not started
-- Exactly one 🟡 at a time. Nothing is "in progress" while something else is
+- ☑ done · ▸ in progress right now · ☐ not started
+- All three are single-width glyphs, so every line indents the same. Never substitute an emoji (✅, 🔄, ⬜) for one of them — emoji are double-width and one on a line knocks that row out of alignment with the rest
+- Exactly one ▸ at a time. Nothing is "in progress" while something else is
 - One line per step, phrased as the action. No sub-bullets, no status prose
 - Post it when the work starts and re-post it as states change — a stale checklist is worse than none
 - Steps that get dropped or blocked stay listed, struck or annotated in a word. Silently vanishing steps read as completed
