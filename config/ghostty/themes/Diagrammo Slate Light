@@ -1,6 +1,26 @@
 # Diagrammo Slate — light
-# Mirrors dgmo/src/palettes/slate.ts (light). Colors 10–13 use the palette's
-# AA-on-white text variants so bright text stays readable on a white background.
+# Generated from dgmo/src/palettes/slate.ts; the same sixteen slots that
+# diagrammo.app/slate/ publishes. Do not hand-edit a hex here — change the
+# palette in dgmo and take the file from the site.
+#
+# A light ground cannot reuse the palette's own hues directly: even the light
+# spectrum leaves yellow at 2.42:1 against white, and that is the slot most
+# colored output lands in. So each hue is walked toward black until it clears
+# 4.5:1 for normal and 7:1 for bright, holding its hue and spending only
+# lightness. Red, blue and purple already clear it and are exactly as the
+# palette drew them.
+#
+# Bright goes DARKER here while bright black stays lighter, which is what every
+# light theme does rather than an oversight: more ink is what reads as emphasis
+# on paper, but bright black is the dimmed-comment gray everywhere.
+#
+# Purple stands in for magenta, and teal takes the cyan slot — steel cyan sits
+# too close to the blue it would keep landing beside, so it stays a diagram
+# color.
+#
+# This replaced a version that patched slots one at a time: red and cyan
+# rendered identically in normal and bright, and bright white was the same ink
+# as black.
 
 background = #ffffff
 foreground = #1f2933
@@ -11,17 +31,17 @@ selection-foreground = #1f2933
 
 palette = 0=#1f2933
 palette = 1=#c0504d
-palette = 2=#5b9357
-palette = 3=#c9a227
+palette = 2=#4f804b
+palette = 3=#8b7019
 palette = 4=#3b6ea5
 palette = 5=#7d5ba6
-palette = 6=#3a9188
+palette = 6=#34827b
 palette = 7=#5b6672
 palette = 8=#7e8a97
-palette = 9=#c0504d
-palette = 10=#3f7a3b
-palette = 11=#836611
-palette = 12=#4f96c4
-palette = 13=#6b4d8f
-palette = 14=#3a9188
-palette = 15=#1f2933
+palette = 9=#933b39
+palette = 10=#3a6138
+palette = 11=#695511
+palette = 12=#2f5987
+palette = 13=#654988
+palette = 14=#24625d
+palette = 15=#d4dae1
