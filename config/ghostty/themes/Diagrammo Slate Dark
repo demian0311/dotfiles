@@ -1,5 +1,22 @@
 # Diagrammo Slate — dark
-# Mirrors dgmo/src/palettes/slate.ts (dark).
+# Generated from dgmo/src/palettes/slate.ts; the same sixteen slots that
+# diagrammo.app/slate/ publishes. Do not hand-edit a hex here — change the
+# palette in dgmo and take the file from the site.
+#
+# Normal (0-7) comes from the palette's LIGHT spectrum and bright (8-15) from
+# its DARK one: a palette's light values are its darker ones and its dark
+# values its lifted ones, which is exactly the normal/bright relationship a
+# dark terminal wants. Nothing here was invented, every normal clears 3.2:1 on
+# this background and every bright 5.6:1.
+#
+# Two slots are not what their name suggests, both deliberately: purple stands
+# in for magenta (a diagram palette has no magenta), and teal takes cyan
+# because the palette's steel cyan sits too close to blue, which it would keep
+# landing beside. Steel cyan stays a diagram color.
+#
+# This replaced a version whose normal and bright bands both came from the dark
+# spectrum, leaving red, green, magenta and cyan rendering identically in both
+# — so anything using a bright variant for emphasis lost the distinction.
 
 background = #161b22
 foreground = #e6eaef
@@ -9,18 +26,18 @@ selection-background = #38424f
 selection-foreground = #f2f4f7
 
 palette = 0=#202833
-palette = 1=#e07b6e
-palette = 2=#74b56e
-palette = 3=#d9bd5a
-palette = 4=#5b9bd5
-palette = 5=#a585c9
-palette = 6=#45b3a3
-palette = 7=#9aa5b1
-palette = 8=#38424f
+palette = 1=#c0504d
+palette = 2=#5b9357
+palette = 3=#c9a227
+palette = 4=#3b6ea5
+palette = 5=#7d5ba6
+palette = 6=#3a9188
+palette = 7=#e6eaef
+palette = 8=#95a1ae
 palette = 9=#e07b6e
 palette = 10=#74b56e
-palette = 11=#e0975a
-palette = 12=#62b0d9
+palette = 11=#d9bd5a
+palette = 12=#5b9bd5
 palette = 13=#a585c9
 palette = 14=#45b3a3
-palette = 15=#f2f4f7
+palette = 15=#ffffff
