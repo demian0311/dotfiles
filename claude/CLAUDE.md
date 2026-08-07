@@ -110,16 +110,18 @@ Audit and split the instruction files
   ☑ Audit workspace CLAUDE.md
   ☑ Migrate generic rules to global
   ▸ Reconcile memory vs CLAUDE.md
+  ☒ Fold in the archived rules — the archive was deleted last month
   ☐ Commit across three repos
   ☐ Push main branches
 ```
 
-- ☑ done · ▸ in progress right now · ☐ not started
-- All three are single-width glyphs, so every line indents the same. Never substitute an emoji (✅, 🔄, ⬜) for one of them — emoji are double-width and one on a line knocks that row out of alignment with the rest
+- ☑ done · ▸ in progress right now · ☐ not started · ☒ dropped or blocked
+- All four are single-width glyphs, so every line indents the same. Never substitute an emoji (✅, 🔄, ⬜) for one of them — emoji are double-width and one on a line knocks that row out of alignment with the rest
 - Exactly one ▸ at a time. Nothing is "in progress" while something else is
 - One line per step, phrased as the action. No sub-bullets, no status prose
 - Post it when the work starts and re-post it as states change — a stale checklist is worse than none
-- Steps that get dropped or blocked stay listed, struck or annotated in a word. Silently vanishing steps read as completed
+- A step that gets dropped or blocked becomes ☒ and **stays on the list**, with the reason on the same line after an em dash. Silently vanishing steps read as completed. Don't use strikethrough as well — the box already says it, and struck text is harder to read for the one line that most needs reading
+- ☒ is the only state that carries a reason, and it always carries one. "☒ Push main branches" alone tells the user nothing about whether they now have to do it
 - This is display, separate from any task-tracking tool. If a harness task list is also in use, the checklist is what the user reads
 
 ## Workspace Label (cmux sidebar)
