@@ -13,7 +13,6 @@ cw = data.get('context_window', {})
 pct = cw.get('used_percentage') or 0
 transcript_path = data.get('transcript_path', '')
 cwd = data.get('cwd', '') or data.get('workspace', {}).get('current_dir', '')
-session_id = data.get('session_id', '')
 
 # Project label — map known repo paths to short display names
 HOME = os.path.expanduser('~')
@@ -134,27 +133,10 @@ def fmt_limit(label, p, resets_at=None):
 five_part = fmt_limit('S', five_pct, five_resets_at)
 week_part = fmt_limit('W', week_pct, week_resets_at)
 
-# Session note
-session_note = ''
-NOTES_DIR = os.path.expanduser('~/.claude/session-notes')
-cwd_slug = cwd.strip('/').replace('/', '-')
-for candidate in ([session_id, cwd_slug] if session_id else [cwd_slug]):
-    if not candidate:
-        continue
-    note_path = os.path.join(NOTES_DIR, candidate + '.txt')
-    if os.path.exists(note_path):
-        try:
-            with open(note_path) as f:
-                session_note = f.read().strip()
-            if session_note:
-                break
-        except Exception:
-            pass
-
-# Truncate session note at 40 chars
-NOTE_MAX = 40
-if len(session_note) > NOTE_MAX:
-    session_note = session_note[:NOTE_MAX - 1] + '...'
+# The hand-written note in ~/.claude/session-notes was dropped 2026-08-13: no
+# writer ever existed, and the per-directory fallback meant one file from May
+# reappeared in every later session in that directory. The transcript slug below
+# is the same idea, derived from something that cannot go stale.
 
 # Working-on slug: last user message from transcript
 slug = ''
@@ -181,27 +163,24 @@ if transcript_path and os.path.exists(transcript_path):
     except Exception:
         pass
 
-MAGENTA = '\033[35m'
-
-# Assemble: project  C:X%  S:X%  W:X%    ▸ last message  session_note
+# Assemble: C:X%  S:X%  W:X%  model  project    ▸ last message
+# The two budgets lead because they are what runs out; the model sits after them
+# and before the project, close enough to read in the same glance.
 project_part = f"{CYAN}{BOLD}{project_label}{RESET}" if project_label else ''
-note_part = f"{MAGENTA}{BOLD}{session_note}{RESET}" if session_note else ''
 
 left_parts = []
-left_parts.append(model_part)
 left_parts.append(ctx_part)
 if five_part:
     left_parts.append(five_part)
 if week_part:
     left_parts.append(week_part)
+left_parts.append(model_part)
 if project_part:
     left_parts.append(project_part)
 
 right_parts = []
 if slug:
     right_parts.append(f"{DIM}▸ {slug}{RESET}")
-if note_part:
-    right_parts.append(note_part)
 
 left = '  '.join(left_parts)
 right = '  '.join(right_parts)
