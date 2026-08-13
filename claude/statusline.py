@@ -7,6 +7,7 @@ import time
 
 data = json.load(sys.stdin)
 
+
 # Context window
 cw = data.get('context_window', {})
 pct = cw.get('used_percentage') or 0
@@ -54,6 +55,40 @@ ORANGE = '\033[38;5;214m'
 GREEN  = '\033[32m'
 CYAN   = '\033[36m'
 ITALIC = '\033[3m'
+BR_MAGENTA = '\033[95m'
+BR_BLUE    = '\033[94m'
+BR_GREEN   = '\033[92m'
+BR_YELLOW  = '\033[93m'
+
+# Which model is answering. Shown first and colored per family, because the
+# expensive one and the cheap one otherwise look identical from the prompt.
+model = data.get('model', {}) or {}
+model_name = (model.get('display_name') or '').strip()
+model_id = (model.get('id') or '').lower()
+
+MODEL_COLORS = [
+    ('fable',  BR_MAGENTA),
+    ('mythos', BR_MAGENTA),
+    ('opus',   BR_BLUE),
+    ('sonnet', BR_GREEN),
+    ('haiku',  BR_YELLOW),
+]
+model_color = CYAN
+for needle, color in MODEL_COLORS:
+    if needle in model_id or needle in model_name.lower():
+        model_color = color
+        break
+
+# "Claude Opus 5 (1M context)" -> "Opus 5 1M"
+if model_name.startswith('Claude '):
+    model_name = model_name[len('Claude '):]
+model_name = model_name.replace('(1M context)', '1M').replace('  ', ' ').strip()
+if not model_name:
+    model_name = model_id or '?'
+
+model_part = f"{model_color}{BOLD}{model_name}{RESET}"
+if data.get('fast_mode'):
+    model_part += f"{DIM}·fast{RESET}"
 
 def pct_color(p):
     """Green 0-49%, yellow 50-69%, orange 70-84%, red 85%+"""
@@ -153,6 +188,7 @@ project_part = f"{CYAN}{BOLD}{project_label}{RESET}" if project_label else ''
 note_part = f"{MAGENTA}{BOLD}{session_note}{RESET}" if session_note else ''
 
 left_parts = []
+left_parts.append(model_part)
 left_parts.append(ctx_part)
 if five_part:
     left_parts.append(five_part)
