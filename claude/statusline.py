@@ -2,11 +2,12 @@
 import json
 import sys
 import os
+import re
+import shutil
 import subprocess
 import time
 
 data = json.load(sys.stdin)
-
 
 # Context window
 cw = data.get('context_window', {})
@@ -85,9 +86,21 @@ model_name = model_name.replace('(1M context)', '1M').replace('  ', ' ').strip()
 if not model_name:
     model_name = model_id or '?'
 
-model_part = f"{model_color}{BOLD}{model_name}{RESET}"
-if data.get('fast_mode'):
-    model_part += f"{DIM}·fast{RESET}"
+# Three lengths, tried widest-first when the row has to fit a narrow pane. The
+# family word survives every trim: "Opus" answers the question this is here for,
+# where an initial would not.
+words = model_name.split()
+MODEL_VARIANTS = [model_name, ' '.join(words[:2]), words[0]]
+
+def fmt_model(name):
+    part = f"{model_color}{BOLD}{name}{RESET}"
+    if data.get('fast_mode'):
+        part += f"{DIM}·fast{RESET}"
+    return part
+
+# Reasoning effort, dim beside the model — it changes how the same model answers.
+effort_level = (data.get('effort') or {}).get('level') or ''
+effort_part = f"{DIM}{effort_level}{RESET}" if effort_level else ''
 
 def pct_color(p):
     """Green 0-49%, yellow 50-69%, orange 70-84%, red 85%+"""
@@ -155,40 +168,60 @@ if transcript_path and os.path.exists(transcript_path):
                                 content = block.get('text', '')
                                 break
                     if isinstance(content, str) and content.strip():
-                        text = content.strip().replace('\n', ' ')
-                        slug = text[:42] + ('...' if len(text) > 42 else '')
+                        slug = content.strip().replace('\n', ' ')
                         break
             except Exception:
                 continue
     except Exception:
         pass
 
-# Assemble: C:X%  S:X%  W:X%  model  project    ▸ last message
+# Assemble: C:X%  S:X%  W:X%  model effort  project    ▸ last message
 # The two budgets lead because they are what runs out; the model sits after them
 # and before the project, close enough to read in the same glance.
 project_part = f"{CYAN}{BOLD}{project_label}{RESET}" if project_label else ''
 
-left_parts = []
-left_parts.append(ctx_part)
-if five_part:
-    left_parts.append(five_part)
-if week_part:
-    left_parts.append(week_part)
-left_parts.append(model_part)
-if project_part:
-    left_parts.append(project_part)
+ANSI = re.compile(r'\033\[[0-9;]*m')
 
-right_parts = []
-if slug:
-    right_parts.append(f"{DIM}▸ {slug}{RESET}")
+def render(model_variant, with_effort, slug_max):
+    left_parts = [ctx_part]
+    if five_part:
+        left_parts.append(five_part)
+    if week_part:
+        left_parts.append(week_part)
+    model_group = fmt_model(model_variant)
+    if with_effort and effort_part:
+        model_group += ' ' + effort_part
+    left_parts.append(model_group)
+    if project_part:
+        left_parts.append(project_part)
 
-left = '  '.join(left_parts)
-right = '  '.join(right_parts)
+    line = ' ' + '  '.join(left_parts)
+    if slug and slug_max > 0:
+        text = slug if len(slug) <= slug_max else slug[:slug_max - 1] + '…'
+        line += f"    {DIM}▸ {text}{RESET}"
+    return line
 
-if right:
-    print(f" {left}    {right}")
-else:
-    print(f" {left}")
+# Widest form that fits the pane wins, giving up the least-missed thing first:
+# the trailing message, then the effort word, then the model down to its family
+# name. The last rung prints even if it still overflows.
+LADDER = [
+    (0, True,  42),
+    (0, True,  28),
+    (0, True,  16),
+    (0, True,   0),
+    (0, False,  0),
+    (1, False,  0),
+    (2, False,  0),
+]
+
+width = shutil.get_terminal_size((120, 24)).columns
+line = ''
+for model_idx, with_effort, slug_max in LADDER:
+    line = render(MODEL_VARIANTS[model_idx], with_effort, slug_max)
+    if len(ANSI.sub('', line)) <= width:
+        break
+
+print(line)
 
 # ---------------------------------------------------------------------------
 # Hand the context percentage to cmux-throbber.py, which draws it as a block bar
