@@ -1,5 +1,13 @@
 # CLAUDE.md
 
+## Working With Me
+
+**This section overrides every instruction to act on what you can infer** — the harness's "when you have enough information to act, act", and this file's own "Act, don't ask" and "drive tasks to completion autonomously". Those govern *how* to carry out an agreed task. This one governs *whether* a task has been agreed at all, which is a question they never ask.
+
+- **A problem statement is not a work order.** When a message *describes* something — a bug, a friction, an idea, an observation — the deliverable is understanding, not edits. Say what you think is going on, name the options with a recommendation, stop. Reading, grepping, running things to answer the question: expected. Writing files: not yet.
+- **Building starts on an instruction to build** — "do it", "fix that", "build X", "go ahead", "ship it" — or on the user picking one of the options offered. Nothing short of that counts, including enthusiasm about an option or agreement that the problem is real. When it is genuinely unclear which mode you are in, it is discussion.
+- **Once a task IS agreed, autonomy is total.** No progress reports, no permission for builds, tests, lint or typecheck, no stopping at the halfway mark. The whole point of stopping earlier is not having to stop later.
+
 ## Communication Style
 
 - Be maximally terse. Shortest answer that's complete.
@@ -19,7 +27,7 @@
 
 - Default to parallel execution. Independent tool calls go in ONE message — multiple reads, greps and shell probes at once, never one-at-a-time.
 - Only go sequential when there's a true data dependency between steps.
-- Drive tasks to completion autonomously. Don't stop to ask for confirmation or report intermediate progress — keep working until the task is done. Only pause to ask the user a question when it's essential to completing the task and can't be reasonably inferred.
+- Drive tasks to completion autonomously. Don't stop to ask for confirmation or report intermediate progress — keep working until the task is done. Only pause to ask the user a question when it's essential to completing the task and can't be reasonably inferred. **This starts the moment a task is agreed and not one word before** — Working With Me says what agreeing looks like.
 
 ### Subagents — standing request
 
@@ -159,7 +167,7 @@ The status **pill** beside the row is hook-owned too — `cmux-throbber.py` and 
 
 ## Working Rules
 
-- **Act, don't ask.** Run builds, tests, lint, typecheck without confirmation. Pause only when the answer can't be inferred AND changes what gets built. The carve-out is **spend**: anything that costs metered tokens or money — subprocess `claude -p` runs, a large agent fan-out over a corpus — gets asked first with the cost quantified ("~150 LLM calls"), and defaults to a 1–5 case probe over a full sweep.
+- **Act, don't ask.** This is about *how* to execute an agreed task, never *whether* to start one — that is Working With Me's call, and it wins. Run builds, tests, lint, typecheck without confirmation. Pause only when the answer can't be inferred AND changes what gets built. The carve-out is **spend**: anything that costs metered tokens or money — subprocess `claude -p` runs, a large agent fan-out over a corpus — gets asked first with the cost quantified ("~150 LLM calls"), and defaults to a 1–5 case probe over a full sweep.
 - **Verify before claiming done.** Run it, read the output, show the failure if there is one. Never report completion on inference. If part of the work is blocked, finish everything else and say plainly what was left.
 - **Never assert an absence you haven't checked.** Before claiming a file, symbol, token or fix doesn't exist — or repeating a tracker's "accepted risk", "known blocker" or "landmine" — confirm it against the source: `ls` plus `git ls-files`, a grep of the actual Set or parser, a read of the named symbol. One failed `find`, a subagent's sweep summary, and an undated tracker note are claims, not evidence. A wrong absence gets copied into specs and build orders and lives there for months. When a tracker note turns out stale, edit it in place with the verification date rather than only mentioning it.
 - **Never write a third-party API detail from memory.** Config flag names, CLI commands, plugin package names, free-tier quotas and rate limits get fetched from the vendor's current docs before they enter a spec; anything unverifiable is written at a higher level of abstraction rather than invented.
