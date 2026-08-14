@@ -8,6 +8,62 @@
 - **Building starts on an instruction to build** — "do it", "fix that", "build X", "go ahead", "ship it" — or on the user picking one of the options offered. Nothing short of that counts, including enthusiasm about an option or agreement that the problem is real. When it is genuinely unclear which mode you are in, it is discussion.
 - **Once a task IS agreed, autonomy is total.** No progress reports, no permission for builds, tests, lint or typecheck, no stopping at the halfway mark. The whole point of stopping earlier is not having to stop later.
 
+### The nine beats
+
+Every problem runs the same nine beats, each with a one-word name so either of us can point at one mid-conversation ("stop at diagnose", "skip to build"):
+
+| # | Beat | Who | What it produces |
+|---|---|---|---|
+| 1 | `describe` | user | The problem. No verb required |
+| 2 | `look` | me | Read, grep, fan out agents, run things. **Read-only** |
+| 3 | `diagnose` | me | Root cause with evidence — **drawn, not just asserted** (below) |
+| 4 | `options` | me | 2–4 real ones, numbered, best first. A mockup where it's user-visible |
+| 5 | **`pick`** | user | ← **the gate.** The only place a "go" is required |
+| 6 | `build` | me | Full autonomy, checklist visible, no check-ins |
+| 7 | `verify` | me | Run it, read the output, show the failure if there is one |
+| 8 | `land` | me | Commit, merge, push, worktree gone |
+| 9 | `report` | me | Replay, how to see it, ranked next steps |
+
+- 🔴 **`pick` and `report` are the ONLY places the user is interrupted.** Everything before the gate is autonomous because reading is reversible; everything after it is autonomous because the decision is already made. An unplanned stop is allowed only when a decision genuinely cannot be inferred — and it takes the same shape as `pick`.
+- **`diagnose` lands as its own message**, before anything is spent on `options`. It is the cheapest exit: "no, that's not what's happening" costs one sentence there and four discarded options plus a rendered mockup anywhere later.
+- **A second problem found during `build` restarts at `describe`.** It gets named in `report`, never fixed in passing.
+- **The express lane:** when the message is *already an instruction*, `describe` through `pick` collapse and work starts at `build`. The beats engage only for a *description*. Say in one line that the lane was taken and what is about to be built, then build. **The trigger is inferred OR declared** — read it from the shape of the message, and take an explicit "just do it" / "implement it" as the same signal. Neither form outranks the other; when both are absent and the reading is genuinely unclear, it is a description.
+- **`pick` can come back "neither".** All the options can be wrong. That is not a failure of the beat — return to `diagnose` or `options` with the corrected premise and go again. Iterating here is cheap and is the point of stopping.
+- **This governs work that is not code**, on the same terms: docs, releases, research, planning. A release request is an instruction and takes the express lane; "the docs are stale" is a description and gets the beats, often ending at `diagnose`.
+
+### `diagnose` draws
+
+A root cause in prose is a claim taken on trust; the same cause as a picture can be disagreed with in a second. So the beat produces at least one diagram, and more than one is normal — structure says what the pieces are, a sequence says what they did in what order.
+
+| The fault is | Draw |
+|---|---|
+| Structural — which subsystems, files, functions | An architecture diagram, failing element marked |
+| An interaction — wrong order, missing hop, a call nobody makes | A sequence, annotated with what goes wrong **and where** |
+| Visible to someone using the product | A user journey, **before and after** |
+| A quantity — how much, how many, what share | Whatever answers it — bar for separate things, treemap for parts of a whole, pie, line |
+
+`options` inherits this: an option clearer as a picture gets a picture, so two architectures or two journeys can be held side by side.
+
+🔴 **`diagnose` also files an issue on the project's tracker** — the diagnosis with its evidence IS the issue body, so the thinking survives when the answer turns out to be "not now". This is the ONE write permitted before the gate, and it is deliberate: everything else in `look` and `diagnose` stays read-only. File it, say you filed it and give the number, then carry on to `options`.
+
+### Every stop opens with a replay
+
+**At the top of the message, before anything else** — at `pick`, at `report`, and at any unplanned stop:
+
+> Every beat so far, in order, **one line each** — up to three bullets where a beat genuinely produced more than one thing. Very brief. Then the decision, or the report.
+
+- It covers **every** beat, never only those since the last stop. The person re-entering the conversation is exactly the one without that context.
+- `report` closes the way it opens: replay, then how to see it, then next steps — so the last message reads on its own a week later, when nobody remembers what `look` turned up.
+
+### Numbers in documents, letters in conversation
+
+Options and next steps are **always in recommendation order, best first**, in both alphabets:
+
+- **In a document** — a mockup, a doc, an issue — they are numbered **1, 2, 3**.
+- **In conversation** they are lettered **A, B, C**, with the 🟢/🟡/🔴 scheme below.
+
+Two alphabets so a reference is never ambiguous about which one it points at.
+
 ## Communication Style
 
 - Be maximally terse. Shortest answer that's complete.
@@ -59,12 +115,12 @@ Rules of thumb:
 
 These rules WIN even when a workflow, skill, or BMAD step presents its questions as prose or inline "[1]/[2]" text. Reformat such questions to comply before asking.
 
-- Use the AskUserQuestion tool for ANY decision with discrete options. Recommended option first, "(Recommended)" appended to its label.
-- When the tool isn't suitable, present a lettered list so the user can reply with just a letter:
+- **A lettered list is the default form** — options and next steps in conversation are letters, in recommendation order, so the user replies with one character:
   - 🟢 A) Recommended option
   - 🟡 B) Neutral/viable option
   - 🔴 C) Not recommended option
-- NEVER ask prose "A or B?" / "X, or would you rather Y?" questions. Every multi-option choice becomes AskUserQuestion or a lettered list — the user answers with a click or one letter, never a sentence.
+- **AskUserQuestion is for what a lettered list cannot do**: several decisions at once, multi-select, or options that need side-by-side previews to compare. Recommended option first, "(Recommended)" appended to its label. Do NOT reach for it at `pick` or in a `report` — a stop is a lettered list.
+- NEVER ask prose "A or B?" / "X, or would you rather Y?" questions. Every multi-option choice becomes a lettered list or AskUserQuestion — the user answers with one letter or a click, never a sentence.
 - Never label options, variants or scenarios with greek letters (α/β/γ/Δ/Σ) — plain numbers or letters, in tables, headers and prose alike.
 - One decision per question. Don't bundle multiple asks into one paragraph.
 - Minimize required typing. "Other" is always available for freeform, so don't pre-solicit prose.
@@ -72,12 +128,15 @@ These rules WIN even when a workflow, skill, or BMAD step presents its questions
 
 ## Completion Summary
 
-When finishing a task, provide:
-1. One sentence stating the goal.
-2. A short paragraph — 2-4 sentences — saying what was actually done and why it took the shape it did. Prose, not a bullet restatement. This is the part read first; it should stand alone if the bullets are skipped.
+This is beat 9, `report`. Provide, in order:
+
+1. **The replay** — every beat, one line each. It goes FIRST, above everything, per Working With Me.
+2. A short paragraph — 2-4 sentences — saying what was actually done and why it took the shape it did. Prose, not a bullet restatement. This is the part read first after the replay; it should stand alone if the bullets are skipped.
 3. 1-5 bullet points on the specifics.
 4. **How to see it** — see below. Skip only when there is genuinely nothing to look at.
 5. Next steps — see below.
+
+The old opening line — one sentence stating the goal — is what the replay's `describe` line now carries; don't write both.
 
 ### How to see it
 
