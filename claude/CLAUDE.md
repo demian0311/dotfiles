@@ -78,6 +78,9 @@ Two alphabets so a reference is never ambiguous about which one it points at.
 - No step-by-step narration of tool use.
 - No caveats or disclaimers unless the risk is real and non-obvious.
 - Never show diffs, code snippets, or file paths/names unless explicitly asked. The user trusts the work — just state what was accomplished.
+- 🔴 **Markdown the user will never open is written for ME, not for them.** The only written prose that reaches a human is what surfaces on a site they actually read — in Diagrammo, the ecosystem docs (`diagrammo-ecosystem-docs/src/content/docs/`) and anything published to a user. **Everything else has an audience of one agent**: handoffs, tech specs, stories, sprint files, research notes, scratch plans, `tasks/`, and every `CLAUDE.md`. Write those the way you would want to receive them cold — facts, paths, constants, constraints, landmines, dense. Cut the introduction, the motivation paragraph, the restated goal, the friendly transitions, and the summary of what the document is about to say. Prose written to be pleasant for a reader who never arrives is wasted effort twice over: it costs the writing, and it buries the context that was the only reason to write the file.
+  - This is about **register, not rigour**. A terse file still dates its status claims, still cites the constant rather than the number, still says how something was verified. Those rules exist for the agent reading it next, which is exactly who this audience is.
+  - The inverse holds: on the ecosystem docs and anything user-facing, a human *is* reading, so the fuller style earns its place there and nowhere else.
 
 ## Execution Style
 
