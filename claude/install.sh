@@ -6,6 +6,10 @@
 #   CLAUDE.md      ~/.claude/CLAUDE.md is a one-line "@<path>" import pointing
 #                  here. That is Claude Code's own documented memory-import
 #                  syntax, so there is no link for anything to replace.
+#   skills/<name>  each directory under claude/skills/ symlinked to
+#                  ~/.claude/skills/<name>. Iterated from the repo, so a NEW
+#                  skill needs no edit here. Vendor skills Claude Code installs
+#                  itself live in the same directory and are never touched.
 #   everything else  symlinked into ~/.claude.
 #
 # Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
@@ -70,6 +74,53 @@ for name in "${links[@]}"; do
   ln -sfn "$src" "$dest"
   printf 'link   %s\n' "$name"
 done
+
+# Skills: one symlink per directory under claude/skills/. The list is the repo's
+# own contents rather than a hardcoded array, so adding a skill is just adding a
+# directory. Only names present here are ever touched — the vendor skills sitting
+# beside them in ~/.claude/skills are left exactly alone.
+skills_src="$repo_dir/skills"
+skills_dest="$target_dir/skills"
+
+if [ -d "$skills_src" ]; then
+  mkdir -p "$skills_dest"
+  for src in "$skills_src"/*/; do
+    [ -d "$src" ] || continue
+    src="${src%/}"
+    name="$(basename "$src")"
+    dest="$skills_dest/$name"
+
+    if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+      say_ok 'ok     skills/%s\n' "$name"
+      continue
+    fi
+
+    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+      # Same reasoning as the file loop: a real directory here is newer than the
+      # repo copy, so adopt it. Staged through a temp sibling so a failed copy
+      # can never leave the repo copy destroyed.
+      if ! diff -rq "$dest" "$src" >/dev/null 2>&1; then
+        staged="$src.adopting"
+        rm -rf "$staged"
+        cp -R "$dest" "$staged"
+        rm -rf "$src"
+        mv "$staged" "$src"
+        printf 'adopt  skills/%s (live copy differed; repo updated)\n' "$name"
+      fi
+      # 🔴 The backup must land OUTSIDE ~/.claude/skills. Claude Code treats every
+      # directory in there as a skill, so a foo.bak-<stamp> sibling registers as a
+      # SECOND skill with the same description — observed 2026-08-14. That is why
+      # this differs from the file loop, where a .bak sibling is inert.
+      mkdir -p "$target_dir/skills-backup"
+      backup="$target_dir/skills-backup/$name.bak-$(date +%Y%m%d-%H%M%S)"
+      mv "$dest" "$backup"
+      printf 'backup skills/%s -> skills-backup/%s\n' "$name" "$(basename "$backup")"
+    fi
+
+    ln -sfn "$src" "$dest"
+    printf 'link   skills/%s\n' "$name"
+  done
+fi
 
 # CLAUDE.md: a pointer file, not a link. Anything Claude Code appends to the
 # global memory lands in the pointer and shows up here as an unexpected extra
