@@ -1,33 +1,108 @@
 ---
 name: release
-description: Cut an npm / GitHub release across the diagrammo workspace (dgmo, dgmo-mcp, obsidian-dgmo, remark-dgmo, astro-dgmo, docusaurus-plugin-dgmo, fumadocs-dgmo, diagrammo-app). Use when the user says "release", "cut a release", "ship it", "publish", "release X.Y.Z", or names one of the workspace repos + a version. Encodes the local-publish path (canonical) + CI fallback, the npm-token landmines, and the cross-repo dependency order.
+description: Cut an npm / GitHub release across the diagrammo workspace (dgmo, dgmo-mcp, obsidian-dgmo, remark-dgmo, astro-dgmo, docusaurus-plugin-dgmo, fumadocs-dgmo, diagrammo-app). Use when the user says "release", "cut a release", "ship it", "publish", "release X.Y.Z", or names one of the workspace repos + a version. Encodes the dispatched-CI trusted-publishing path (canonical, and the only one that ships), what a new package needs registered before it can publish, the npm-token landmines, and the cross-repo dependency order.
 ---
 
 # Diagrammo release skill
 
 ## Decision: which path?
 
-**Local publish is the only path that ships anything.** CI is not a fallback — for
-every npm repo but one, it cannot run at all.
+**CI publishing over npm Trusted Publishing (OIDC) is the canonical and only path, as
+of 2026-08-14.** `scripts/release.sh <repo> <version>` dispatches the release workflow
+at the tag and watches it. There is no `npm publish` for a human to run, and no stored
+credential sits on the publish path at all.
 
 | Path | When to use |
 |------|-------------|
-| **Local** (`./release.sh` at workspace root, or per-repo `dgmo/release.sh`; `dgmo-mcp` has `preflight.sh` + a manual `npm publish`) | Always. |
-| **Tag-driven CI** (`scripts/release.sh <repo> <ver>`) | 🔴 **Dead since 2026-07-22** — the `release.yml` tag triggers were removed from all npm repos to cut Actions minutes, leaving `workflow_dispatch` only. Pushing a tag ships nothing. `obsidian-dgmo` is the sole repo where a tag still drives a release. |
+| **Dispatched CI over OIDC** (`scripts/release.sh <repo> <ver>`, or the per-repo `dgmo/release.sh` inside the coordinated app release) | Always. |
+| **Local `npm publish`** | 🔴 **Off the path as of 2026-08-14.** It survives only as break-glass until the first OIDC publish lands, and the `~/.npmrc` token that makes it work **expires 2026-08-19T02:01Z**. |
+| **Tag-push CI** | 🔴 **Still dead, and now deliberately.** Tag triggers came off 2026-07-22 and stay off — the reason is now "don't run the same release twice", not Actions minutes. Every workflow is `workflow_dispatch` only, with an optional `tag` input for dispatching from a branch. `obsidian-dgmo` is the sole repo where a tag push still drives its GitHub release. |
 
-🔴 **`NPM_TOKEN` is NOT broken** — that diagnosis stood for weeks, reached three
-artifacts and eight workflow headers, and was **retracted 2026-07-31** after reading
-a failing run's own log: it says `You cannot publish over the previously published
-versions`, because a local publish had already gone out. The token authenticates for
-scoped and unscoped packages alike. Its real risk is the 90-day expiry, **~2026-08-15**.
+**Why the old path is gone, in one line**: npm removes direct publish from bypass-2FA
+tokens in **January 2027**, and this workspace's local token expires 2026-08-19 — so
+the credential the local path stood on has a hard end date, and OIDC has none.
+(<https://github.blog/changelog/2026-07-31-restricting-npm-bypass-2fa-granular-access-tokens/>)
+
+⚠️ **Actions minutes are not a reason to avoid CI here.** All ten publishing repos are
+**public**, and GitHub charges nothing for Actions on public repos with standard
+runners. Included minutes (2,000 Free / 3,000 Pro) are consumed by the **private**
+repos only — `diagrammo_app_site`, `app`, `diagrammo-cloud`, `diagrammo-ecosystem-docs`,
+`my-diagrams`, `diagrammo`. Evidence 2026-08-14: the newest `diagrammo_app_site` run
+(private) failed with **0 steps** — the billing-block signature — while the newest run
+in every public package repo executed real steps (`dgmo` 22, `dgmo-mcp` 20,
+`nextra-dgmo` 18, `fumadocs-dgmo` 18, `vitepress-dgmo` 17, `docusaurus-plugin-dgmo` 15,
+`astro-dgmo` 14, `obsidian-dgmo` 14, `remark-dgmo` 13).
+
+### What ships what
+
+| Package | Repo | Workflow | Tag |
+|---|---|---|---|
+| `@diagrammo/dgmo` | `dgmo` | `release.yml` | `vX.Y.Z` |
+| `@diagrammo/dgmo-standalone` | `dgmo` | `release.yml` (same run) | `vX.Y.Z` |
+| `@diagrammo/dgmo-cli` | `dgmo` | `release-cli.yml` (**new** 2026-08-14) | `cli-vX.Y.Z` |
+| `@diagrammo/dgmo-mcp` | `dgmo-mcp` | `release.yml` | `vX.Y.Z` |
+| `remark-dgmo` | `remark-dgmo` | `release.yml` | `vX.Y.Z` |
+| `astro-dgmo` | `astro-dgmo` | `release.yml` | `vX.Y.Z` |
+| `docusaurus-plugin-dgmo` | `docusaurus-plugin-dgmo` | `release.yml` | `vX.Y.Z` |
+| `fumadocs-dgmo` | `fumadocs-dgmo` | `release.yml` | `vX.Y.Z` |
+| `nextra-dgmo` | `nextra-dgmo` | `release.yml` | `vX.Y.Z` |
+| `vitepress-dgmo` | `vitepress-dgmo` | `release.yml` | `vX.Y.Z` |
+
+Before 2026-08-14 the CLI and the standalone drop-ins had **no CI publish path at all**
+— they could only be published by hand. `obsidian-dgmo` is unchanged: it publishes no
+npm package, and its tag push still drives its own GitHub release.
+
+### The prerequisite — done for all ten on 2026-08-14, and needed again for any new package
+
+Each package needs a **trusted publisher registered by a human** at npmjs.com:
+package → Settings → Trusted Publisher → GitHub Actions, then
+
+- **Organization or user**: `diagrammo`
+- **Repository**: from the table above
+- **Workflow filename**: from the table above (filename only, with `.yml`)
+- **Environment name**: blank
+- **Allowed actions**: `npm publish`
+
+The runbook — every package's exact field values, both states the settings page can be
+in, and what does and does not prove it worked — is
+`diagrammo-ecosystem-docs/src/content/docs/infrastructure/npm-trusted-publishers.md`,
+live at <https://docs.diagrammo.app/infrastructure/npm-trusted-publishers/>. There is no API for this, and since
+2026-07-31 a bypass-2FA token is forbidden from changing trusted-publishing
+configuration — so it cannot be automated at all.
+
+**Until a package is registered, its publish step fails to authenticate.** That is the
+error a release will hit first.
+
+🔴 **Registration state can only be read off each package's settings page — never from
+a terminal, and never from `dist.attestations`.** This skill said "no package is
+registered" on 2026-08-14, inferred from `npm view <pkg> dist.attestations` being empty
+everywhere. That inference is invalid: an empty attestation proves only that nothing has
+ever *published* from CI, which was true because releases were run locally and the local
+publish always beat the workflow to the version. **`@diagrammo/dgmo` was in fact already
+registered** (`diagrammo/dgmo` · `release.yml` · `npm publish`, seen in the npm UI that
+day). **All ten were registered on 2026-08-14** and confirmed by the person who did it;
+nothing has published through them yet. A non-empty attestation is still the right evidence
+that a package has *published* over OIDC.
+
+🔴 **The claim that the `dgmo` CI path "migrated off Trusted Publishing onto a shared
+org-secret on 2026-05-17" is wrong, and was retracted 2026-08-06.** Every `release.yml`
+publishes over OIDC and has for some time. Don't reintroduce it.
+
+🔴 **`NPM_TOKEN` is NOT broken, and nothing reads it** — the broken-token diagnosis
+stood for weeks, reached three artifacts and eight workflow headers, and was
+**retracted 2026-07-31** after reading a failing run's own log: it says `You cannot
+publish over the previously published versions`, because a local publish had already
+gone out. Verified again 2026-08-14: **zero** `NODE_AUTH_TOKEN` references in any
+publishing repo's workflows. Its ~2026-08-15 expiry breaks nothing and rotating it
+restores nothing. Conflating that org secret with the `~/.npmrc` token is the recurring
+failure here.
 
 ⚠️ **`npm access list packages` returning 403 does not mean the token can't publish.**
-That endpoint is `GET /-/org/<user>/package`, and the local token is deliberately
-issued with **Organizations → No access**, so a 403 there is expected. The check that
-actually settles it is `npm publish --dry-run`: if it reaches the tarball summary and
-the version check, credentials are fine. Verified 2026-07-31 during the 0.15.1 release.
-
-**Why local is canonical**: this workspace's `NPM_TOKEN` story has been fragile (per `reference_npm_token_rotation.md` + `feedback_local_npm_token_bypass_2fa.md`). The `dgmo` CI path migrated off Trusted Publishing onto a shared org-secret on 2026-05-17 and has had at least one full-tag-pushed-but-publish-failed incident. Local publish lets the human see auth failures immediately instead of after a CI round-trip.
+(Fallback token only — nothing on the OIDC path uses it.) That endpoint is
+`GET /-/org/<user>/package`, and the local token is deliberately issued with
+**Organizations → No access**, so a 403 there is expected. The check that actually
+settles it is `npm publish --dry-run`: if it reaches the tarball summary and the
+version check, credentials are fine. Verified 2026-07-31 during the 0.15.1 release.
 
 ## Pre-flight (always, before any path)
 
@@ -37,76 +112,97 @@ the version check, credentials are fine. Verified 2026-07-31 during the 0.15.1 r
 4. `pnpm build` green.
 5. `CHANGELOG.md` has an entry under `## [Unreleased]` describing this release. Major user-facing features deserve marquee callouts per `feedback_release_notes_feature_callouts`.
 6. Version-bump check: `grep '"version"' package.json` matches what you intend to ship; for `dgmo-mcp` also check `manifest.json` and `server.json`; for `obsidian-dgmo` also check `manifest.json`.
-7. `npm whoami` returns the expected user (`demian0311`). **If 401, see "Recovery — local token invalid" below.**
+7. **The package's trusted publisher is registered at npmjs.com** (see the prerequisite above). This is the check that used to be `npm whoami`, and as of 2026-08-14 it is the one that will bite — none of the ten are registered yet. `npm whoami` returning `demian0311` matters only if you are falling back to a local publish before the token expires 2026-08-19.
 
-## Local-publish flow (canonical)
+## The per-repo `release.sh` scripts — they no longer publish
+
+`dgmo/release.sh` (used by the coordinated app release) stopped running `npm publish` on
+2026-08-14. It now builds, runs the checks, tags if needed, dispatches `release.yml`,
+watches the run, and verifies both `@diagrammo/dgmo` and `@diagrammo/dgmo-standalone`
+on npm afterwards.
 
 ```bash
-# From workspace root, full pipeline (dgmo + app + site + mcp + homebrew)
-./release.sh                       # draft GH releases by default
-./release.sh --publish             # auto-publish GH releases
-./release.sh --dry-run             # preflight only, no side effects
-./release.sh --skip-app            # dgmo-only release
-./release.sh --skip-dgmo           # everything except npm publish
-
-# From a single repo, just that repo
-cd dgmo && ./release.sh            # builds, checks, npm publish
-cd dgmo && ./release.sh --dry-run  # skip the publish step
+cd dgmo && ./release.sh            # build, check, tag, dispatch CI, watch, verify on npm
+cd dgmo && ./release.sh --dry-run  # no side effects
 ```
 
-After publish:
-- `gh release create v<version> -R diagrammo/<repo> --notes "$(cat changelog-entry.md)"` (or `--draft` if reviewing first).
-- For dgmo specifically: also bump the homebrew formula via `homebrew-dgmo` repo (the workspace `release.sh` does this automatically).
+For `dgmo` specifically, the homebrew formula tracks `@diagrammo/dgmo-cli` and is bumped
+separately — see Cross-repo ordering below.
 
-## Tag-driven CI flow (fallback)
+## Dispatched CI flow (canonical)
 
 ```bash
 scripts/release.sh <repo> <version>          # interactive (prompts to confirm)
 scripts/release.sh <repo> <version> --yes    # skip confirmation
-scripts/release.sh <repo> <version> --no-wait # don't block on npm propagation
+scripts/release.sh <repo> <version> --no-wait # dispatch and return
 ```
 
 What it does:
-1. Bumps every version field the repo's CI workflow validates.
+1. Bumps every version field that repo's workflow checks.
 2. Shows the diff, prompts for confirmation.
 3. Commits with `Release <tag>`, tags, pushes commit + tag.
-4. CI takes over from the tag — publishes to npm, creates GH release, bumps homebrew.
-5. Script blocks until the new version is live on npm (or GH release for obsidian).
+4. **Dispatches the release workflow at that tag** — `gh workflow run <workflow> -R diagrammo/<repo> --ref <tag>`.
+5. Finds the run **by tag** — not "the newest run", because several sessions release here — and watches it with `gh run watch --exit-status`.
+6. Verifies the registry actually serves the new version: a green run is the deploy log, not the running system. For `dgmo` it checks the standalone package too.
 
-**Pre-rotation hazard**: if the CI's `NPM_TOKEN` is expired/revoked, the workflow gets through every step (build, lint, test, tarball pack) and only fails at `npm publish`. The tag has already been pushed by then. Recovery is in "Recovery — CI publish failed" below.
+`--wait` is still accepted and is now redundant; waiting is the default again. It was
+opt-in from 2026-07-22, correctly, because nothing was publishing.
+
+What the workflows themselves do, uniformly as of 2026-08-14:
+
+- `workflow_dispatch` only, with an optional `tag` input.
+- a **Resolve the tag being released** step: the tag comes from the input or `GITHUB_REF_NAME`, is validated to look like a version tag, and every later step reads its outputs rather than `GITHUB_REF_NAME`. A run started the wrong way fails there instead of publishing a version named `main`. `dgmo`'s rejects a `cli-v*` tag and vice versa.
+- checkout **at that tag**, then verify the tag matches the manifest(s). `dgmo` checks `standalone/package.json` too, because `element.js` bakes the library version into its basemap URL.
+- an **idempotency gate** — "is this version already on npm?" — so a re-run skips the publish instead of failing on npm's `cannot publish over the previously published versions`, which reads like a credential error and has been misread as one here before.
+- `npm publish --access public --provenance` under `permissions: id-token: write`.
+- a GitHub release with an explicit `tag_name`.
+
+`dgmo-mcp`'s run also publishes to the MCP registry with `mcp-publisher login
+github-oidc` — the only credential-free path there, since that registry's interactive
+login mints a JWT lasting about five minutes.
+
+**Registration hazard**: if the package's trusted publisher is not registered at
+npmjs.com, the workflow gets through every step (build, lint, test, tarball pack) and
+only fails at the publish step, **failing to authenticate**. The tag has already been
+pushed by then. Recovery is in "Recovery — CI publish failed" below.
 
 ## The `npm login` trap (NEVER run it)
 
-User authenticates to npm with a WebAuthn security key (Apple Passwords) — no TOTP. The npm CLI's "enter OTP" prompt has no answer in this setup.
+Still live, because the fallback token lives in the same file. User authenticates to npm with a WebAuthn security key (Apple Passwords) — no TOTP. The npm CLI's "enter OTP" prompt has no answer in this setup.
 
-**Working state**: `~/.npmrc` contains a granular access token with **Bypass 2FA for publishing** enabled, stored as `//registry.npmjs.org/:_authToken=npm_xxx...`. The token has bypass-2FA, so `npm publish` succeeds without OTP.
+**Working state**: `~/.npmrc` contains a granular access token with **Bypass 2FA for publishing** enabled, stored as `//registry.npmjs.org/:_authToken=npm_xxx...`. The token has bypass-2FA, so a fallback `npm publish` succeeds without OTP.
 
-**Broken state**: `npm login` overwrites `~/.npmrc` with a session token that does **NOT** have bypass-2FA. Next `npm publish` returns `EOTP`; there's no way to satisfy it; ~1 hour of debugging.
+**Broken state**: `npm login` overwrites `~/.npmrc`. Since 2025-12-09 it returns a **two-hour session token**, which does **NOT** have bypass-2FA. Next `npm publish` returns `EOTP`; there's no way to satisfy it; ~1 hour of debugging.
 
 **Rules:**
 - **Never run `npm login` or `npm logout`.** Both rewrite `~/.npmrc`.
 - **Never suggest `npm login` to the user.**
-- To swap or refresh local tokens: `npm config set //registry.npmjs.org/:_authToken=npm_<new-token>` — direct file write, preserves bypass-2FA.
+- To swap or refresh the local token: `npm config set //registry.npmjs.org/:_authToken=npm_<new-token>` — direct file write, preserves bypass-2FA.
 - If the user runs `npm login` by accident, fix immediately: generate a new bypass-2FA token and `npm config set` it.
 
-## Token rotation playbook
+## The local token — fallback only, and going away
 
-**Two tokens exist:**
+**One token matters now:**
 
 | Token name | Where stored | Used by |
 |------------|--------------|---------|
-| `local-publish` | `~/.npmrc` on the user's laptop | All local `./release.sh` invocations |
-| `diagrammo-ci` | GitHub diagrammo-org Actions secret `NPM_TOKEN` | All 6 npm-publishing repos' CI workflows (`release.yml`) |
+| `local-deploy` | `~/.npmrc` on the user's laptop | Nothing on the canonical path. Break-glass `npm publish` only, until the first OIDC publish lands. |
+| `diagrammo-ci` | GitHub diagrammo-org Actions secret `NPM_TOKEN` | 🔴 **Nothing.** No workflow reads it — verified 2026-08-14. Do not rotate it; rotating restores nothing. |
 
-**Token type**: Both `local-publish` and `diagrammo-ci` are **Granular Access Tokens** (the npm default). The critical setting is **"Bypass two-factor authentication (2FA)"** — a checkbox under the **Security settings** section of the token-edit page, **far below** Packages and Organizations. It's the single most-missed field.
+`local-deploy` is granular, bypass-2FA, read-write on all packages, and **expires
+2026-08-19T02:01Z**. It still authenticates as of 2026-08-14 (`npm whoami` →
+`demian0311`). **Keep it until one release has published over OIDC — then it can go.**
+Registering the trusted publishers is what makes it unnecessary, not rotating it.
+
+**The critical setting** on a granular token is **"Bypass two-factor authentication (2FA)"** — a checkbox under the **Security settings** section of the token-edit page, **far below** Packages and Organizations. It's the single most-missed field.
 
 **It's easy to edit an existing token instead of generating a new one**. From https://www.npmjs.com/settings/demian0311/tokens, click the token name → edit. The Bypass 2FA checkbox is editable and the change applies to the existing token value (no need to update `~/.npmrc`). This is the fastest fix when EOTP fires after a rotation.
 
-**Rotation procedure for `local-publish`** (Granular Access Token):
+**If the fallback token must be replaced before the OIDC path is live:**
 
 1. https://www.npmjs.com/settings/demian0311/tokens → revoke the expiring token (or skip if not expired yet and just editing).
 2. **Generate New Token → Granular Access Token**. The form has many sections; pay attention to all of them, especially:
-   - **Token name**: `local-publish`
+   - **Token name**: `local-deploy`
    - **Expiration**: 90 days (the max — don't accept the default if it's lower)
    - **Permissions → Packages and scopes → Read and write → All packages**
    - **Organizations → No access**
@@ -119,25 +215,23 @@ User authenticates to npm with a WebAuthn security key (Apple Passwords) — no 
 
 **Don't trust `npm whoami` alone** — it passes for tokens that authenticate but lack publish permission AND for tokens that lack bypass-2FA.
 
-**Rotation procedure for `diagrammo-ci`** (Granular, if you keep CI publishing):
+**Lifetime — npm's rules changed, and every older note about this is wrong:**
 
-1. https://www.npmjs.com/settings/demian0311/tokens → revoke the expiring token.
-2. **Generate New Token → Granular Access Token**:
-   - **Bypass two-factor authentication when publishing**: ✅ **required** — verify the checkbox is on
-   - Packages and scopes → Read and write → All packages
-   - Organizations → No access
-   - Expiry: 90 days (the max for granular)
-3. GitHub → diagrammo org → Settings → Secrets and variables → Actions → `NPM_TOKEN` → Update secret → paste new value.
-4. No code/workflow changes needed.
+| Date | Change |
+|---|---|
+| 2025-10 | write-enabled granular tokens: default expiry 7 days, **maximum 90** (was unlimited) |
+| 2025-11-19 | classic tokens permanently revoked; granular only, and all of them expire |
+| 2025-12-09 | `npm login` returns a two-hour session token |
+| 2026-07-31 | bypass-2FA tokens lose admin operations, including changing trusted-publishing config |
+| **2027-01** | bypass-2FA tokens **lose direct publish** — reduced to reading private packages and staging a publish a maintainer approves with 2FA |
 
-**Lifetime**:
-- Classic Publish tokens: no enforced expiry, but rotate yearly for hygiene.
-- Granular tokens: 90 days max. Plan to rotate every 75–80 days to avoid mid-release expiry. npm caps granular tokens at 90 days regardless of what the dropdown suggests.
+So "classic tokens have no enforced expiry" and "rotate yearly" are both false, and
+**there is no such thing as a non-expiring npm token.** Any note here or in memory that
+says otherwise predates 2025-11-19.
 
-**Hard-won lesson (2026-05-20 0.16.0 recovery)**: the bypass-2FA checkbox on granular tokens was missed twice in a row when generating fresh tokens. `npm whoami` returned demian0311 both times. `npm publish` returned EOTP both times. Switching to a Classic Publish token resolved it. The user's npm account uses WebAuthn (no TOTP), so EOTP is unsolvable in CLI — bypass-2FA isn't optional.
+**Hard-won lesson (2026-05-20 0.16.0 recovery)**: the bypass-2FA checkbox on granular tokens was missed twice in a row when generating fresh tokens. `npm whoami` returned demian0311 both times. `npm publish` returned EOTP both times. Switching to a Classic Publish token resolved it — ⚠️ **that escape hatch no longer exists**; classic tokens were permanently revoked 2025-11-19. The user's npm account uses WebAuthn (no TOTP), so EOTP is unsolvable in CLI — bypass-2FA isn't optional.
 
-**Affected repos** (all six + future additions):
-- `dgmo`, `dgmo-mcp`, `remark-dgmo`, `astro-dgmo`, `docusaurus-plugin-dgmo`, `fumadocs-dgmo`
+**Affected repos**: the ten in the "What ships what" table above, plus future additions. Every new package needs its own trusted-publisher registration before its first release.
 
 ## Cross-repo ordering
 
@@ -145,20 +239,21 @@ When releasing multiple repos in one session:
 
 1. **`dgmo` first** — every other repo depends on it transitively.
 2. **`dgmo-mcp` and `remark-dgmo`** next, in parallel. Both consume `@diagrammo/dgmo`.
-3. **Host wrappers** (`astro-dgmo`, `docusaurus-plugin-dgmo`, `fumadocs-dgmo`) — depend on `remark-dgmo`. Release after remark is on npm.
+3. **Host wrappers** (`astro-dgmo`, `docusaurus-plugin-dgmo`, `fumadocs-dgmo`, `nextra-dgmo`, `vitepress-dgmo`) — all five depend on `remark-dgmo`. Release only after remark is live on npm.
+   **Homebrew**: `brew install dgmo` installs `@diagrammo/dgmo-cli`, not the library. After a CLI release, bump the tap — `gh workflow run bump-homebrew.yml -R diagrammo/dgmo -f version=X.Y.Z`.
 4. **`obsidian-dgmo`** — separate convention: plain semver tag (no `v` prefix). Per `reference_obsidian_community_store`, the community store auto-picks up new versions from GH releases.
 5. **`diagrammo-app`** — uses its own `diagrammo-app/release.sh` with code-signing + notarization. Releases go on `diagrammo/releases` repo (NOT `diagrammo/app`). Single `v*` tag triggers both desktop build + `online.diagrammo.app` Cloudflare Pages deploy.
-6. **`diagrammo_app_site`** — 🔴 **a push to `main` deploys nothing.** That repo's Actions have been billing-blocked since 2026-07-27 (jobs never start: zero steps, `log not found`). Ship it by hand with `pnpm build && npx wrangler deploy`. Checked 2026-07-31.
+6. **`diagrammo_app_site`** — 🔴 **a push to `main` deploys nothing.** That repo is **private**, so its Actions runs are billing-blocked: its newest run still failed with zero steps when checked 2026-08-14. Ship it by hand with `pnpm build && npx wrangler deploy`. This does not touch the ten package repos — they are public and their Actions run free.
 
-The `scripts/release.sh` tag-driven path blocks until the previous repo's version is live on npm — necessary because the wrapper repos' CI runs `pnpm install` and needs the upstream version available. Local `./release.sh` does the same wait via npm view polling.
+`scripts/release.sh` waits by default: it watches the dispatched run to completion and then verifies the version is actually being served by the registry. That wait is necessary because the wrapper repos' CI runs `pnpm install` and needs the upstream version available — so don't pass `--no-wait` when releasing several repos in sequence.
 
 ## Recovery — common failures
 
 ### Local token returns `401 Unauthorized`
 
-Symptom: `npm whoami` returns `401`. Could happen on a "fresh" token if it was revoked by npm (security alert) or if the actual expiry was earlier than memory claimed.
+Only matters if you are on the break-glass path — the OIDC path uses no token at all. Symptom: `npm whoami` returns `401`. Could happen on a "fresh" token if it was revoked by npm (security alert), or simply because it expired — `local-deploy` expires 2026-08-19T02:01Z. An expired token fails as an authentication error; an `EOTP` means something different (below).
 
-Recovery: rotate `local-publish` per the playbook above. `npm publish` until then will fail.
+Recovery: replace `local-deploy` per the procedure above. The better recovery is to register the trusted publisher and let CI publish.
 
 ### Local publish returns `EOTP`
 
@@ -166,42 +261,39 @@ Symptom: `npm publish` returns `EOTP` (One-time password required). `npm whoami`
 
 Diagnosis: the token in `~/.npmrc` lacks bypass-2FA. Either someone ran `npm login`, or the token was generated without the **Bypass two-factor authentication when publishing** checkbox ticked. This checkbox is easy to miss — it's typically near the top of the form, separate from the Permissions section, and the form will save without it.
 
-Recovery: delete the no-bypass token, generate a new granular token with **Bypass 2FA: ON** checked explicitly, then `npm config set //registry.npmjs.org/:_authToken=npm_<new-token>`. The bypass flag is the FIRST thing to verify when generating any local-publish token — `whoami` passing only tells you the token authenticates, not that it can publish.
+Recovery: delete the no-bypass token, generate a new granular token with **Bypass 2FA: ON** checked explicitly, then `npm config set //registry.npmjs.org/:_authToken=npm_<new-token>`. The bypass flag is the FIRST thing to verify when generating any `local-deploy` replacement token — `whoami` passing only tells you the token authenticates, not that it can publish.
 
 This trap fired again on the 0.16.0 recovery (2026-05-20): user rotated to a 90-day token, `npm whoami` returned `demian0311`, but `npm publish` returned `EOTP`. Solved by regenerating with the bypass-2FA checkbox.
 
-### CI publish returns `404 Not Found - PUT`
+### CI publish failed to authenticate
 
-Symptom: GitHub Actions `release.yml` job fails at the `Publish to npm` step:
-```
-npm error 404 Not Found - PUT https://registry.npmjs.org/@diagrammo%2fdgmo
-npm error 404 The requested resource '@diagrammo/dgmo@X.Y.Z' could not be found
-or you do not have permission to access it.
-```
+Symptom: the dispatched run gets through build, lint, test and pack, and dies at the `npm publish` step on authentication.
 
-The 404 on a PUT specifically indicates the token doesn't have publish scope for this package — usually the org `NPM_TOKEN` is expired, revoked, or doesn't carry the right "all packages / read and write" scope.
+**First suspect, and as of 2026-08-14 the overwhelmingly likely one: the package has no trusted publisher registered at npmjs.com.** No package is registered yet, so this is the expected failure for the first release of every one of them. Nothing about the run, the token or the workflow needs changing — a human has to register it.
 
 Diagnosis steps:
-1. Check the token at https://www.npmjs.com/settings/demian0311/tokens — confirm it's still listed and not expired.
-2. `npm access list packages npm_<copied-token>` — verify scope includes `@diagrammo/dgmo` with read-write.
-3. Compare against another recently-published wrapper (`remark-dgmo` last release date) — if they all failed around the same time, it's a token issue.
+1. `npm view <pkg> dist.attestations` — empty means the package has never published from CI, which is consistent with an unregistered trusted publisher.
+2. Open the package at npmjs.com → Settings → Trusted Publisher, and check it against the "What ships what" table: org `diagrammo`, the right repo, the right **workflow filename**, environment blank. A mismatched workflow filename fails exactly like no registration at all.
+3. 🔴 Do **not** go looking at `NPM_TOKEN`. No workflow reads it (verified 2026-08-14), so it cannot be the cause and rotating it changes nothing.
 
-Recovery: rotate `diagrammo-ci` per the playbook, then:
+Recovery: register the package at npmjs.com — the field values are in the runbook,
+<https://docs.diagrammo.app/infrastructure/npm-trusted-publishers/> — then:
 
 ```bash
-# Option A — re-run the failed CI job (tag already pushed)
-gh run rerun <run-id> -R diagrammo/<repo> --failed
-
-# Option B — publish locally from a clean checkout at the tag
-cd <repo> && git fetch && git checkout v<version> && npm publish
-gh release create v<version> -R diagrammo/<repo> --notes "$(awk '/## \['<version>'\]/{flag=1; next} /## \[/{flag=0} flag' CHANGELOG.md)"
+# Option A — re-dispatch the workflow at the same tag (tag already pushed)
+gh workflow run <workflow> -R diagrammo/<repo> --ref <tag>
+# the idempotency gate skips anything already on npm, so a re-run is safe
 ```
 
-Option B leaves the CI run as a failure marker but unblocks the release immediately. Prefer Option A if the token rotation can happen in minutes.
+Option B — publishing locally from a clean checkout at the tag — still works **only until
+the `~/.npmrc` token expires 2026-08-19**, and it produces a release with no provenance
+attestation. Prefer Option A; registration takes minutes and is needed anyway.
+
+If the failure is instead `cannot publish over the previously published versions`, that is not a credential error — it means the version is already live, and the idempotency gate should have caught it. Check what the registry serves before touching anything.
 
 ### Tag pushed, publish failed — how to redo cleanly?
 
-If you'd rather erase the tag and republish from scratch:
+Usually you don't need to: fix the cause and re-dispatch at the same tag, since the workflow resolves the tag from the input and the idempotency gate makes a re-run safe. If you'd rather erase the tag and republish from scratch:
 
 ```bash
 git push --delete origin v<version>
@@ -210,21 +302,22 @@ git reset --hard HEAD^  # if the "Release v<version>" commit also needs revertin
 git push --force-with-lease  # force-push only after `--delete` of the tag
 ```
 
-Then rotate the token and re-run `./release.sh` or `scripts/release.sh`. **Avoid** force-push if any external consumer may have already fetched the tag.
+Then fix the cause — almost always the missing trusted-publisher registration — and re-run `scripts/release.sh`. **Avoid** force-push if any external consumer may have already fetched the tag.
 
 ## Common pitfalls (history-informed)
 
 - **`npm login`** — see the trap section. Never.
 - **Forgetting to update `CHANGELOG.md`** before bumping version. The release commits will include the version bump only; the changelog entry must already be present.
-- **Releasing `dgmo` then immediately releasing a wrapper** before npm has propagated. The wrapper's CI will fail at `pnpm install`. `scripts/release.sh` blocks-on-npm by default; don't pass `--no-wait` across multiple repos.
+- **Releasing `dgmo` then immediately releasing a wrapper** before npm has propagated. The wrapper's CI will fail at `pnpm install`. `scripts/release.sh` waits by default; don't pass `--no-wait` across multiple repos.
+- **Treating a green run as a shipped package.** A green run is the deploy log, not the running system — `scripts/release.sh` verifies the registry itself, and so should you if you dispatched by hand.
 - **diagrammo-app version-triple drift**: `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` must all match. `release.sh` validates and fails if any is out of sync.
 - **`scheduled_tasks.lock` and similar untracked files** — fine; `release.sh` only checks tracked files. Don't `git stash` to "make it clean" — you'll lose work-in-progress on adjacent features.
-- **Token expiry "feels recent" but isn't** — when in doubt, check the expiry date at https://www.npmjs.com/settings/demian0311/tokens. Memory of "rotated last week" has been wrong before.
+- **Token expiry "feels recent" but isn't** — when in doubt, check the expiry date at https://www.npmjs.com/settings/demian0311/tokens. Memory of "rotated last week" has been wrong before. Every npm token now expires; there is no non-expiring kind left.
 
 ## Memory cross-references
 
-- `reference_npm_token_rotation` — CI-side token mechanics + 90-day cap
-- `feedback_local_npm_token_bypass_2fa` — local-token + WebAuthn + the `npm login` trap
+- `reference_npm_token_rotation` — token mechanics + the 90-day cap. ⚠️ Its CI-side framing is stale: CI publishes over OIDC and reads no token.
+- `feedback_local_npm_token_bypass_2fa` — local-token + WebAuthn + the `npm login` trap. Still true of the fallback token; its "local publish is how we ship" framing is not, since 2026-08-14.
 - `reference_obsidian_community_store` — Obsidian's plain-semver tag + community store auto-pickup
 - `feedback_release_notes_feature_callouts` — surface major features in release notes
 - `feedback_no_gpgsign_false_flag` — don't add `-c commit.gpgsign=false` to release commits
