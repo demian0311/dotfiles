@@ -17,7 +17,10 @@
 - State facts and results directly.
 - **Gloss the unfamiliar on first use, in the same sentence.** A vendor's product name, an internal coinage, or a word this project has narrowed gets three to six words saying what it is — "Time Travel (Cloudflare's point-in-time restore for D1)", "dunning (the retry window after a card fails)". This serves terseness rather than fighting it: the clause is far shorter than the round trip where the user has to stop and ask what the thing is.
 - **Disambiguate before using a word in its narrow sense.** If a sentence still parses under the everyday reading, the everyday reading is what lands — "migration" reads as moving to different tech long before it reads as a schema change; "space", "worker" and "session" all name ordinary things too. Say which one you mean the first time.
-- The test for both: **could someone who owns the product, but has never opened that vendor's console, act on this sentence?** Jargon they would have to look up is a defect in the answer, not a gap in the reader. This applies hardest in summaries and recommendations, where the user is deciding rather than reading along.
+- 🔴 **An identifier NEVER travels alone — every issue, PR, story, epic, ticket or migration number carries a parenthetical saying what it is.** "#218" and "story 7.8" and "Epic 40" and "0014" are addresses, not names: they mean nothing to a reader who is not holding that tracker open, and the user is not. Write "the npm token expiry (#218)" or "asking for edit access on a shared diagram (story 7.8)" — the thing first, in plain language, the number in parentheses behind it. A bare number in a link is the same violation wearing a link, so the link text is the description too.
+  - **Everywhere, prose included** — chat, next steps, checklists, summaries, questions, commit messages, docs, issue bodies. This lived inside the Next-steps rules until 2026-08-14 and was read as a formatting rule for lists; it is not, and a whole session of "#218" went out under it.
+  - The gloss is what the thing IS, not what it says about itself. "(#218)" after "the tracked issue" adds nothing; "the npm token expiry (#218)" is the rule satisfied.
+- The test for the three above: **could someone who owns the product, but has never opened that vendor's console or that tracker, act on this sentence?** Jargon or an identifier they would have to look up is a defect in the answer, not a gap in the reader. This applies hardest in summaries and recommendations, where the user is deciding rather than reading along.
 - No preambles ("Here's what I found", "Let me explain").
 - No restating the question or summarizing what was asked.
 - No step-by-step narration of tool use.
@@ -114,7 +117,7 @@ Rules:
 
 **Stay in the current thread of work.** Next steps continue what we are actually doing. Do NOT surface unrelated initiatives, other sessions' in-flight branches, or backlog items that merely happen to be open — the user is mid-thought on one thing, and a menu of everything else derails it. A step from outside the thread appears only if the user asks, or if the current work genuinely blocks on it (say which). When the thread is finished and there is nothing left in it, say so plainly instead of manufacturing options.
 
-**No bare identifiers, ever.** Never write a story, epic, ticket, or migration number as the only name for something — "7.8", "Epic 40", "0014" mean nothing to a reader who isn't holding that tracker. Name the thing in plain language, with the identifier in parentheses if it helps: "asking for edit access on a shared diagram (story 7.8)". This applies to next steps, checklists, summaries and questions alike.
+**No bare identifiers here either** — the rule is in Communication Style, because it governs everything written, not just this list.
 
 ## Progress Checklists
 
