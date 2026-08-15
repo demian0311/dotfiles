@@ -15,7 +15,7 @@ credential sits on the publish path at all.
 | Path | When to use |
 |------|-------------|
 | **Dispatched CI over OIDC** (`scripts/release.sh <repo> <ver>`, or the per-repo `dgmo/release.sh` inside the coordinated app release) | Always. |
-| **Local `npm publish`** | 🔴 **Off the path as of 2026-08-14, and no longer needed as of 2026-08-15**, when the first OIDC publish landed. The `~/.npmrc` token that makes it work **expires 2026-08-19T02:01Z** and is due for deliberate retirement rather than rotation. Break-glass only, and only until then. |
+| **Local `npm publish`** | 🗑 **Gone.** The `~/.npmrc` token was deleted 2026-08-15 after the first OIDC publish landed; `npm whoami` answers `need auth`. The only case that could need a token again is the **first** publish of a brand-new package name, which cannot have a trusted publisher until it exists on npm. |
 | **Tag-push CI** | 🔴 **Still dead, and now deliberately.** Tag triggers came off 2026-07-22 and stay off — the reason is now "don't run the same release twice", not Actions minutes. Every workflow is `workflow_dispatch` only, with an optional `tag` input for dispatching from a branch. `obsidian-dgmo` is the sole repo where a tag push still drives its GitHub release. |
 
 **Why the old path is gone, in one line**: npm removes direct publish from bypass-2FA
@@ -188,19 +188,24 @@ Still live, because the fallback token lives in the same file. User authenticate
 
 | Token name | Where stored | Used by |
 |------------|--------------|---------|
-| `local-deploy` | `~/.npmrc` on the user's laptop | Nothing on the canonical path. Break-glass `npm publish` only, until the first OIDC publish lands. |
+| `local-deploy` | 🗑 **Deleted 2026-08-15.** `~/.npmrc` no longer exists on this machine | Nothing. `npm whoami` answers `need auth`, which is correct. |
 | `diagrammo-ci` | GitHub diagrammo-org Actions secret `NPM_TOKEN` | 🔴 **Nothing.** No workflow reads it — verified 2026-08-14. Do not rotate it; rotating restores nothing. |
 
-`local-deploy` is granular, bypass-2FA, read-write on all packages, and **expires
-2026-08-19T02:01Z**. It still authenticates as of 2026-08-14 (`npm whoami` →
-`demian0311`). **Keep it until one release has published over OIDC — then it can go.**
-Registering the trusted publishers is what makes it unnecessary, not rotating it.
+🗑 **It is gone.** `~/.npmrc` was deleted on **2026-08-15**, the day after `vitepress-dgmo`
+0.6.5 proved a release could publish with no credential at all. The token itself stays
+valid at npmjs.com until it expires 2026-08-19T02:01Z unless revoked there, but nothing
+on the machine holds it.
+
+🔴 **Do not mint a replacement to "unblock" a release.** A publish that fails to
+authenticate is a trusted-publisher problem — read the settings page, not the token
+docs. The section below survives only for the case where a genuinely new package needs
+its first publish before it can have a trusted publisher.
 
 **The critical setting** on a granular token is **"Bypass two-factor authentication (2FA)"** — a checkbox under the **Security settings** section of the token-edit page, **far below** Packages and Organizations. It's the single most-missed field.
 
 **It's easy to edit an existing token instead of generating a new one**. From https://www.npmjs.com/settings/demian0311/tokens, click the token name → edit. The Bypass 2FA checkbox is editable and the change applies to the existing token value (no need to update `~/.npmrc`). This is the fastest fix when EOTP fires after a rotation.
 
-**If the fallback token must be replaced before the OIDC path is live:**
+**If a brand-new package needs its first publish before it can have a trusted publisher** — the one remaining case for a token, and it should be revoked again straight afterwards:
 
 1. https://www.npmjs.com/settings/demian0311/tokens → revoke the expiring token (or skip if not expired yet and just editing).
 2. **Generate New Token → Granular Access Token**. The form has many sections; pay attention to all of them, especially:
@@ -253,9 +258,7 @@ When releasing multiple repos in one session:
 
 ### Local token returns `401 Unauthorized`
 
-Only matters if you are on the break-glass path — the OIDC path uses no token at all. Symptom: `npm whoami` returns `401`. Could happen on a "fresh" token if it was revoked by npm (security alert), or simply because it expired — `local-deploy` expires 2026-08-19T02:01Z. An expired token fails as an authentication error; an `EOTP` means something different (below).
-
-Recovery: replace `local-deploy` per the procedure above. The better recovery is to register the trusted publisher and let CI publish.
+**Expected, as of 2026-08-15** — there is no local token any more, and `npm whoami` answering `need auth` or `401` is the correct state. It blocks nothing: the OIDC path uses no token at all. Only mint one for a brand-new package's first publish (above), and revoke it afterwards.
 
 ### Local publish returns `EOTP`
 
