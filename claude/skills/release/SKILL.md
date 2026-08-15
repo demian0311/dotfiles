@@ -15,7 +15,7 @@ credential sits on the publish path at all.
 | Path | When to use |
 |------|-------------|
 | **Dispatched CI over OIDC** (`scripts/release.sh <repo> <ver>`, or the per-repo `dgmo/release.sh` inside the coordinated app release) | Always. |
-| **Local `npm publish`** | 🔴 **Off the path as of 2026-08-14.** It survives only as break-glass until the first OIDC publish lands, and the `~/.npmrc` token that makes it work **expires 2026-08-19T02:01Z**. |
+| **Local `npm publish`** | 🔴 **Off the path as of 2026-08-14, and no longer needed as of 2026-08-15**, when the first OIDC publish landed. The `~/.npmrc` token that makes it work **expires 2026-08-19T02:01Z** and is due for deliberate retirement rather than rotation. Break-glass only, and only until then. |
 | **Tag-push CI** | 🔴 **Still dead, and now deliberately.** Tag triggers came off 2026-07-22 and stay off — the reason is now "don't run the same release twice", not Actions minutes. Every workflow is `workflow_dispatch` only, with an optional `tag` input for dispatching from a branch. `obsidian-dgmo` is the sole repo where a tag push still drives its GitHub release. |
 
 **Why the old path is gone, in one line**: npm removes direct publish from bypass-2FA
@@ -81,8 +81,10 @@ ever *published* from CI, which was true because releases were run locally and t
 publish always beat the workflow to the version. **`@diagrammo/dgmo` was in fact already
 registered** (`diagrammo/dgmo` · `release.yml` · `npm publish`, seen in the npm UI that
 day). **All ten were registered on 2026-08-14** and confirmed by the person who did it;
-nothing has published through them yet. A non-empty attestation is still the right evidence
-that a package has *published* over OIDC.
+and the path was proven on 2026-08-15: `vitepress-dgmo` 0.6.5 is the first version
+Actions published, and `npm view vitepress-dgmo@0.6.5 dist.attestations` returns a SLSA
+provenance record where 0.6.4 returns nothing. A non-empty attestation is the right
+evidence that a package has *published* over OIDC — the other nine have not yet.
 
 🔴 **The claim that the `dgmo` CI path "migrated off Trusted Publishing onto a shared
 org-secret on 2026-05-17" is wrong, and was retracted 2026-08-06.** Every `release.yml`
@@ -112,7 +114,7 @@ version check, credentials are fine. Verified 2026-07-31 during the 0.15.1 relea
 4. `pnpm build` green.
 5. `CHANGELOG.md` has an entry under `## [Unreleased]` describing this release. Major user-facing features deserve marquee callouts per `feedback_release_notes_feature_callouts`.
 6. Version-bump check: `grep '"version"' package.json` matches what you intend to ship; for `dgmo-mcp` also check `manifest.json` and `server.json`; for `obsidian-dgmo` also check `manifest.json`.
-7. **The package's trusted publisher is registered at npmjs.com** (see the prerequisite above). This is the check that used to be `npm whoami`, and as of 2026-08-14 it is the one that will bite — none of the ten are registered yet. `npm whoami` returning `demian0311` matters only if you are falling back to a local publish before the token expires 2026-08-19.
+7. **The package's trusted publisher is registered at npmjs.com** (see the prerequisite above). This is the check that used to be `npm whoami`. All ten were registered 2026-08-14, so it bites only for a **new** package or after a workflow file is renamed. `npm whoami` returning `demian0311` matters only if you are falling back to a local publish before the token expires 2026-08-19.
 
 ## The per-repo `release.sh` scripts — they no longer publish
 
@@ -269,7 +271,7 @@ This trap fired again on the 0.16.0 recovery (2026-05-20): user rotated to a 90-
 
 Symptom: the dispatched run gets through build, lint, test and pack, and dies at the `npm publish` step on authentication.
 
-**First suspect, and as of 2026-08-14 the overwhelmingly likely one: the package has no trusted publisher registered at npmjs.com.** No package is registered yet, so this is the expected failure for the first release of every one of them. Nothing about the run, the token or the workflow needs changing — a human has to register it.
+**First suspect: the package's trusted publisher is missing or does not match.** All ten were registered 2026-08-14, so on those the likely fault is a **mismatch** — most often a workflow filename that was renamed on our side and never updated on npm's. For a package added since, it is simply not registered. Either way nothing about the run, the token or the workflow needs changing — a human has to fix it at npmjs.com.
 
 Diagnosis steps:
 1. `npm view <pkg> dist.attestations` — empty means the package has never published from CI, which is consistent with an unregistered trusted publisher.
