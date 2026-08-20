@@ -118,6 +118,12 @@ Rules:
 
 **Stay in the current thread of work.** Next steps continue what we are actually doing. Do NOT surface unrelated initiatives, other sessions' in-flight branches, or backlog items that merely happen to be open — the user is mid-thought on one thing, and a menu of everything else derails it. A step from outside the thread appears only if the user asks, or if the current work genuinely blocks on it (say which). When the thread is finished and there is nothing left in it, say so plainly instead of manufacturing options.
 
+🔴 **Every step says whether it CONTINUES the current work or leaves it** — the reader cannot tell from the text alone, and being unsure which they are answering is the failure this fixes. A step that carries on with what we are already doing opens with `Continue <the thing> — `; a step that departs opens by naming where it goes. Both forms still gloss any identifier, so it is `Continue the agent-only dev-server deadline (#363) — time a cold start`, never `Continue #363`.
+
+- Say it even when **every** option continues the same work. That is exactly the case that reads as a menu of departures, because a four-option list looks like four directions whatever the options say.
+- The prefix is not a substitute for the thread rule above. Departures still only appear when asked for or genuinely blocking; this makes the ones that survive legible.
+- Observed 2026-08-19: four next-steps options, all four of them moves on the same issue, and the user asked whether to pick a letter or to say "let's do 363" — the list had given no way to tell those were the same answer.
+
 **No bare identifiers here either** — the rule is in Communication Style, because it governs everything written, not just this list.
 
 ## Progress Checklists
