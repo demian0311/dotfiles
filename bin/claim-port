@@ -10,7 +10,8 @@
 # EXIT CODES, because the three outcomes are genuinely different:
 #   0  the port is yours — it was free, or the thing holding it was abandoned and is gone
 #   3  a LIVE server for this repo is already on it; nothing was killed, go use it
-#   1  something outside this checkout holds it; nothing was killed, sort it out yourself
+#   1  something outside this checkout holds it, or the port was STILL bound after the
+#      kill; either way a human decides
 # Callers abort on any non-zero, so `dev` never starts a second server. Only 1 is a
 # problem — 3 means the thing you wanted is already running.
 #
@@ -34,7 +35,12 @@
 # `--force` overrides, for when you know the connection is a tab you left open yesterday.
 #
 # WHAT IT WILL AND WILL NOT KILL. Only a listener whose working directory is
-# inside the same checkout you run this from — found by walking up from $PWD to
+# inside the same checkout you run this from — and, when the whole process group is
+# equally in-scope, that group, because the listener alone is often not the server. On
+# 2026-08-23 a `wrangler dev` from five days earlier was found on :5190: it had been
+# respawning its `workerd` child, so killing the listener freed the address for about a
+# second and this script reported success into a collision. Killing the job fixes that;
+# re-reading the port before claiming success is what makes the lie impossible — found by walking up from $PWD to
 # the enclosing git repo, or its parent when repos sit side by side in a
 # workspace. Anything else holding the port is someone else's: it is named and
 # the command FAILS rather than guessing, because silently killing a stranger's
@@ -90,6 +96,37 @@ connections_on() {
   lsof -nP -iTCP:"$2" -sTCP:ESTABLISHED -a -p "$1" 2>/dev/null | tail -n +2 | wc -l | tr -d ' '
 }
 
+pgid_of() { ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '; }
+
+members_of() { ps -eo pid=,pgid= | awk -v g="$1" '$2 == g { print $1 }'; }
+
+# THE JOB, NOT THE LISTENER. A supervised dev server runs the thing that binds the port
+# as a disposable child and respawns it the instant it dies — `wrangler dev` does exactly
+# this. So killing the listener frees the port for about a second, which is long enough
+# for this script to print "freed" and hand the caller a collision. What has to go is the
+# whole job, and a job is precisely a process group.
+#
+# The group is refused, and only the single listener killed, whenever it is not
+# unambiguously ours: our own group (suicide), a member working outside the scope root,
+# or a login shell caught in it. A dead group leader is fine and normal — an abandoned
+# server is usually a pile of orphans whose shell is long gone.
+group_is_ours() {
+  g="$1"
+  [ -z "$g" ] && return 1
+  [ "$g" = "$(pgid_of $$)" ] && return 1
+  for m in $(members_of "$g"); do
+    mcmd="$(ps -o command= -p "$m" 2>/dev/null)"
+    case "$mcmd" in -*) return 1 ;; esac
+    mcwd="$(cwd_of "$m")"
+    [ -z "$mcwd" ] && continue
+    case "$mcwd" in "$SCOPE"|"$SCOPE"/*) ;; *) return 1 ;; esac
+  done
+  return 0
+}
+
+# A pid that is gone is NOT a port that is free. Ask the port.
+listeners_on_port() { lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | sort -u; }
+
 # 0 clean · 1 held by something outside the scope · 3 held by a live server of ours.
 # Worst wins, and "outside" outranks "live" because it needs a human either way.
 status=0
@@ -122,23 +159,70 @@ for port in "${PORTS[@]}"; do
           note_status 3
           continue
         fi
+        group="$(pgid_of "$pid")"
+        if group_is_ours "$group"; then
+          targets="$(members_of "$group" | tr '\n' ' ')"
+          what="job $group"
+        else
+          targets="$pid"
+          what="pid $pid"
+        fi
+
+        # One exclusion inside an otherwise-whole job: an agent's own command shell
+        # (`zsh -c source .../shell-snapshots/…`) is often the group leader here, and in
+        # some builds it is that session's ONLY shell rather than one wrapper per
+        # command. Killing it would take a working session down to free a port. Its
+        # children — the actual server — still go, so the port is freed either way.
+        keep=""
+        for t in $targets; do
+          case "$(ps -o command= -p "$t" 2>/dev/null)" in
+            *shell-snapshots/snapshot*) keep="$keep $t" ;;
+          esac
+        done
+        for k in $keep; do targets="$(echo $targets | tr ' ' '\n' | grep -v "^$k$" | tr '\n' ' ')"; done
+
+        case "$what" in
+          job\ *) what="job $group, $(echo $targets | wc -w | tr -d ' ') process(es)" ;;
+        esac
+
         if [ "$DRY" = 1 ]; then
-          echo "claim-port: would free :$port from pid $pid ($cmd)"
+          echo "claim-port: would free :$port from $what ($cmd)"
           continue
         fi
-        kill "$pid" 2>/dev/null
-        # Give it a moment to release the socket, then insist. A dev server that
+
+        for t in $targets; do kill "$t" 2>/dev/null; done
+        # Give them a moment to release the socket, then insist. A dev server that
         # ignores SIGTERM still holds the port, and a half-freed port is the same
         # collision we are here to prevent.
         for _ in 1 2 3 4 5 6 7 8 9 10; do
-          kill -0 "$pid" 2>/dev/null || break
+          alive=0
+          for t in $targets; do kill -0 "$t" 2>/dev/null && alive=1; done
+          [ "$alive" = 0 ] && break
           sleep 0.3
         done
-        if kill -0 "$pid" 2>/dev/null; then
-          kill -9 "$pid" 2>/dev/null
+        for t in $targets; do
+          kill -0 "$t" 2>/dev/null && kill -9 "$t" 2>/dev/null
+        done
+
+        # Now ask the PORT, not the pids. This is the half that was missing: the old
+        # version announced "freed" on the strength of a pid disappearing, and a
+        # respawned listener had the address back before the caller finished building.
+        still=""
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+          still="$(listeners_on_port "$port")"
+          [ -z "$still" ] && break
           sleep 0.3
+        done
+        if [ -n "$still" ]; then
+          echo "claim-port: :$port is STILL bound after killing $what" >&2
+          for sp in $still; do
+            echo "claim-port:   now pid $sp — $(ps -o command= -p "$sp" 2>/dev/null | cut -c1-80)" >&2
+          done
+          echo "claim-port: something is respawning it. Stop that, or use --force." >&2
+          note_status 1
+          continue
         fi
-        echo "claim-port: freed :$port (was pid $pid, $cmd)"
+        echo "claim-port: freed :$port (was $what, $cmd)"
         ;;
       *)
         echo "claim-port: :$port is held by pid $pid, which is NOT in $SCOPE" >&2
