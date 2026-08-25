@@ -425,7 +425,13 @@
       "Slate": "#5b6672",
       "Ink": "#1f2933"
     },
-    "notificationBadgeColor": "#c0504d"
+    "notificationBadgeColor": "#c0504d",
+
+    // cmux's own selection is a saturated system blue — the brightest thing on
+    // screen, on a panel whose whole job is to be scanned rather than looked at.
+    // This is the slate blue's shadow tone: still unmistakably the selected row,
+    // no longer the loudest pixel in the window (set 2026-08-25).
+    "selectionColor": "#2f4a63"
   },
 
   // Slate, and dimmer than the focused divider so the eye goes to the pane that
