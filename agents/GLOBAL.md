@@ -1,9 +1,18 @@
-# Presenting options — how Demian wants to be asked and told
+# Global rules — every coding agent, every session
 
 🔴 **Shared by every coding agent, not just one.** Claude Code imports this file from
 `claude/CLAUDE.md`; Codex reads it directly as `~/.codex/AGENTS.md`, where it is the *only*
-global instruction file. So never name a tool that exists in one harness and not the other
-without saying which — a rule the reader cannot act on is worse than no rule.
+global instruction file it gets. So never name a tool that exists in one harness and not the
+other without saying which — a rule the reader cannot act on is worse than no rule.
+
+**This file is the only place a rule can reach BOTH harnesses**, which is why it holds more
+than its original subject. It was `presenting-options.md` until 2026-08-25 and held only the
+question-asking rules; the workspace label moved in the same day, from `claude/CLAUDE.md`,
+because Codex never reads that file and the project one is truncated at 32 KB — far short of
+where a rule buried in a 70 KB `CLAUDE.md` would sit. Anything else that both harnesses must
+obey belongs here too, under its own heading rather than folded into a neighbour's.
+
+# Presenting options — how Demian wants to be asked and told
 
 These rules WIN even when a workflow, skill, or BMAD step presents its questions as prose or
 inline "[1]/[2]" text. Reformat such questions to comply before asking.
@@ -82,3 +91,54 @@ first**: `the npm token expiry (#218)`, never `#218 — the npm token expiry`. T
 or sentence whose first token is an identifier; if the eye lands on the number before it lands on
 any words, rewrite it. A bare number inside a link is the same violation wearing a link, so the
 link text is the description too.
+
+# Workspace label (cmux sidebar)
+
+Several sessions run side by side and the sidebar label is how the user finds the
+right one. **The session owns its own label** — cmux ships AI auto-naming and it is
+deliberately off (decided 2026-08-05, and its machinery is Claude-only in the binary
+regardless), so a label nobody sets stays whatever stale string was there.
+
+```bash
+cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
+```
+
+**The handle is required.** `cmux workspace rename` does NOT default to the calling
+session's workspace the way `env`/`reconnect`/`disconnect` do — bare, it fails with
+`could not resolve workspace handle`. `$CMUX_WORKSPACE_ID` is in the environment of
+every process cmux launched, agent included, and is the authoritative answer to "which
+workspace am I"; the sidebar's visible selection is not, and neither is the pane
+header. Verified 2026-08-05.
+
+- Set it **as soon as the subject is clear** — usually right after the first
+  substantive prompt, before the work starts. Not at the end.
+- **Re-set it when the thread changes, and CHECK IT AT EVERY STOP.** A workspace that
+  started on release notes and is now debugging a Worker gets renamed; a label
+  describing finished work is worse than a generic one. 🔴 The check belongs to the
+  beats that already interrupt the user — reporting, and asking them to pick — because
+  "when the thread changes" is a condition nobody notices while following the thread.
+  Observed 2026-08-16: a session set `cross space search` at its first prompt and kept
+  it through three further subjects, finishing on folder copying, while the user was
+  reading that sidebar to work out which of eight sessions was which. Free to fix, and
+  half a session of confusion not to.
+- **2–4 words, lowercase, what the work is about** — `cloud limits`,
+  `obsidian live links`, `event-line dates`. Never a verb phrase (`fixing the parser`),
+  never a tool or slash-command name, never `new`/`clear`/`codex`/a bare repo name that
+  doesn't distinguish it from the other sessions in the same repo.
+- The label names the *work*, not the state — status is what the sidebar's own
+  indicators are for.
+- **A placeholder label is an instruction, not a name.** A fresh or just-cleared
+  session gets renamed to one automatically — `clear` in Claude Code, `codex` in
+  Codex — precisely because at that moment the subject is known to be unknown.
+  Seeing one means naming this thread is the FIRST job of the turn.
+- Skip silently if `cmux` isn't on PATH or the call fails; it is never worth a retry or
+  a mention.
+- ⚠️ **In Codex the rename is currently BLOCKED by the sandbox** — measured 2026-08-25:
+  a command run under `workspace-write` cannot connect to cmux's unix socket
+  (`Operation not permitted, errno 1`), while the same command under
+  `danger-full-access`, or with `--allow-unix-socket /Users/demian/.local/state/cmux`,
+  succeeds. The persistent config that grants it was not established; until it is, a
+  Codex session's rename fails silently and the placeholder below is what actually
+  keeps that row honest. Try the rename anyway — it costs one call and works the day
+  the setting lands.
+- Rename only your own workspace. Another session's label belongs to that session.

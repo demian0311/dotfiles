@@ -68,9 +68,11 @@ Rules of thumb:
 The lettered 🟢/🟡/🔴 form, the structured-picker rule, and the ranked **Next Steps** list all
 live in one shared file, because Codex reads that same file as its only global instruction file
 (`~/.codex/AGENTS.md` is a symlink to it). Edit it there and both harnesses change together;
-never restate one of its rules here.
+never restate one of its rules here. **It carries the cmux workspace label too** — the file was
+`agents/presenting-options.md` and became `agents/GLOBAL.md` on 2026-08-25, when it stopped
+being about one subject; anything both harnesses must obey goes there rather than here.
 
-@/Users/demian/code/dotfiles/agents/presenting-options.md
+@/Users/demian/code/dotfiles/agents/GLOBAL.md
 
 ## Completion Summary
 
@@ -120,21 +122,16 @@ Audit and split the instruction files
 
 ## Workspace Label (cmux sidebar)
 
-Several sessions run side by side and the sidebar label is how the user finds the right one. **I own that label** — cmux's AI auto-naming is deliberately off (decided 2026-08-05), so if I don't set it, it stays whatever stale string was there.
+**The labelling rules moved to `agents/GLOBAL.md` on 2026-08-25** — imported above, so they are
+already in front of you, and Codex now gets the same ones. They are not restated here. What
+stays below is the part that is specific to THIS harness's hooks: which of them paints what,
+and what must never be painted by hand.
 
-```bash
-cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
-```
-
-**The handle is required.** `cmux workspace rename` does NOT default to the calling session's workspace the way `env`/`reconnect`/`disconnect` do — bare, it fails with `could not resolve workspace handle`. `$CMUX_WORKSPACE_ID` is in this process's environment and is the authoritative answer to "which workspace am I"; the sidebar's visible selection is not, and neither is the pane header. Verified 2026-08-05.
-
-- Set it **as soon as the subject is clear** — usually right after the first substantive prompt, before the work starts. Not at the end.
-- **`/clear` makes the label stale by definition.** A `SessionStart:clear` hook (`~/.claude/cmux-relabel-on-clear.sh`) resets it to `clear` and reminds me to set the real one — so after a clear the job is to *name* the new thread, never to leave the previous thread's label standing.
-- **Re-set it when the thread changes, and CHECK IT AT EVERY STOP.** A workspace that started on release notes and is now debugging a Worker gets renamed; a label describing finished work is worse than a generic one. 🔴 The check belongs to `report` and `pick` — the two beats that already interrupt — because "when the thread changes" is a condition nobody notices while following the thread. Observed 2026-08-16: a session set `cross space search` at its first prompt and kept it through three further subjects, finishing on folder copying, while the user was reading that sidebar to work out which of eight sessions was which. Free to fix, and half a session of confusion not to.
-- **2–4 words, lowercase, what the work is about** — `cloud limits`, `obsidian live links`, `event-line dates`. Never a verb phrase (`fixing the parser`), never a tool or slash-command name, never `new`/`clear`/a bare repo name that doesn't distinguish it from the other sessions in the same repo.
-- The label names the *work*, not the state — status is what the sidebar's own indicators are for.
-- Skip silently if `cmux` isn't on PATH or the call fails; it is never worth a retry or a mention.
-- Rename only my own workspace. Another session's label belongs to that session.
+The one Claude-only clause: **`/clear` makes the label stale by definition**, and a
+`SessionStart:clear` hook (`~/.claude/cmux-relabel-on-clear.sh`) resets it to `clear` and
+reminds me to set the real one. That is the placeholder the shared file describes; after a
+clear the job is to *name* the new thread, never to leave the previous thread's label standing.
+The 🔴 "check it at every stop" rule lands on the `report` and `pick` beats of the nine.
 
 **The row COLOUR is not mine to set — hooks own it, and it means session state:**
 
@@ -147,7 +144,7 @@ cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
 
 The status **pill** beside the row is hook-owned too — `cmux-throbber.py` and `cmux-session-start.py` share the `claude_code` key, and a bare cmux install leaves it reading `Running` on a session that has nothing in it. Never run `workspace-action --action set-color` by hand — a manual colour is a state claim that the next hook overwrites, and while it stands it lies. Change the meaning by editing the hook (all four live in `~/code/dotfiles/claude/`, symlinked into `~/.claude/`), never the row.
 
-**Three other pills are tool-owned, and setting or clearing one by hand is the same mistake as a manual row colour** — the next pass overwrites it, and until then it lies. `mem` is `bin/cmux-mem` (each workspace's size, plus a warning before the machine runs out of headroom); `tidy` is `bin/cmux-tidy` (dev servers listening with nobody connected); `agents` is `bin/cmux-agents` (which agent — Claude, Codex — is running in that workspace, added 2026-08-25, and since later that day **how full a Codex session's context is**, as the same ■□ bar Claude rows carry). 🔴 A Codex row's bar lives on the `agents` key, NOT on cmux's own `codex` key, and that asymmetry with Claude is deliberate: cmux rewrites its own agent keys on a lifecycle change, which a hook repainting every 0.4s barely survives and a daemon on a 3s tick does not — so the bar it can hold is the one on a key nothing else writes. The number comes from the `token_count` event Codex writes per turn into its own rollout file, so nothing of ours sits in any Codex config. All three are read-only reporters — none ever closes anything, because choosing which session dies is the user's call and a tool that guessed would eventually take the one holding an hour of unread output.
+**Three other pills are tool-owned, and setting or clearing one by hand is the same mistake as a manual row colour** — the next pass overwrites it, and until then it lies. `mem` is `bin/cmux-mem` (each workspace's size, plus a warning before the machine runs out of headroom); `tidy` is `bin/cmux-tidy` (dev servers listening with nobody connected); `agents` is `bin/cmux-agents` (which agent — Claude, Codex — is running in that workspace, added 2026-08-25, and since later that day **how full a Codex session's context is**, as the same ■□ bar Claude rows carry). 🔴 A Codex row's bar lives on the `agents` key, NOT on cmux's own `codex` key, and that asymmetry with Claude is deliberate: cmux rewrites its own agent keys on a lifecycle change, which a hook repainting every 0.4s barely survives and a daemon on a 3s tick does not — so the bar it can hold is the one on a key nothing else writes. The number comes from the `token_count` event Codex writes per turn into its own rollout file, so nothing of ours sits in any Codex config. `cmux-agents` also puts the placeholder LABEL `codex` on a workspace the moment a new Codex session appears in it (2026-08-25) — the counterpart of Claude's `SessionStart:clear` hook, done from the daemon because cmux launches Codex with `-c hooks.SessionStart=…` on the command line and a `-c` override replaces whatever `config.toml` holds, so a hook of ours there would be silently dropped. It fires once per session id, only within two minutes of that session starting, and never on a workspace where a Claude session is also live. All three stay read-only about SESSIONS — none ever closes anything, because choosing which session dies is the user's call and a tool that guessed would eventually take the one holding an hour of unread output.
 
 🔴 **cmux writes `claude_code` ITSELF, so a pill on that key never has the last word.** Its Claude integration replaces the value on a lifecycle change — `Needs input` with a bell — or clears the pill outright, wiping the context bar and the agent mark the hooks just painted. Observed on live rows 2026-08-25, minutes after a correct paint, and it reads as a bug in the paint when it is nothing of the kind. `bin/cmux-agents` repairs it on a 20s pass by redrawing any Claude row whose value carries none of the bar's own glyphs; anything else built on that key needs the same treatment, or its own key.
 

@@ -69,6 +69,10 @@ PILL_PRIORITY = 90          # identity reads before size (mem=40) and idleness
 
 SESSION_DIR = os.path.expanduser('~/.cmuxterm')
 STATE_PATH = os.path.expanduser('~/Library/Caches/cmux-agents.json')
+# Kept apart from STATE_PATH, which is a map of workspace -> pill and is walked as
+# one; a second shape in there would be read as a workspace that no longer exists
+# and its pill cleared.
+SEEN_PATH = os.path.expanduser('~/Library/Caches/cmux-agents-seen.json')
 PIDFILE = os.path.expanduser('~/Library/Caches/cmux-agents.pid')
 
 # One row per agent cmux can track. `binary` is what the live process must
@@ -102,6 +106,27 @@ SKIP = {'claude'}
 # Enough of the rollout's tail to be certain the last `token_count` is in it —
 # they are the biggest events in the file and one is written per turn.
 TAIL_BYTES = 262144
+
+# A workspace's sidebar label is how the user tells ten sessions apart, and a brand
+# new session inherits the PREVIOUS thread's label — which is worse than a generic
+# one, because it is confidently wrong. Claude Code closes this with its own
+# SessionStart hook; Codex cannot, because cmux launches it with `-c hooks.SessionStart=…`
+# on the command line and a `-c` override REPLACES whatever config.toml holds, so a
+# hook of ours there would be silently dropped (read off the live process 2026-08-25).
+# Doing it from this daemon needs no Codex config at all, which is the same reason
+# the badge is read from cmux's session files rather than from a hook.
+#
+# The agent renames it properly once it knows the subject — that rule lives in
+# `agents/GLOBAL.md`, which Codex reads as ~/.codex/AGENTS.md. This only guarantees
+# that what stands until then is honest.
+PLACEHOLDERS = {'codex': 'codex'}
+# Only a session BORN in the last two minutes gets one. Without this, restarting the
+# daemon would see every running session as new and stamp `codex` over labels their
+# sessions had already chosen — the exact damage this is meant to prevent.
+BIRTH_WINDOW = 120.0
+# How long a session id is remembered after it stops appearing. Anything longer than
+# a session's own lifetime would do; this is just a bound on the file's size.
+PRUNE_AFTER = 24 * 60 * 60.0
 
 MIXED_ICON = 'person.2.fill'
 MIXED_COLOR = '#8e8e93'
@@ -228,7 +253,7 @@ def live_records():
                 yield agent, record
 
 
-def scan():
+def scan(records):
     """(workspace -> sorted agent names, workspace -> context percent).
 
     Two live sessions of one agent in one workspace: the FULLEST is what the bar
@@ -236,7 +261,7 @@ def scan():
     run out.
     """
     found, context = {}, {}
-    for agent, record in live_records():
+    for agent, record in records:
         workspace = record.get('workspaceId')
         if not workspace:
             continue
@@ -418,6 +443,67 @@ def repair_claude(workspaces):
              '--workspace', workspace, '--icon', CLAUDE_ICON, '--color', color])
 
 
+def load_seen():
+    try:
+        with open(SEEN_PATH) as handle:
+            return json.load(handle) or {}
+    except Exception:
+        return {}
+
+
+def save_seen(seen):
+    try:
+        os.makedirs(os.path.dirname(SEEN_PATH), exist_ok=True)
+        with open(SEEN_PATH, 'w') as handle:
+            json.dump(seen, handle)
+    except Exception:
+        pass
+
+
+def name_new_sessions(records):
+    """Put a placeholder label on a workspace a new session has just appeared in.
+
+    Fires once per session id, ever — a session that has already been counted keeps
+    whatever label it or the user has since chosen, so this can never fight a rename.
+    A workspace that also holds a live Claude session is left alone: Claude names its
+    own row, and stamping `codex` over a name it had already earned would be a loss.
+    """
+    seen = load_seen()
+    live = set()
+    now = time.time()
+    claude = set(claude_workspaces())
+    for agent, record in records:
+        placeholder = PLACEHOLDERS.get(agent)
+        if not placeholder:
+            continue
+        session = record.get('sessionId')
+        workspace = record.get('workspaceId')
+        if not session or not workspace:
+            continue
+        live.add(session)
+        if session in seen:
+            continue
+        seen[session] = now
+        try:
+            born = float(record.get('startedAt') or 0)
+        except (TypeError, ValueError):
+            born = 0.0
+        if now - born > BIRTH_WINDOW or workspace in claude:
+            continue
+        run(['workspace', 'rename', workspace, '--title', placeholder])
+    # Bounded without ever being able to forget a session that is still around.
+    # Dropping everything absent from THIS pass looked equivalent and is not: a
+    # session file caught mid-write parses as nothing, `live` comes back empty, and
+    # the whole record is wiped — after which every session born in the last two
+    # minutes is renamed a second time, over whatever it had chosen since. So an
+    # entry has to be both absent AND stale before it goes, and a pass that saw
+    # nothing at all prunes nothing.
+    if live:
+        cutoff = now - PRUNE_AFTER
+        seen = {k: v for k, v in seen.items() if k in live or v > cutoff}
+    save_seen(seen)
+
+
 def load_state():
     try:
         with open(STATE_PATH) as handle:
@@ -486,7 +572,9 @@ def report(found, context):
 
 
 def one_pass(force=False):
-    found, context = scan()
+    records = list(live_records())
+    name_new_sessions(records)
+    found, context = scan(records)
     save_state(apply(found, context, load_state(), force=force))
     if force:
         # Only on the slow pass: it costs one socket round trip per Claude row,
