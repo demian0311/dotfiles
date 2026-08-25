@@ -28,6 +28,20 @@ Those files keep DEAD sessions, so every record is checked against the live
 process before it counts: the pid must be alive AND still be that agent's binary,
 or a reused pid would keep a badge alive for a session that ended hours ago.
 
+AND HOW FULL ITS CONTEXT IS: an agent whose fullness can be read gets a ten-cell
+bar instead of its name, the icon carrying the identity the word used to. Claude
+already had one, drawn per-pane by its own hook into cmux's `claude_code` pill;
+Codex had nothing, because that bar is fed by Claude's status line. This draws it
+from what Codex itself writes to disk — see `codex_context` for where — and puts
+it in the `agents` pill, the key this tool OWNS, rather than in cmux's own `codex`
+pill. That is the whole reason for the asymmetry: cmux rewrites its own agent keys
+on a lifecycle change, and a hook repainting every 0.4s barely loses that race
+where a daemon on a 3s tick would show cmux's word for seconds at a time.
+
+MEMORY is NOT here and must not be added: `cmux-mem` counts every process in a
+workspace, so it already sizes Codex rows (verified 2026-08-25 — two of them, 113M
+and 89M, in its own `--report`). One fact, one pill.
+
   cmux-agents             one pass — badge every workspace, clear the ones with none
   cmux-agents --report    also print what it found
   cmux-agents --daemon    keep doing it (one instance per machine)
@@ -85,6 +99,10 @@ AGENTS = {
 # it, and it keeps one. Changed 2026-08-25; before this every row carried a chip.
 SKIP = {'claude'}
 
+# Enough of the rollout's tail to be certain the last `token_count` is in it —
+# they are the biggest events in the file and one is written per turn.
+TAIL_BYTES = 262144
+
 MIXED_ICON = 'person.2.fill'
 MIXED_COLOR = '#8e8e93'
 DEFAULT_ICON = 'terminal.fill'
@@ -137,42 +155,118 @@ def alive(pid, binary):
     return comm(pid) == binary
 
 
-def scan():
-    """workspace id -> sorted list of agent names with a live session in it."""
-    found = {}
+def codex_context(record):
+    """Percent of its context window this Codex session is holding, or None.
+
+    Codex writes a `token_count` event per turn into the session's rollout JSONL
+    — `transcriptPath` in the record cmux already keeps — and the LAST one
+    describes the request just made. `last_token_usage.total_tokens` is
+    everything that went up, which IS the conversation, and
+    `model_context_window` is already the EFFECTIVE window rather than the
+    model's raw one (258400 = 272000 x 0.95, read off a live session
+    2026-08-25). A compacted session reports its smaller total here, so the bar
+    drops on a compaction without anything having to notice one happened.
+
+    ⚠️ Codex's TUI subtracts a fixed baseline for the system prompt and tool
+    definitions before dividing, so this reads a few points fuller than its own
+    `context-remaining` figure — about 3 points at a third full. That is inside
+    one cell of a ten-cell bar, so the constant is not guessed at here; `--report`
+    prints the percent for anyone who wants to compare the two by eye.
+    """
+    path = record.get('transcriptPath')
+    if not path:
+        return None
     try:
-        names = os.listdir(SESSION_DIR)
+        size = os.path.getsize(path)
+        with open(path, 'rb') as handle:
+            if size > TAIL_BYTES:
+                handle.seek(size - TAIL_BYTES)
+                handle.readline()      # the seek lands mid-line; drop the rest
+            lines = handle.read().splitlines()
     except Exception:
-        return found
+        return None
+    for line in reversed(lines):
+        if b'"token_count"' not in line:
+            continue
+        try:
+            info = json.loads(line)['payload']['info']
+            used = float(info['last_token_usage']['total_tokens'])
+            window = float(info['model_context_window'])
+        except Exception:
+            continue                   # a truncated or unexpected line, not the end of the search
+        if window > 0:
+            return max(0.0, min(100.0, used / window * 100.0))
+    return None
+
+
+# An agent appears here only once something can actually read its fullness. One
+# that cannot keeps its name chip, which is what this tool did for everyone
+# before 2026-08-25 — the honest failure is the older, smaller answer.
+CONTEXT_READERS = {'codex': codex_context}
+
+
+def live_records():
+    """(agent, record) per session cmux tracks whose process is still that agent."""
+    try:
+        names = sorted(os.listdir(SESSION_DIR))
+    except Exception:
+        return
     for name in names:
         if not name.endswith('-hook-sessions.json'):
             continue
         agent = name[:-len('-hook-sessions.json')]
+        if agent in SKIP:
+            continue
         spec = AGENTS.get(agent, {})
         try:
             with open(os.path.join(SESSION_DIR, name)) as handle:
                 sessions = (json.load(handle) or {}).get('sessions') or {}
         except Exception:
             continue
-        if agent in SKIP:
-            continue
         for record in sessions.values():
-            workspace = record.get('workspaceId')
-            if not workspace:
-                continue
-            if not alive(record.get('pid'), spec.get('binary')):
-                continue
-            found.setdefault(workspace, set()).add(agent)
-    return {w: sorted(a) for w, a in found.items()}
+            if alive(record.get('pid'), spec.get('binary')):
+                yield agent, record
 
 
-def chip(agents):
-    """The pill for one workspace: (value, icon, colour)."""
+def scan():
+    """(workspace -> sorted agent names, workspace -> context percent).
+
+    Two live sessions of one agent in one workspace: the FULLEST is what the bar
+    shows. The bar is a warning, and the emptier session is not the one about to
+    run out.
+    """
+    found, context = {}, {}
+    for agent, record in live_records():
+        workspace = record.get('workspaceId')
+        if not workspace:
+            continue
+        found.setdefault(workspace, set()).add(agent)
+        reader = CONTEXT_READERS.get(agent)
+        pct = reader(record) if reader else None
+        if pct is not None:
+            context[workspace] = max(pct, context.get(workspace, 0.0))
+    return {w: sorted(a) for w, a in found.items()}, context
+
+
+def chip(agents, pct=None):
+    """The pill for one workspace: (value, icon, colour).
+
+    Given a reading, the bar REPLACES the agent's name and the icon is left
+    carrying the identity alone — the same trade cmux-throbber.py makes on Claude
+    rows, for the same reason: the name is a constant, the bar is not, and a
+    sidebar row can only afford one of them.
+
+    A workspace running two DIFFERENT agents keeps the names and gets no bar: the
+    chip would have to say whose bar it was, which costs exactly the width the bar
+    was meant to buy, and "claude · codex" is still the answer for that row.
+    """
     if len(agents) == 1:
         spec = AGENTS.get(agents[0], {})
-        return (spec.get('label', agents[0]),
-                spec.get('icon', DEFAULT_ICON),
-                spec.get('color', DEFAULT_COLOR))
+        icon = spec.get('icon', DEFAULT_ICON)
+        color = spec.get('color', DEFAULT_COLOR)
+        if pct is None:
+            return (spec.get('label', agents[0]), icon, color)
+        return (bar(pct), icon, ramp(color, pct))
     labels = [AGENTS.get(a, {}).get('label', a) for a in agents]
     return (' · '.join(labels), MIXED_ICON, MIXED_COLOR)
 
@@ -197,6 +291,10 @@ def chip(agents):
 # it: that file is a Claude Code hook, run per pane with a pane's environment,
 # and this is a machine-wide daemon with neither. The constants that must agree
 # are the bar's two glyphs, its width, and the colours.
+#
+# The bar constants, `bar()` and `ramp()` are shared with the Codex bar this tool
+# DRAWS (`chip()`), added 2026-08-25 — the two must not drift apart, or one agent's
+# row would be reporting fullness on a different scale from its neighbour's.
 CLAUDE_KEY = 'claude_code'
 CLAUDE_ICON = 'sparkle'
 BAR_CELLS = 10
@@ -255,6 +353,21 @@ def bar(pct):
     if pct < 100:
         filled = min(BAR_CELLS - 1, filled)
     return BAR_FULL * filled + BAR_EMPTY * (BAR_CELLS - filled)
+
+
+def ramp(base, pct):
+    """Colour = urgency, shapes = amount. Two jobs, two channels.
+
+    `base` is the agent's own colour, so a row with room left goes on saying which
+    agent it is in colour as well as in shape. Never COLOR_WAITING's red: that
+    means "waiting on you" here, and a second red blurs the one signal that gets
+    you to look at the row at all.
+    """
+    if pct >= URGENT_AT:
+        return COLOR_URGENT
+    if pct >= WARN_AT:
+        return COLOR_WARN
+    return base
 
 
 def shown(workspace):
@@ -322,7 +435,7 @@ def save_state(state):
         pass
 
 
-def apply(found, state, force=False):
+def apply(found, context, state, force=False):
     """Write only what changed — every pass otherwise re-sends the whole sidebar.
 
     `force` re-sends everything regardless. The state file remembers what was
@@ -333,7 +446,7 @@ def apply(found, state, force=False):
     """
     wanted = {}
     for workspace, agents in found.items():
-        value, icon, color = chip(agents)
+        value, icon, color = chip(agents, context.get(workspace))
         wanted[workspace] = [value, icon, color]
 
     for workspace, spec in wanted.items():
@@ -360,24 +473,28 @@ def clear_all():
     save_state({})
 
 
-def report(found):
+def report(found, context):
     if not found:
         print('no live agent sessions cmux can see')
         return
     for workspace, agents in sorted(found.items(), key=lambda kv: kv[1]):
-        print('%-38s %s' % (workspace, ' · '.join(agents)))
+        pct = context.get(workspace)
+        # The percent is printed as well as drawn so it can be checked against the
+        # agent's own context reading — the bar itself only resolves to 10%.
+        fullness = '' if pct is None else '  %5.1f%%  %s' % (pct, bar(pct))
+        print('%-38s %-16s%s' % (workspace, ' · '.join(agents), fullness))
 
 
 def one_pass(force=False):
-    found = scan()
-    save_state(apply(found, load_state(), force=force))
+    found, context = scan()
+    save_state(apply(found, context, load_state(), force=force))
     if force:
         # Only on the slow pass: it costs one socket round trip per Claude row,
         # and a mark cmux wiped is worth a few seconds, not a poll.
         # Not from `found` — the badge scan skips Claude, so its rows are only
         # visible through the live-session markers.
         repair_claude(claude_workspaces())
-    return found
+    return found, context
 
 
 def claude_workspaces():
@@ -388,6 +505,32 @@ def claude_workspaces():
         if claude_panels(workspace):
             live.append(workspace)
     return live
+
+
+def fingerprint():
+    """Cheap "has anything changed" — mtimes of everything a pass reads.
+
+    The session files change on every lifecycle event. The TRANSCRIPTS have to be
+    in here too, and were the day the bar arrived (2026-08-25): a turn writes its
+    `token_count` to the rollout without touching the session file, so on session
+    mtimes alone the bar would only ever move on the slow pass, minutes behind the
+    context it is reporting.
+    """
+    marks = []
+    try:
+        for name in sorted(os.listdir(SESSION_DIR)):
+            if name.endswith('-hook-sessions.json'):
+                marks.append(os.stat(os.path.join(SESSION_DIR, name)).st_mtime)
+    except Exception:
+        return []
+    for agent, record in live_records():
+        if agent not in CONTEXT_READERS:
+            continue
+        try:
+            marks.append(os.stat(record.get('transcriptPath') or '').st_mtime)
+        except Exception:
+            pass
+    return marks
 
 
 def hold_pidfile():
@@ -411,20 +554,13 @@ def hold_pidfile():
 def daemon(interval, full_every):
     if hold_pidfile():
         return
-    # The session files change on every lifecycle event, so their mtimes answer
-    # "has anything happened" for the price of two stats. A full pass still runs
-    # on a slow timer, because a session can END without rewriting the file —
-    # a crashed agent leaves its record behind and only the pid check notices.
+    # A full pass still runs on a slow timer, because a session can END without
+    # rewriting anything — a crashed agent leaves its record behind and only the
+    # pid check notices.
     last_stamp = None
     last_full = 0.0
     while True:
-        try:
-            stamp = []
-            for name in sorted(os.listdir(SESSION_DIR)):
-                if name.endswith('-hook-sessions.json'):
-                    stamp.append(os.stat(os.path.join(SESSION_DIR, name)).st_mtime)
-        except Exception:
-            stamp = []
+        stamp = fingerprint()
         now = time.time()
         due = now - last_full >= full_every
         if stamp != last_stamp or due:
@@ -459,9 +595,9 @@ def main():
     if args.daemon:
         daemon(args.interval, args.full_interval)
         return 0
-    found = one_pass(force=True)
+    found, context = one_pass(force=True)
     if args.report:
-        report(found)
+        report(found, context)
     return 0
 
 
