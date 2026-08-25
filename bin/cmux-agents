@@ -110,11 +110,17 @@ TAIL_BYTES = 262144
 # A workspace's sidebar label is how the user tells ten sessions apart, and a brand
 # new session inherits the PREVIOUS thread's label — which is worse than a generic
 # one, because it is confidently wrong. Claude Code closes this with its own
-# SessionStart hook; Codex cannot, because cmux launches it with `-c hooks.SessionStart=…`
-# on the command line and a `-c` override REPLACES whatever config.toml holds, so a
-# hook of ours there would be silently dropped (read off the live process 2026-08-25).
-# Doing it from this daemon needs no Codex config at all, which is the same reason
-# the badge is read from cmux's session files rather than from a hook.
+# SessionStart hook, and Codex 0.149 has an equivalent — hooks from every config
+# layer are ADDITIVE, so the `-c hooks.SessionStart=…` cmux injects on the command
+# line would not have displaced one in `~/.codex/hooks.json`.
+#
+# 🔴 It is not used, because a Codex hook only runs once TRUSTED — per hook, granted
+# by a person in the TUI (`/hooks`, or the startup review prompt) — and cmux launches
+# Codex with `--dangerously-bypass-hook-trust`. So the same hook would run inside cmux
+# and silently not run outside it, which is the worst shape a safety net can have: it
+# works everywhere you would notice it failing. Doing it from this daemon needs no
+# Codex config, no trust, and behaves the same either way — the same reason the badge
+# is read from cmux's session files rather than from a hook.
 #
 # The agent renames it properly once it knows the subject — that rule lives in
 # `agents/GLOBAL.md`, which Codex reads as ~/.codex/AGENTS.md. This only guarantees

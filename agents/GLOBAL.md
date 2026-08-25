@@ -133,12 +133,9 @@ header. Verified 2026-08-05.
   Seeing one means naming this thread is the FIRST job of the turn.
 - Skip silently if `cmux` isn't on PATH or the call fails; it is never worth a retry or
   a mention.
-- ⚠️ **In Codex the rename is currently BLOCKED by the sandbox** — measured 2026-08-25:
-  a command run under `workspace-write` cannot connect to cmux's unix socket
-  (`Operation not permitted, errno 1`), while the same command under
-  `danger-full-access`, or with `--allow-unix-socket /Users/demian/.local/state/cmux`,
-  succeeds. The persistent config that grants it was not established; until it is, a
-  Codex session's rename fails silently and the placeholder below is what actually
-  keeps that row honest. Try the rename anyway — it costs one call and works the day
-  the setting lands.
+- **Codex's sandbox permits this, and a read-only session does not** — measured
+  2026-08-25. Reaching cmux means reaching a unix socket, which rides on the same
+  switch as network access: under `workspace-write` with `network_access = true` the
+  rename works, and under `read-only`, or with network off, it fails with
+  `Operation not permitted`. Nothing extra has to be granted for it.
 - Rename only your own workspace. Another session's label belongs to that session.
