@@ -40,10 +40,12 @@ EMPTY_SOURCES = ('startup', 'clear')
 # The pill cmux writes its own lifecycle into — the same key cmux-throbber.py
 # animates, so the two never sit beside each other saying different things.
 PILL_KEY = 'claude_code'
-# Whose turn it is, in the row's own colour. The icon has to be passed
-# explicitly: cmux keeps the previous one when the flag is omitted, and the
-# previous one is the lightning bolt that means Running.
-PILL_ICON = 'person.crop.circle.fill'
+# WHICH AGENT this row is, in the row's own colour — the same mark
+# cmux-throbber.py keeps in front of the context bar, so an empty session and a
+# working one wear the same glyph and only the colour changes. The icon has to be
+# passed explicitly: cmux keeps the previous one when the flag is omitted, and
+# the previous one is the lightning bolt that means Running.
+PILL_ICON = 'sparkle'
 PILL_BLANK = '​'               # zero-width space; cmux rejects an empty value
 THROBBER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cmux-throbber.py')
 

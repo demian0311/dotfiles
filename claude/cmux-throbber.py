@@ -32,11 +32,24 @@ MAX_SECONDS = 60 * 60      # backstop: never spin longer than an hour
 # permission prompt is a lie, and cmux's own "Needs input" pill would be
 # overwritten by the next frame anyway. The Notification hook raises this flag,
 # a PostToolUse `rm` drops it the moment the turn is moving again.
-WAIT_ICON = 'person.crop.circle.fill'
 WAIT_COLOR = '#c0504d'     # same red as the row, so pill and row agree
-# No words anywhere: the row colour says the state, the icon says whose turn it
-# is, the bar says how full the context is. cmux rejects an empty status value,
-# so a pill with nothing to show carries a zero-width space.
+
+# The icon in front of the bar says WHICH AGENT this row is — changed 2026-08-25.
+# It used to say whose turn it was (a person, a bell), which the pill's own
+# colour and the row's colour were already both saying; identity was the thing
+# nothing said. Claude and Codex are otherwise indistinguishable in the sidebar,
+# because cmux renders a running session of either as a blue `bolt.fill` reading
+# `Running`. Passed on EVERY paint: cmux keeps the previous icon when the flag is
+# omitted, so one call without it leaves whatever was there before.
+#
+# It rides in the icon slot rather than the text so it costs no width, and the
+# cost of that is colour — the slot is tinted with the pill's colour, which is
+# the context ramp. So the mark is a SHAPE here, not a colour; `bin/cmux-agents`
+# is what carries an agent's colour, and it skips Claude for exactly this reason.
+AGENT_ICON = 'sparkle'
+# No words anywhere: the row colour says the state, the icon says which agent
+# this is, the bar says how full the context is. cmux rejects an empty status
+# value, so a pill with nothing to show carries a zero-width space.
 BLANK = '​'
 # 🔴 Geometric Shapes (U+25A0/U+25A1), NOT Block Elements — changed 2026-08-05
 # because the block bar rendered ragged, with the cells at visibly different
@@ -366,7 +379,7 @@ def stop():
         return
     try:
         row_color(ROW_STOPPED)
-        paint(WAIT_ICON, WAIT_COLOR)
+        paint(AGENT_ICON, WAIT_COLOR)
     except Exception:
         pass
 
@@ -425,19 +438,19 @@ def spin():
         if agent and not alive(agent):
             try:
                 row_color(ROW_STOPPED)
-                paint(WAIT_ICON, WAIT_COLOR)
+                paint(AGENT_ICON, WAIT_COLOR)
                 os.remove(pid_path())
             except Exception:
                 pass
             return
         try:
             if os.path.exists(wait_path()):
-                paint(WAIT_ICON, WAIT_COLOR)
+                paint(AGENT_ICON, WAIT_COLOR)
             else:
                 # The one path the ramp applies to: actually working. Every
                 # other call site passes WAIT_COLOR, so "red pill" keeps
                 # meaning "your turn" unless the session is mid-turn.
-                paint(None, context_color(COLOR), lead=FRAMES[i % len(FRAMES)])
+                paint(AGENT_ICON, context_color(COLOR), lead=FRAMES[i % len(FRAMES)])
         except Exception:
             return
         i += 1
@@ -474,7 +487,7 @@ def main():
                 pass
             # Assert it now too: the notification may arrive with no spinner
             # running, and cmux writes its own bell pill at the same moment.
-            paint(WAIT_ICON, WAIT_COLOR)
+            paint(AGENT_ICON, WAIT_COLOR)
             row_color(ROW_STOPPED)
 
 

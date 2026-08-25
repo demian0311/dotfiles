@@ -77,6 +77,14 @@ AGENTS = {
 # A workspace running two different agents at once gets one chip naming both, in
 # a colour belonging to neither — the point of the chip is the answer, and
 # "claude · codex" IS the answer for that row.
+# Claude is deliberately NOT badged here: its mark rides in front of the context
+# bar that cmux-throbber.py already draws on every Claude row (the `sparkle` in
+# that pill's icon slot), so a chip as well would be the same answer twice and a
+# line of sidebar for it. Every other agent has no bar of ours — the bar is drawn
+# from Claude's own context reading — so the chip is the only thing that can name
+# it, and it keeps one. Changed 2026-08-25; before this every row carried a chip.
+SKIP = {'claude'}
+
 MIXED_ICON = 'person.2.fill'
 MIXED_COLOR = '#8e8e93'
 DEFAULT_ICON = 'terminal.fill'
@@ -145,6 +153,8 @@ def scan():
             with open(os.path.join(SESSION_DIR, name)) as handle:
                 sessions = (json.load(handle) or {}).get('sessions') or {}
         except Exception:
+            continue
+        if agent in SKIP:
             continue
         for record in sessions.values():
             workspace = record.get('workspaceId')
