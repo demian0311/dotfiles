@@ -383,10 +383,26 @@
 
   // Diagrammo slate — sidebar tint matched to dgmo/src/palettes/slate.ts.
   // Terminal colors come from the Ghostty themes in ~/.config/ghostty/themes/.
-  // tintOpacity is intentionally absent so the value saved in Settings still wins.
+  //
+  // The sidebar is a RECESSED rail: darker than the terminal in dark mode,
+  // and a grey step down from white in light mode. It used to tint #202833
+  // at the opacity saved in Settings (0.18), which is barely a tint at all —
+  // beside a #161b22 terminal the panel and the content were the same surface
+  // with a hairline between them, and the per-row state colours had nothing to
+  // stand on. Both tints are now off the ends of the slate ramp rather than the
+  // middle of it, and tintOpacity is stated here so the value in Settings can no
+  // longer quietly flatten it back out (changed 2026-08-25).
+  //
+  //   dark   terminal #161b22, rail #0b1017 — the rail is the darker surface
+  //   light  terminal #ffffff, rail #d9dee4 — the rail is the greyer surface
+  //
+  // Push tintOpacity toward 1.0 for a harder edge, or swap the dark tint for
+  // #2b3543 to make the rail a RAISED panel instead — lighter than the
+  // terminal, the opposite convention and equally legible.
   "sidebarAppearance": {
-    "lightModeTintColor": "#5b6672",
-    "darkModeTintColor": "#202833"
+    "lightModeTintColor": "#d9dee4",
+    "darkModeTintColor": "#0b1017",
+    "tintOpacity": 0.85
   },
 
   // The workspace colour picker shipped cmux's own 16 — Crimson, Magenta,

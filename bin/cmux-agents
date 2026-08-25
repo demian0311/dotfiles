@@ -66,8 +66,13 @@ PIDFILE = os.path.expanduser('~/Library/Caches/cmux-agents.pid')
 AGENTS = {
     'claude': {'label': 'claude', 'binary': 'claude',
                'icon': 'sparkle', 'color': '#d97757'},
+    # Steel, from the Diagrammo slate palette — and blue is what cmux's own
+    # agent branding already uses for Codex (`#8FDBFF` on its Codex quick-launch
+    # button), so the two agree rather than teaching two different colours. It is
+    # NOT the row's blue (#3b6ea5, "no agent here, just a terminal"): a badge only
+    # exists where an agent does, so the two can never appear on the same row.
     'codex':  {'label': 'codex',  'binary': 'codex',
-               'icon': 'chevron.left.forwardslash.chevron.right', 'color': '#10a37f'},
+               'icon': 'chevron.left.forwardslash.chevron.right', 'color': '#4f96c4'},
 }
 # A workspace running two different agents at once gets one chip naming both, in
 # a colour belonging to neither — the point of the chip is the answer, and
