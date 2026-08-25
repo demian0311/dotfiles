@@ -215,3 +215,25 @@ _cmux_mem_daemon() {
   ( nohup "$bin" --daemon --log "$HOME/Library/Logs/cmux-mem.log" >/dev/null 2>&1 & )
 }
 _cmux_mem_daemon
+
+# ---- cmux agent badges: is this workspace Claude or Codex ------------------
+# Starts bin/cmux-agents' loop, which puts the AGENT'S NAME on each workspace
+# row. cmux's own pills say the lifecycle (`Running`, `Idle`) in one styling for
+# every agent, so with both running side by side the sidebar could not answer
+# "which one is this". The badge answers it; the lifecycle pills are left alone.
+#
+# Same launch constraint as the memory gauge above — cmux's socket is `cmuxOnly`,
+# so a shell inside cmux is the only thing that can start it, and the loop keeps
+# working once orphaned. The pidfile keeps every new terminal from paying for a
+# Python start just to be told the daemon is already up.
+_cmux_agents_daemon() {
+  [[ -n "$CMUX_WORKSPACE_ID" ]] || return
+  local bin="$HOME/code/dotfiles/bin/cmux-agents"
+  local pidfile="$HOME/Library/Caches/cmux-agents.pid"
+  [[ -x "$bin" ]] || return
+  if [[ -f "$pidfile" ]] && kill -0 "$(<"$pidfile")" 2>/dev/null; then
+    return
+  fi
+  ( nohup "$bin" --daemon >/dev/null 2>&1 & )
+}
+_cmux_agents_daemon

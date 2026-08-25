@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""Say WHICH agent is running in each cmux workspace, on the workspace's own row.
+
+Third sibling to cmux-mem and cmux-tidy, and the same kind of thing: a read-only
+reporter that owns one pill key and never closes, kills or edits anything.
+
+  cmux-mem     how heavy is this workspace          pill key `mem`
+  cmux-tidy    is a dev server listening, unused    pill key `tidy`
+  cmux-agents  which agent lives here               pill key `agents`
+
+The question it answers is "is this one Claude or Codex" — with several sessions
+of each running side by side, the sidebar could not say. cmux does set a pill per
+agent already (`claude_code`, `codex`), but those carry LIFECYCLE text in cmux's
+own styling — a running Claude and a running Codex are both a blue `bolt.fill`
+reading `Running`, which is the state, not the identity. This adds the identity
+as its own chip, in the agent's own colour, and leaves the lifecycle pills alone.
+
+WHERE THE ANSWER COMES FROM — and why nothing has to be installed per agent:
+cmux's agent integrations already write `~/.cmuxterm/<agent>-hook-sessions.json`,
+one record per session, carrying `workspaceId`, `pid` and lifecycle. Reading that
+covers every agent cmux knows how to track — codex today, grok/opencode/amp the
+day one of them is used — with no hook of ours in any agent's config, so an agent
+update or a `cmux hooks setup` cannot clobber it. It also means a session cmux
+cannot see does not get badged, which is the honest failure: no chip rather than
+a wrong one.
+
+Those files keep DEAD sessions, so every record is checked against the live
+process before it counts: the pid must be alive AND still be that agent's binary,
+or a reused pid would keep a badge alive for a session that ended hours ago.
+
+  cmux-agents             one pass — badge every workspace, clear the ones with none
+  cmux-agents --report    also print what it found
+  cmux-agents --daemon    keep doing it (one instance per machine)
+  cmux-agents --off       remove every badge this tool set, and stop
+
+IT CANNOT RUN FROM launchd, for the same reason cmux-mem cannot: cmux's socket is
+`cmuxOnly` and refuses anything launchd starts. Start `--daemon` from a shell
+inside cmux; access is inherited at spawn, so it survives that terminal closing.
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+
+CLI_CANDIDATES = [
+    os.environ.get('CMUX_BUNDLED_CLI_PATH', ''),
+    '/Applications/cmux.app/Contents/Resources/bin/cmux',
+    '/opt/homebrew/bin/cmux',
+]
+
+PILL_KEY = 'agents'         # cmux-mem owns 'mem', cmux-tidy owns 'tidy'
+PILL_PRIORITY = 90          # identity reads before size (mem=40) and idleness
+
+SESSION_DIR = os.path.expanduser('~/.cmuxterm')
+STATE_PATH = os.path.expanduser('~/Library/Caches/cmux-agents.json')
+PIDFILE = os.path.expanduser('~/Library/Caches/cmux-agents.pid')
+
+# One row per agent cmux can track. `binary` is what the live process must
+# actually BE — the pid alone is not enough, because a reused pid would keep a
+# finished session's badge on the row forever. An agent missing from here still
+# gets badged, under its own name with the neutral styling, rather than being
+# silently dropped: a new agent appearing in the sidebar unstyled is a much
+# smaller failure than one that never appears at all.
+AGENTS = {
+    'claude': {'label': 'claude', 'binary': 'claude',
+               'icon': 'sparkle', 'color': '#d97757'},
+    'codex':  {'label': 'codex',  'binary': 'codex',
+               'icon': 'chevron.left.forwardslash.chevron.right', 'color': '#10a37f'},
+}
+# A workspace running two different agents at once gets one chip naming both, in
+# a colour belonging to neither — the point of the chip is the answer, and
+# "claude · codex" IS the answer for that row.
+MIXED_ICON = 'person.2.fill'
+MIXED_COLOR = '#8e8e93'
+DEFAULT_ICON = 'terminal.fill'
+DEFAULT_COLOR = '#8e8e93'
+
+
+def cli():
+    for candidate in CLI_CANDIDATES:
+        if candidate and os.path.exists(candidate):
+            return candidate
+    return 'cmux'
+
+
+def run(args, timeout=10):
+    """Best effort: a workspace can close between reading it and writing to it."""
+    try:
+        subprocess.run(
+            [cli()] + args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+            env=dict(os.environ, CMUX_QUIET='1'),
+        )
+        return True
+    except Exception:
+        return False
+
+
+def comm(pid):
+    try:
+        out = subprocess.run(['ps', '-p', str(pid), '-o', 'comm='],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             text=True, timeout=5).stdout.strip()
+    except Exception:
+        return ''
+    return os.path.basename(out)
+
+
+def alive(pid, binary):
+    if not pid:
+        return False
+    try:
+        os.kill(int(pid), 0)
+    except Exception:
+        return False
+    if not binary:
+        return True
+    # `codex` launched from ~/.local/bin resolves to a standalone binary of the
+    # same name; `claude` likewise. A mismatch means the pid was reused.
+    return comm(pid) == binary
+
+
+def scan():
+    """workspace id -> sorted list of agent names with a live session in it."""
+    found = {}
+    try:
+        names = os.listdir(SESSION_DIR)
+    except Exception:
+        return found
+    for name in names:
+        if not name.endswith('-hook-sessions.json'):
+            continue
+        agent = name[:-len('-hook-sessions.json')]
+        spec = AGENTS.get(agent, {})
+        try:
+            with open(os.path.join(SESSION_DIR, name)) as handle:
+                sessions = (json.load(handle) or {}).get('sessions') or {}
+        except Exception:
+            continue
+        for record in sessions.values():
+            workspace = record.get('workspaceId')
+            if not workspace:
+                continue
+            if not alive(record.get('pid'), spec.get('binary')):
+                continue
+            found.setdefault(workspace, set()).add(agent)
+    return {w: sorted(a) for w, a in found.items()}
+
+
+def chip(agents):
+    """The pill for one workspace: (value, icon, colour)."""
+    if len(agents) == 1:
+        spec = AGENTS.get(agents[0], {})
+        return (spec.get('label', agents[0]),
+                spec.get('icon', DEFAULT_ICON),
+                spec.get('color', DEFAULT_COLOR))
+    labels = [AGENTS.get(a, {}).get('label', a) for a in agents]
+    return (' · '.join(labels), MIXED_ICON, MIXED_COLOR)
+
+
+def load_state():
+    try:
+        with open(STATE_PATH) as handle:
+            return json.load(handle) or {}
+    except Exception:
+        return {}
+
+
+def save_state(state):
+    try:
+        os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+        with open(STATE_PATH, 'w') as handle:
+            json.dump(state, handle)
+    except Exception:
+        pass
+
+
+def apply(found, state, force=False):
+    """Write only what changed — every pass otherwise re-sends the whole sidebar.
+
+    `force` re-sends everything regardless. The state file remembers what was
+    written, so without it a pill that vanished for a reason outside this tool —
+    cmux restarting, a workspace reopening — would never be redrawn: the state
+    says it is already there and the wanted value matches. The slow full pass
+    forces, which is what makes the badges self-repairing.
+    """
+    wanted = {}
+    for workspace, agents in found.items():
+        value, icon, color = chip(agents)
+        wanted[workspace] = [value, icon, color]
+
+    for workspace, spec in wanted.items():
+        if not force and state.get(workspace) == spec:
+            continue
+        value, icon, color = spec
+        run(['set-status', PILL_KEY, value,
+             '--workspace', workspace,
+             '--icon', icon, '--color', color,
+             '--priority', str(PILL_PRIORITY)])
+
+    # Only ever clear a workspace this tool badged. Anything else's pill, on a
+    # key we do not own, is none of our business.
+    for workspace in list(state):
+        if workspace not in wanted:
+            run(['clear-status', PILL_KEY, '--workspace', workspace])
+    return wanted
+
+
+def clear_all():
+    state = load_state()
+    for workspace in state:
+        run(['clear-status', PILL_KEY, '--workspace', workspace])
+    save_state({})
+
+
+def report(found):
+    if not found:
+        print('no live agent sessions cmux can see')
+        return
+    for workspace, agents in sorted(found.items(), key=lambda kv: kv[1]):
+        print('%-38s %s' % (workspace, ' · '.join(agents)))
+
+
+def one_pass(force=False):
+    found = scan()
+    save_state(apply(found, load_state(), force=force))
+    return found
+
+
+def hold_pidfile():
+    """True if another --daemon already holds it. Stale pidfiles self-heal."""
+    try:
+        with open(PIDFILE) as handle:
+            other = int(handle.read().strip())
+        os.kill(other, 0)
+        return True
+    except Exception:
+        pass
+    try:
+        os.makedirs(os.path.dirname(PIDFILE), exist_ok=True)
+        with open(PIDFILE, 'w') as handle:
+            handle.write(str(os.getpid()))
+    except Exception:
+        pass
+    return False
+
+
+def daemon(interval, full_every):
+    if hold_pidfile():
+        return
+    # The session files change on every lifecycle event, so their mtimes answer
+    # "has anything happened" for the price of two stats. A full pass still runs
+    # on a slow timer, because a session can END without rewriting the file —
+    # a crashed agent leaves its record behind and only the pid check notices.
+    last_stamp = None
+    last_full = 0.0
+    while True:
+        try:
+            stamp = []
+            for name in sorted(os.listdir(SESSION_DIR)):
+                if name.endswith('-hook-sessions.json'):
+                    stamp.append(os.stat(os.path.join(SESSION_DIR, name)).st_mtime)
+        except Exception:
+            stamp = []
+        now = time.time()
+        due = now - last_full >= full_every
+        if stamp != last_stamp or due:
+            one_pass(force=due)
+            last_stamp = stamp
+            if due:
+                last_full = now
+        time.sleep(interval)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--report', action='store_true',
+                        help='print what was found as well as writing the pills')
+    parser.add_argument('--daemon', action='store_true',
+                        help='keep watching; one instance per machine')
+    parser.add_argument('--off', action='store_true',
+                        help='remove every pill this tool set, and stop')
+    parser.add_argument('--interval', type=float, default=3.0,
+                        help='seconds between checks in --daemon (default 3)')
+    parser.add_argument('--full-interval', type=float, default=60.0,
+                        help='seconds between full re-checks in --daemon (default 60)')
+    args = parser.parse_args()
+
+    if args.off:
+        clear_all()
+        try:
+            os.remove(PIDFILE)
+        except Exception:
+            pass
+        return 0
+    if args.daemon:
+        daemon(args.interval, args.full_interval)
+        return 0
+    found = one_pass(force=True)
+    if args.report:
+        report(found)
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
