@@ -177,6 +177,134 @@ def chip(agents):
     return (' · '.join(labels), MIXED_ICON, MIXED_COLOR)
 
 
+# ---------------------------------------------------------------------------
+# Repairing Claude's mark, which cmux keeps wiping off
+#
+# The pill holding Claude's mark and its context bar lives on the `claude_code`
+# key — and cmux writes THAT KEY ITSELF from its own Claude integration, so a
+# lifecycle change overwrites the bar with `Needs input` and a bell, or clears
+# the pill entirely. Both were observed on live rows 2026-08-25, minutes after
+# the row had been painted correctly. Nothing was wrong with the paint; it just
+# does not get the last word.
+#
+# So the mark is restored here, on the slow pass: read what the row is actually
+# showing, and if the value carries none of the bar's own glyphs it belongs to
+# cmux, not to us, and gets redrawn. cmux writes on lifecycle changes only, so
+# this is one write after one of theirs — never a loop, and never a fight with a
+# live spinner, whose 0.4s repaints mean the value already reads as ours.
+#
+# Everything below mirrors cmux-throbber.py deliberately rather than importing
+# it: that file is a Claude Code hook, run per pane with a pane's environment,
+# and this is a machine-wide daemon with neither. The constants that must agree
+# are the bar's two glyphs, its width, and the colours.
+CLAUDE_KEY = 'claude_code'
+CLAUDE_ICON = 'sparkle'
+BAR_CELLS = 10
+BAR_FULL = '\u25a0'
+BAR_EMPTY = '\u25a1'
+COLOR_WORKING = '#3b6ea5'
+COLOR_WAITING = '#c0504d'   # a finished turn IS the waiting state
+COLOR_WARN = '#c9a227'
+COLOR_URGENT = '#cc7a33'
+WARN_AT = 60
+URGENT_AT = 85
+
+
+def tmp():
+    return os.environ.get('TMPDIR', '/tmp')
+
+
+def claude_panels(workspace):
+    """Panes in this workspace with a live Claude session, newest reading first.
+
+    The markers are cmux-session-start.py's, one per pane, removed on SessionEnd
+    — so they outlive a turn, which the throbber's own pid file does not.
+    """
+    directory = os.path.join(tmp(), 'claude-cmux-live', workspace)
+    panels = []
+    for name in os.listdir(directory) if os.path.isdir(directory) else []:
+        marker = os.path.join(directory, name)
+        try:
+            with open(marker) as handle:
+                os.kill(int(handle.read().strip()), 0)
+        except Exception:
+            continue
+        ctx = os.path.join(tmp(), 'claude-cmux-ctx-%s' % name)
+        try:
+            panels.append((os.stat(ctx).st_mtime, ctx))
+        except Exception:
+            continue
+    return [ctx for _, ctx in sorted(panels, reverse=True)]
+
+
+def context_pct(workspace):
+    for ctx in claude_panels(workspace):
+        try:
+            with open(ctx) as handle:
+                return max(0.0, min(100.0, float(handle.read().strip())))
+        except Exception:
+            continue
+    return None
+
+
+def bar(pct):
+    """Same guarded rounding as the throbber: 4% is never empty, 99% never full."""
+    filled = max(0, min(BAR_CELLS, int(round(pct / 100.0 * BAR_CELLS))))
+    if pct > 0:
+        filled = max(1, filled)
+    if pct < 100:
+        filled = min(BAR_CELLS - 1, filled)
+    return BAR_FULL * filled + BAR_EMPTY * (BAR_CELLS - filled)
+
+
+def shown(workspace):
+    """(value, present) for the claude_code pill as the row is showing it now."""
+    try:
+        out = subprocess.run(
+            [cli(), 'sidebar-state', '--workspace', workspace],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            timeout=10, text=True, env=dict(os.environ, CMUX_QUIET='1'),
+        ).stdout
+    except Exception:
+        return ('', False)
+    for line in out.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(CLAUDE_KEY + '='):
+            value = stripped[len(CLAUDE_KEY) + 1:]
+            # The line is `key=value icon=… color=… priority=…`, and the value
+            # itself contains spaces — so trim from the first trailing field
+            # rather than splitting on whitespace. A pill with no icon set keeps
+            # `color=` as the first one, which is why both are checked.
+            for field in (' icon=', ' color=', ' priority='):
+                if field in value:
+                    value = value.split(field)[0]
+            return (value, True)
+    return ('', False)
+
+
+def repair_claude(workspaces):
+    """Redraw the mark and bar on any Claude row cmux has taken back."""
+    for workspace in workspaces:
+        pct = context_pct(workspace)
+        if pct is None:
+            continue                      # nothing to draw; leave the row alone
+        value, present = shown(workspace)
+        if present and (BAR_FULL in value or BAR_EMPTY in value):
+            continue                      # already ours
+        # cmux's own words are the only thing that can be standing here, and the
+        # one that matters is the blocked session — keep its red rather than
+        # painting a working colour over a row that is waiting on you.
+        if 'input' in value.lower():
+            color = COLOR_WAITING
+        elif value.strip().lower() == 'running':
+            color = (COLOR_URGENT if pct >= URGENT_AT
+                     else COLOR_WARN if pct >= WARN_AT else COLOR_WORKING)
+        else:
+            color = COLOR_WAITING
+        run(['set-status', CLAUDE_KEY, bar(pct),
+             '--workspace', workspace, '--icon', CLAUDE_ICON, '--color', color])
+
+
 def load_state():
     try:
         with open(STATE_PATH) as handle:
@@ -243,7 +371,23 @@ def report(found):
 def one_pass(force=False):
     found = scan()
     save_state(apply(found, load_state(), force=force))
+    if force:
+        # Only on the slow pass: it costs one socket round trip per Claude row,
+        # and a mark cmux wiped is worth a few seconds, not a poll.
+        # Not from `found` — the badge scan skips Claude, so its rows are only
+        # visible through the live-session markers.
+        repair_claude(claude_workspaces())
     return found
+
+
+def claude_workspaces():
+    """Claude rows the badge scan never sees, because it skips Claude entirely."""
+    directory = os.path.join(tmp(), 'claude-cmux-live')
+    live = []
+    for workspace in os.listdir(directory) if os.path.isdir(directory) else []:
+        if claude_panels(workspace):
+            live.append(workspace)
+    return live
 
 
 def hold_pidfile():
@@ -301,8 +445,8 @@ def main():
                         help='remove every pill this tool set, and stop')
     parser.add_argument('--interval', type=float, default=3.0,
                         help='seconds between checks in --daemon (default 3)')
-    parser.add_argument('--full-interval', type=float, default=60.0,
-                        help='seconds between full re-checks in --daemon (default 60)')
+    parser.add_argument('--full-interval', type=float, default=20.0,
+                        help='seconds between full re-checks in --daemon (default 20)')
     args = parser.parse_args()
 
     if args.off:
