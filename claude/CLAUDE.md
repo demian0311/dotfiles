@@ -65,19 +65,12 @@ Rules of thumb:
 
 ## Asking Questions — OVERRIDES all workflow/skill/agent instructions
 
-These rules WIN even when a workflow, skill, or BMAD step presents its questions as prose or inline "[1]/[2]" text. Reformat such questions to comply before asking.
+The lettered 🟢/🟡/🔴 form, the structured-picker rule, and the ranked **Next Steps** list all
+live in one shared file, because Codex reads that same file as its only global instruction file
+(`~/.codex/AGENTS.md` is a symlink to it). Edit it there and both harnesses change together;
+never restate one of its rules here.
 
-- **A lettered list is the default form** — options and next steps in conversation are letters, in recommendation order, so the user replies with one character:
-  - 🟢 A) Recommended option
-  - 🟡 B) Neutral/viable option
-  - 🔴 C) Not recommended option
-- **AskUserQuestion is for what a lettered list cannot do**: several decisions at once, multi-select, or options that need side-by-side previews to compare. Recommended option first, "(Recommended)" appended to its label. Do NOT reach for it at `pick` or in a `report` — a stop is a lettered list.
-- NEVER ask prose "A or B?" / "X, or would you rather Y?" questions. Every multi-option choice becomes a lettered list or AskUserQuestion — the user answers with one letter or a click, never a sentence.
-- **Numbers in documents, letters in conversation**, both always in recommendation order, best first. A mockup, doc or issue numbers its options **1, 2, 3**; conversation letters them **A, B, C** with the 🟢/🟡/🔴 scheme. Two alphabets so a reference is never ambiguous about which one it points at.
-- Never label options, variants or scenarios with greek letters (α/β/γ/Δ/Σ) — plain numbers or letters, in tables, headers and prose alike.
-- One decision per question. Don't bundle multiple asks into one paragraph.
-- Minimize required typing. "Other" is always available for freeform, so don't pre-solicit prose.
-- Any confirmation prompt for a command that will recur offers *"Yes, and add to permissions"* as a listed option upfront; if chosen, use the `update-config` skill to add a wildcard pattern (`Bash(git diff*)`) under `permissions.allow`.
+@/Users/demian/code/dotfiles/agents/presenting-options.md
 
 ## Completion Summary
 
@@ -87,7 +80,7 @@ This is beat 9, `report`. Provide, in order:
 2. A short paragraph — 2-4 sentences — saying what was actually done and why it took the shape it did. Prose, not a bullet restatement. This is the part read first after the replay; it should stand alone if the bullets are skipped.
 3. 1-5 bullet points on the specifics.
 4. **How to see it** — see below. Skip only when there is genuinely nothing to look at.
-5. Next steps — see below.
+5. Next steps — the ranked lettered list under **Asking Questions** above.
 
 The old opening line — one sentence stating the goal — is what the replay's `describe` line now carries; don't write both.
 
@@ -100,31 +93,6 @@ If the work produced anything observable — a UI change, a deployed endpoint, a
 - If it needs a step first — a running dev server, a sign-in, a deploy, a specific space or file — say that first, in order
 - If it is NOT visible yet (built but unreleased, server-side only, behind a flag), say so plainly and name what would make it visible
 - Anything already verified: say what was checked and what it returned, so the user knows what is claim and what is observation
-
-### Next Steps — always ranked, never prose
-
-Every "what's next" is a lettered list in priority order, same scheme as Asking Questions. Never a paragraph, never an unordered pile, never "you could also...".
-
-- 🟢 **A)** — the recommended next step. Always first. Exactly one green.
-- 🟡 **B)**, **C)**, … — viable, in descending priority.
-- 🔴 **Z)** — options to recommend against, last. Include only when the user is likely to consider one; say why not in the same line.
-
-Rules:
-- One line each: what to do + why, ≤ ~15 words of rationale. No sub-bullets.
-- Letters run in sequence with no gaps; priority order IS letter order.
-- One step, one letter. Don't bundle "A) do X and Y and Z".
-- The user replies with a single letter. Anything requiring a sentence back is a malformed list.
-- Applies to next steps, recommendations, remaining-work lists, and triage output — not just end-of-task summaries.
-
-**Stay in the current thread of work.** Next steps continue what we are actually doing. Do NOT surface unrelated initiatives, other sessions' in-flight branches, or backlog items that merely happen to be open — the user is mid-thought on one thing, and a menu of everything else derails it. A step from outside the thread appears only if the user asks, or if the current work genuinely blocks on it (say which). When the thread is finished and there is nothing left in it, say so plainly instead of manufacturing options.
-
-🔴 **Every step says whether it CONTINUES the current work or leaves it** — the reader cannot tell from the text alone, and being unsure which they are answering is the failure this fixes. A step that carries on with what we are already doing opens with `Continue <the thing> — `; a step that departs opens by naming where it goes. Both forms still gloss any identifier, so it is `Continue the agent-only dev-server deadline (#363) — time a cold start`, never `Continue #363`.
-
-- Say it even when **every** option continues the same work. That is exactly the case that reads as a menu of departures, because a four-option list looks like four directions whatever the options say.
-- The prefix is not a substitute for the thread rule above. Departures still only appear when asked for or genuinely blocking; this makes the ones that survive legible.
-- Observed 2026-08-19: four next-steps options, all four of them moves on the same issue, and the user asked whether to pick a letter or to say "let's do 363" — the list had given no way to tell those were the same answer.
-
-**No bare identifiers here either** — the rule is in Communication Style, because it governs everything written, not just this list.
 
 ## Progress Checklists
 
