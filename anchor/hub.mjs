@@ -75,6 +75,20 @@ const SERVICES = [
   },
 ];
 
+// Views the hub serves itself, off the back of a service that is already
+// running. A view is not a second server: it has no port of its own, it lives
+// on a path of this page's origin, and it is only as available as the service
+// it reads from.
+const VIEWS = [
+  {
+    id: 'api-docs',
+    name: 'Cloud API reference',
+    blurb: 'Every endpoint, generated from the schemas the running Worker serves',
+    path: '/api-docs',
+    dependsOn: 'api',
+  },
+];
+
 // A TCP connect on both loopback families: Astro 7 binds [::1] only on this
 // box, wrangler binds 127.0.0.1, and probing one family reports the other down.
 function probe(port) {
@@ -119,7 +133,7 @@ async function exposedPorts() {
 
 async function snapshot() {
   const ports = await exposedPorts();
-  return Promise.all(
+  const rows = await Promise.all(
     SERVICES.map(async (s) => {
       const up = await probe(s.port);
       const exposed = ports.has(PUBLIC(s.port));
@@ -134,6 +148,17 @@ async function snapshot() {
       };
     })
   );
+  const views = VIEWS.map((v) => {
+    const on = rows.find((r) => r.id === v.dependsOn);
+    return {
+      ...v,
+      up: Boolean(on?.up),
+      state: on?.up ? 'ready' : 'stopped',
+      url: v.path,
+      requires: on?.name ?? v.dependsOn,
+    };
+  });
+  return { rows, views };
 }
 
 const esc = (s) =>
@@ -158,7 +183,61 @@ function card(s) {
     </${tag}>`;
 }
 
-function page(rows) {
+function viewCard(v) {
+  const link = v.state === 'ready';
+  const tag = link ? 'a' : 'div';
+  const href = link ? ` href="${esc(v.url)}"` : '';
+  const note = link
+    ? `<p class="url">${esc(v.url)}</p>`
+    : `<p class="hint">Needs ${esc(v.requires)} running — start it from its card above.</p>`;
+  return `<${tag} class="card ${v.state}"${href}>
+      <span class="dot" aria-hidden="true"></span>
+      <h2>${esc(v.name)}</h2>
+      <p class="blurb">${esc(v.blurb)}</p>
+      <p class="state">${link ? 'Ready' : 'Not running'}</p>
+      ${note}
+    </${tag}>`;
+}
+
+// Redoc renders the spec this page proxies. The spec is served from THIS
+// origin rather than from the Worker's own port, so the browser never makes a
+// cross-origin request and the Worker's CORS allowlist is irrelevant.
+function docsPage() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloud API reference</title>
+<style>
+  body { margin: 0; }
+  .bar {
+    display: flex; align-items: center; gap: .75rem;
+    padding: .6rem 1rem; border-bottom: 1px solid #e2e2dd; background: #f6f6f4;
+    font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  .bar a { color: #3b6ea5; text-decoration: none; }
+  .bar a:hover { text-decoration: underline; }
+  .bar span { color: #6b6b66; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a href="/">&larr; anchor</a>
+  <span>Generated from the schemas the Cloud API on this box is serving right now.</span>
+  <a href="/openapi.json">Raw spec</a>
+</div>
+<div id="redoc"></div>
+<script src="https://cdn.jsdelivr.net/npm/redoc@2.5.0/bundles/redoc.standalone.js"></script>
+<script>
+  Redoc.init('/openapi.json', { hideDownloadButton: false, expandResponses: '200,201' },
+    document.getElementById('redoc'));
+</script>
+</body>
+</html>`;
+}
+
+function page(rows, views) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -216,6 +295,10 @@ function page(rows) {
     white-space: pre-wrap; word-break: break-all; color: var(--ink);
   }
   footer { margin-top: 2.5rem; color: var(--muted); font-size: .82rem; }
+  h2.section {
+    margin: 2.2rem 0 .9rem; font-size: .78rem; font-weight: 600;
+    letter-spacing: .04em; color: var(--muted);
+  }
 </style>
 </head>
 <body>
@@ -226,6 +309,10 @@ function page(rows) {
   </header>
   <div class="grid">
     ${rows.map(card).join('\n    ')}
+  </div>
+  <h2 class="section">Read-only views</h2>
+  <div class="grid">
+    ${views.map(viewCard).join('\n    ')}
   </div>
   <footer>Refreshes every 5 seconds. Checked ${new Date().toLocaleTimeString('en-GB')}.</footer>
 </main>
@@ -290,14 +377,41 @@ for (const svc of SERVICES) startProxy(svc);
 
 http
   .createServer(async (req, res) => {
-    const rows = await snapshot();
-    if (req.url && req.url.startsWith('/status.json')) {
+    const url = req.url || '/';
+
+    if (url.startsWith('/api-docs')) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(docsPage());
+      return;
+    }
+
+    // Same-origin copy of the Worker's own generated spec. Proxied rather than
+    // linked so the browser makes no cross-origin request for it.
+    if (url.startsWith('/openapi.json')) {
+      const api = SERVICES.find((x) => x.id === 'api');
+      const up = http.request(
+        { host: 'localhost', port: api.port, path: '/openapi.json', method: 'GET' },
+        (r) => {
+          res.writeHead(r.statusCode || 502, { 'content-type': 'application/json' });
+          r.pipe(res);
+        }
+      );
+      up.on('error', () => {
+        res.writeHead(502, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: `Cloud API is not running on port ${api.port}` }));
+      });
+      up.end();
+      return;
+    }
+
+    const { rows, views } = await snapshot();
+    if (url.startsWith('/status.json')) {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(rows, null, 2));
+      res.end(JSON.stringify({ services: rows, views }, null, 2));
       return;
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(page(rows));
+    res.end(page(rows, views));
   })
   .listen(PORT, '127.0.0.1', () => {
     console.log(`anchor-hub on http://127.0.0.1:${PORT}/ for ${HOST}`);

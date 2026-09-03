@@ -11,7 +11,7 @@ no port is open to the internet.
 
 | File | What |
 |---|---|
-| `hub.mjs` | the front door, plus one Host-rewriting proxy per service |
+| `hub.mjs` | the front door, plus one Host-rewriting proxy per service, and the Cloud API reference at `/api-docs` |
 | `systemd/` | user units for the hub, the ecosystem docs and the marketing site |
 | `install.sh` | run it on anchor from a checkout of this repo |
 
@@ -105,3 +105,23 @@ cd ~/code/diagrammo/online-console && umask 077 && node -e \
 ⚠️ Copying the other two puts a GitHub token and a PostHog key on a second
 machine. Minting a separate GitHub token scoped for anchor would let the two be
 revoked independently; that has not been done.
+
+## The Cloud API reference
+
+`https://anchor.tailb10eb2.ts.net/api-docs` — every endpoint, rendered by Redoc
+from the spec the Worker on this box generates from its own zod schemas. There
+is nothing to keep in sync: the Worker serves `/openapi.json` itself
+(`app.doc(...)` in `cloud-api/src/index.ts`), so the page always shows what that
+Worker is actually running.
+
+The hub **proxies** that spec onto its own origin at `/openapi.json` rather than
+pointing the browser at the Worker's port. Same origin means no cross-origin
+request, so the Worker's CORS allowlist never enters into it — and the page
+keeps working if that allowlist changes.
+
+It is a **view**, not a service: no port of its own, and only as available as
+the Cloud API it reads from. When that is stopped the card says which service to
+start, and the spec route answers 502 with a sentence rather than a stack trace.
+
+Redoc is pinned (`redoc@2.5.0` on jsdelivr) and loaded from the CDN, so the page
+needs internet as well as the tailnet.
