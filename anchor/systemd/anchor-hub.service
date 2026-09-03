@@ -1,0 +1,16 @@
+[Unit]
+Description=anchor-hub - front door for the dev servers on this box
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/demian/anchor-hub
+Environment=PATH=/home/demian/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+Environment=ANCHOR_HUB_HOST=anchor.tailb10eb2.ts.net
+ExecStart=/home/demian/.local/share/mise/shims/node /home/demian/anchor-hub/hub.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
