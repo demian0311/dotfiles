@@ -5,6 +5,47 @@ description: Cut an npm / GitHub release across the diagrammo workspace (dgmo, d
 
 # Diagrammo release skill
 
+## Where the work runs — read this before choosing a command (2026-09-03, #676)
+
+A release is four kinds of work and only one of them belongs on the laptop.
+`scripts/release-all.sh` is now the entry point for a full cascade; the
+per-repo `scripts/release.sh` is still correct for a single package.
+
+```bash
+# Everything: npm cascade on `anchor`, desktop app on this Mac, at the same time
+scripts/release-all.sh --app 0.54.0 --publish dgmo=0.83.0 remark-dgmo=0.15.5 …
+
+# Packages only, dependency graph walked a LEVEL at a time
+scripts/release-cascade.sh dgmo=0.83.0 remark-dgmo=0.15.5 astro-dgmo=0.11.5
+
+# Gate everything, release nothing
+scripts/release-all.sh --dry-run --app 0.54.0 dgmo=0.83.0
+```
+
+| Stage | Runs on | Why |
+|---|---|---|
+| Gates for every repo | **anchor** | measured 2026-09-03: `dgmo`'s suite costs 442 user-seconds here, on a laptop already at load 103.63 across ten sessions, while anchor sat at 1.31 |
+| Bump, tag, push, dispatch, watch, verify on npm | anchor | its `gh` has `workflow` scope and git push works over HTTPS |
+| `npm publish` | GitHub Actions | trusted publishing; the identity token cannot be minted anywhere else |
+| `tauri build`, codesign, notarize, staple | **this Mac** | needs this keychain and the Apple credentials. Nothing moves this |
+| site + web-editor `wrangler deploy` | this Mac | portable, but it would put a deploy credential on a second machine — deliberately not moved |
+
+- 🔴 **The desktop app does NOT wait for the npm publish.** It declares
+  `@diagrammo/dgmo` as `workspace:*` through the `packages/dgmo` symlink, so it
+  consumes the dgmo **commit**. Releasing it last was habit, not a dependency.
+- 🔴 **The marketing site DOES.** It declares dgmo, the standalone, `astro-dgmo`
+  and `remark-dgmo` from the registry, so it is the single rejoin point — hence
+  `diagrammo-app/release.sh --defer-tail` / `--tail-only`, and hence the draft
+  being published only at the join (the auto-updater reads `latest.json` off
+  the site, so publishing earlier hands users a 404).
+- 🔴 **A remote gate proves the sha.** `scripts/release-remote.sh` fetches on
+  anchor, requires that exact commit to exist there, and gates a throwaway
+  worktree at it. A checkout that never fetched is how 0.51.0 shipped without
+  15 commits.
+- ⚠️ **anchor cannot do the Linux release either** — no `patchelf`, no Tauri
+  signing key, and AppImage is the only Linux target the updater supports
+  (#614).
+
 ## Decision: which path?
 
 **CI publishing over npm Trusted Publishing (OIDC) is the canonical and only path, as
@@ -241,6 +282,10 @@ says otherwise predates 2025-11-19.
 **Affected repos**: the ten in the "What ships what" table above, plus future additions. Every new package needs its own trusted-publisher registration before its first release.
 
 ## Cross-repo ordering
+
+`scripts/release-cascade.sh` encodes this graph and walks it a level at a time,
+running the repos within a level concurrently. What follows is the same order,
+for when a cascade is being driven by hand.
 
 When releasing multiple repos in one session:
 
