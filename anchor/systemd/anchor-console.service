@@ -1,0 +1,20 @@
+[Unit]
+Description=Diagrammo online console (wrangler, :5190)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/demian/code/diagrammo/online-console
+Environment=PATH=/home/demian/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/home/demian/.local/share/mise/shims/pnpm build:web
+ExecStart=/home/demian/code/diagrammo/online-console/node_modules/.bin/wrangler dev --env dev --port 5190 --ip 127.0.0.1
+# wrangler exits 143 on SIGTERM, so without this a clean `systemctl stop`
+# leaves the unit reading `failed` for good.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

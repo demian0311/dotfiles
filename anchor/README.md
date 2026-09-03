@@ -61,11 +61,20 @@ answering 502.
 
 | Service | Local | State |
 |---|---|---|
-| Ecosystem docs | 4321 | a systemd unit; survives a reboot |
-| Marketing site | 4330 | a systemd unit; survives a reboot |
-| Cloud API | 8787 | started by hand; local D1 and R2 report healthy |
-| Online console | 5190 | started by hand; answers 503 — the upstream credentials it reads with are not on anchor, and there is no `.dev.vars` there |
+| Ecosystem docs | 4321 | unit; survives a reboot |
+| Marketing site | 4330 | unit; survives a reboot |
+| Cloud API | 8787 | unit; local D1 and R2 report healthy on `/health` |
+| Online console | 5190 | unit; answers 503 — the upstream credentials it reads with are not on anchor, and there is no `.dev.vars` there |
 | MCP studio | 4347 | started by hand; serves, but every gallery block fails to render |
+
+🔴 **Killing a wrangler dev server needs the JOB, not the listener.** wrangler
+runs `workerd` as a supervised child and respawns it the instant it dies, so
+`pkill` on the listener frees the port for about a second. Worse, `pkill -f
+"wrangler dev --port 8787"` matches nothing at all — the real command line is
+`node … wrangler-dist/cli.js dev --port 8787`, and `wrangler dev` is not
+contiguous in it. Kill the process group of the `wrangler-dist/cli.js` process.
+Getting this wrong put both wrangler units into a restart loop against their
+own orphans: 34 restarts on one, 23 on the other, ~300 MB peak per attempt.
 
 🔴 **Do not make the MCP studio a unit.** Its start command rebuilds the shared
 dgmo checkout and rewrites a tracked `registry.json`, so a unit with `Restart=`
