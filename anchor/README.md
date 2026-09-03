@@ -65,7 +65,7 @@ answering 502.
 | Marketing site | 4330 | unit; survives a reboot |
 | Cloud API | 8787 | unit; local D1 and R2 report healthy on `/health` |
 | Online console | 5190 | unit; needs a `.dev.vars` — see below |
-| MCP studio | 4347 | started by hand; serves, but every gallery block fails to render |
+| MCP studio | 4347 | started by hand; gallery renders 156 of 156 |
 
 🔴 **Killing a wrangler dev server needs the JOB, not the listener.** wrangler
 runs `workerd` as a supervised child and respawns it the instant it dies, so

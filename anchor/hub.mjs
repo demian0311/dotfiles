@@ -67,7 +67,7 @@ const SERVICES = [
   {
     id: 'mcp',
     name: 'MCP studio',
-    blurb: 'Inspector for the dgmo MCP server. Its gallery is currently empty - every block fails to render.',
+    blurb: 'Inspector for the dgmo MCP server, with a rendered gallery per chart type.',
     port: 4347,
     dir: 'dgmo-mcp',
     cmd: 'pnpm studio',
