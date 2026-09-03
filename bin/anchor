@@ -1,0 +1,147 @@
+#!/bin/bash
+# Run a script on `anchor` — the Linux box on the tailnet — without the two
+# ways a plain `ssh anchor` goes wrong.
+#
+#   anchor <<'EOF'                   the normal form: a script on stdin
+#   cd ~/code/diagrammo/dgmo && pnpm test
+#   EOF
+#
+#   anchor 'cd ~/code/diagrammo && git status'   one-liner, still sent over stdin
+#   anchor --check                                is it reachable? say why not
+#   anchor --timeout 900 <<'EOF' ...              raise the wall (default 300s)
+#
+# EXIT CODES, because the failures are genuinely different and a caller has to
+# tell them apart:
+#   0-N  whatever the remote script exited with
+#   4    the tailnet wants an SSH re-auth in a browser. Nothing is wrong with
+#        the box; nothing here can fix it. The URL is printed
+#   124  the wall was hit — the script really is still running, or the box is
+#        wedged. Neither is a re-auth, so it gets its own code
+#   255  ssh could not connect at all (box down, tunnel down)
+#
+# WHY THIS EXISTS — the two traps, both observed.
+#
+# 1. `ssh anchor bash -l -c '...'` DOES NOT WORK. ssh joins its arguments into
+#    one string, the quoting is lost, and the script runs in the wrong
+#    directory with the wrong words — failing in a way that reads as a build
+#    error rather than a quoting error. It cost a false "site build FAILED"
+#    on 2026-09-02. So the script always travels on STDIN, and the positional
+#    form above is written to stdin too rather than joined onto the command.
+#
+# 2. A LAPSED TAILNET GRANT HANGS FOREVER, LOOKING EXACTLY LIKE A DEAD BOX.
+#    The tailnet SSH policy can be set to `action: "check"`, which grants
+#    time-limited access — 12 hours by default — and then makes the next
+#    connection wait for a browser login. The TCP connect SUCCEEDS, so
+#    `ConnectTimeout` never fires; ping answers, port 22 is open, the node
+#    reads online. Measured 2026-09-03 against a live lapse: `-o BatchMode=yes`,
+#    `-n`, and `-o NumberOfPasswordPrompts=0` ALL still hang — there is no ssh
+#    option that bounds it, which is why this wrapper is a wrapper and not an
+#    `~/.ssh/config` block. Full evidence on the tracker as the tailnet SSH
+#    re-auth lapse (#675).
+#
+#    The banner does arrive promptly (~3-4s, unbuffered, even into a pipe), so
+#    this watches for it and exits 4 in about four seconds instead of never.
+#
+# `bash -l` is not decoration either: `ssh anchor '<cmd>'` gets a bare PAM PATH
+# of /usr/local/bin:/usr/bin:/bin and sources no rc file, so every mise shim —
+# node, pnpm, gh, cargo — is invisible on a box where they all work when you
+# sit at it. A login shell is what puts them on the path.
+
+set -uo pipefail
+
+host=${ANCHOR_HOST:-anchor}
+wall=${ANCHOR_TIMEOUT:-300}
+mode=run
+script=
+
+while [ $# -gt 0 ]; do
+  case $1 in
+    --check)         mode=check; shift ;;
+    --timeout)       wall=$2; shift 2 ;;
+    --timeout=*)     wall=${1#--timeout=}; shift ;;
+    -h|--help)       sed -n '2,50p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --)              shift; script=$*; break ;;
+    -*)              echo "anchor: unknown option $1" >&2; exit 64 ;;
+    *)               script=$*; break ;;
+  esac
+done
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/anchor.XXXXXX") || exit 1
+cleanup() {
+  [ -n "${sshpid:-}" ] && kill "$sshpid" 2>/dev/null
+  [ -n "${watcher:-}" ] && kill "$watcher" 2>/dev/null
+  rm -rf "$tmp"
+}
+trap cleanup EXIT INT TERM
+
+# The script always travels on stdin — never joined onto ssh's argv.
+if [ "$mode" = check ]; then
+  printf 'true\n' > "$tmp/in"
+  wall=20
+elif [ -n "$script" ]; then
+  printf '%s\n' "$script" > "$tmp/in"
+elif [ ! -t 0 ]; then
+  cat > "$tmp/in"
+else
+  echo "anchor: nothing to run — give a script on stdin, or as an argument." >&2
+  echo "        anchor --help" >&2
+  exit 64
+fi
+
+mkfifo "$tmp/out" || exit 1
+
+ssh -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+    "$host" bash -l < "$tmp/in" > "$tmp/out" 2>&1 &
+sshpid=$!
+
+( sleep "$wall"; kill -TERM "$sshpid" 2>/dev/null; : > "$tmp/walled" ) &
+watcher=$!
+
+reauth=
+url=
+while IFS= read -r line; do
+  case $line in
+    *"Tailscale SSH requires an additional check"*) reauth=1 ;;
+    *"To authenticate, visit"*|*"login.tailscale.com"*)
+      if [ -n "$reauth" ]; then
+        url=${line##*: }
+        kill "$sshpid" 2>/dev/null
+        break
+      fi ;;
+  esac
+  [ "$mode" = check ] || printf '%s\n' "$line"
+done < "$tmp/out"
+
+wait "$sshpid" 2>/dev/null
+rc=$?
+kill "$watcher" 2>/dev/null
+
+if [ -n "$reauth" ]; then
+  echo "anchor: the tailnet wants an SSH re-auth before it will let you in." >&2
+  echo "        The box itself is almost certainly fine — check with:" >&2
+  echo "          curl -sI https://${host}.tailb10eb2.ts.net/ | head -1" >&2
+  echo "        Open this in a browser, then run the command again:" >&2
+  echo "          ${url:-<no URL captured — run: ssh $host>}" >&2
+  echo "        To stop this recurring, set the tailnet SSH rule to" >&2
+  echo "        action \"accept\" instead of \"check\" — see the tailnet SSH" >&2
+  echo "        re-auth lapse (#675)." >&2
+  exit 4
+fi
+
+if [ -e "$tmp/walled" ]; then
+  echo "anchor: no answer within ${wall}s — killed." >&2
+  echo "        Not a re-auth (that is caught in ~4s and exits 4). Either the" >&2
+  echo "        script is genuinely still running — raise it with" >&2
+  echo "        --timeout N — or the box is wedged." >&2
+  exit 124
+fi
+
+if [ "$mode" = check ]; then
+  if [ "$rc" -eq 0 ]; then
+    echo "anchor: reachable, and the tailnet grant is current."
+  else
+    echo "anchor: ssh exited $rc — the box or the tunnel, not the grant." >&2
+  fi
+fi
+
+exit "$rc"
