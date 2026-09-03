@@ -14,12 +14,13 @@ install -m 0644 "$here/hub.mjs" "$HOME/anchor-hub/hub.mjs"
 install -m 0644 "$here"/systemd/*.service "$units/"
 
 systemctl --user daemon-reload
-systemctl --user enable --now anchor-hub.service anchor-docs.service anchor-site.service
+systemctl --user enable --now anchor-hub.service anchor-docs.service \
+  anchor-site.service anchor-api.service anchor-console.service
 loginctl enable-linger "$USER"
 
 echo
 echo "Units:"
-systemctl --user is-active anchor-hub anchor-docs anchor-site
+systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-console
 
 # The proxy mappings persist by themselves once set: every line below uses
 # --bg, and Tailscale documents that such a configuration resumes after a
