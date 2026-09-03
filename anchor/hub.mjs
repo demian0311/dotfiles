@@ -49,7 +49,7 @@ const SERVICES = [
   {
     id: 'console',
     name: 'Online console',
-    blurb: 'Cloud health and the issue board. Answers 503 here: the upstream credentials it reads with are not on this box.',
+    blurb: 'Cloud health and the issue board. Sign in to see anything: the data routes need a session.',
     port: 5190,
     dir: 'online-console',
     cmd: 'pnpm dev',

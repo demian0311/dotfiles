@@ -64,7 +64,7 @@ answering 502.
 | Ecosystem docs | 4321 | unit; survives a reboot |
 | Marketing site | 4330 | unit; survives a reboot |
 | Cloud API | 8787 | unit; local D1 and R2 report healthy on `/health` |
-| Online console | 5190 | unit; answers 503 — the upstream credentials it reads with are not on anchor, and there is no `.dev.vars` there |
+| Online console | 5190 | unit; needs a `.dev.vars` — see below |
 | MCP studio | 4347 | started by hand; serves, but every gallery block fails to render |
 
 🔴 **Killing a wrangler dev server needs the JOB, not the listener.** wrangler
@@ -79,3 +79,28 @@ own orphans: 34 restarts on one, 23 on the other, ~300 MB peak per attempt.
 🔴 **Do not make the MCP studio a unit.** Its start command rebuilds the shared
 dgmo checkout and rewrites a tracked `registry.json`, so a unit with `Restart=`
 would do both on every crash.
+
+## The console's `.dev.vars`
+
+It answers **503 `operation: configuration`** without one. The file is
+gitignored (`online-console/.gitignore:7`) and holds three keys:
+
+| Key | Copy from the Mac? |
+|---|---|
+| `GITHUB_TOKEN` | yes — must match the real GitHub account |
+| `POSTHOG_PERSONAL_API_KEY` | yes — must match the real PostHog project |
+| `SESSION_KEYS` | **no** — generate a fresh one per machine |
+
+`SESSION_KEYS` is local signing material and nothing upstream checks it, so
+sharing the Mac's would make a session minted on one box valid on the other for
+no benefit. Generate anchor's own:
+
+```bash
+cd ~/code/diagrammo/online-console && umask 077 && node -e \
+  'const b=crypto.getRandomValues(new Uint8Array(32));console.log("SESSION_KEYS="+JSON.stringify({current:{id:"anchor",key:Buffer.from(b).toString("base64url")}}))' \
+  >> .dev.vars && chmod 600 .dev.vars
+```
+
+⚠️ Copying the other two puts a GitHub token and a PostHog key on a second
+machine. Minting a separate GitHub token scoped for anchor would let the two be
+revoked independently; that has not been done.
