@@ -14,13 +14,17 @@ install -m 0644 "$here/hub.mjs" "$HOME/anchor-hub/hub.mjs"
 install -m 0644 "$here"/systemd/*.service "$units/"
 
 systemctl --user daemon-reload
+# anchor-studio serves artifacts that `pnpm studio` produces. On a fresh box
+# run that once first, or the unit starts and serves an empty gallery:
+#   cd ~/code/diagrammo/dgmo-mcp && pnpm studio   # ctrl-c once it says ready
 systemctl --user enable --now anchor-hub.service anchor-docs.service \
-  anchor-site.service anchor-api.service anchor-console.service
+  anchor-site.service anchor-api.service anchor-console.service \
+  anchor-studio.service
 loginctl enable-linger "$USER"
 
 echo
 echo "Units:"
-systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-console
+systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-console anchor-studio
 
 # The proxy mappings persist by themselves once set: every line below uses
 # --bg, and Tailscale documents that such a configuration resumes after a

@@ -65,7 +65,7 @@ answering 502.
 | Marketing site | 4330 | unit; survives a reboot |
 | Cloud API | 8787 | unit; local D1 and R2 report healthy on `/health` |
 | Online console | 5190 | unit; needs a `.dev.vars` — see below |
-| MCP studio | 4347 | started by hand; gallery renders 156 of 156 |
+| MCP studio | 4347 | unit (`anchor-studio`); gallery renders 156 of 156 |
 
 🔴 **Killing a wrangler dev server needs the JOB, not the listener.** wrangler
 runs `workerd` as a supervised child and respawns it the instant it dies, so
@@ -76,9 +76,10 @@ contiguous in it. Kill the process group of the `wrangler-dist/cli.js` process.
 Getting this wrong put both wrangler units into a restart loop against their
 own orphans: 34 restarts on one, 23 on the other, ~300 MB peak per attempt.
 
-🔴 **Do not make the MCP studio a unit.** Its start command rebuilds the shared
-dgmo checkout and rewrites a tracked `registry.json`, so a unit with `Restart=`
-would do both on every crash.
+🔴 **The studio's unit runs `vite` alone, never `pnpm studio`.** That command
+rebuilds the shared dgmo checkout and rewrites a tracked `registry.json`, so a
+unit with `Restart=` would do both on every crash. It serves what `pnpm studio`
+produced; run that by hand once after a dgmo change, then restart the unit.
 
 ## The console's `.dev.vars`
 

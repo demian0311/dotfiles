@@ -1,0 +1,23 @@
+[Unit]
+Description=dgmo-mcp Guidance Studio (vite, :4347)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# 🔴 This is NOT `pnpm studio`. That command rebuilds the shared dgmo
+# checkout and rewrites a tracked registry.json on every start, which a
+# unit with Restart= would do on every crash. This serves the artifacts
+# `pnpm studio` produces; run that once by hand after a dgmo change.
+Type=simple
+WorkingDirectory=/home/demian/code/diagrammo/dgmo-mcp
+Environment=PATH=/home/demian/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/demian/code/diagrammo/dgmo-mcp/node_modules/.bin/vite tools/guidance-studio --port 4347 --strictPort
+# vite exits 143 on SIGTERM, so without this a clean `systemctl stop`
+# leaves the unit reading `failed` for good.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target
