@@ -49,7 +49,7 @@ const SERVICES = [
   {
     id: 'console',
     name: 'Online console',
-    blurb: 'Read-only cloud health and the issue board',
+    blurb: 'Cloud health and the issue board. Answers 503 here: the upstream credentials it reads with are not on this box.',
     port: 5190,
     dir: 'online-console',
     cmd: 'pnpm dev',
@@ -67,7 +67,7 @@ const SERVICES = [
   {
     id: 'mcp',
     name: 'MCP studio',
-    blurb: 'Inspector for the dgmo MCP server',
+    blurb: 'Inspector for the dgmo MCP server. Its gallery is currently empty - every block fails to render.',
     port: 4347,
     dir: 'dgmo-mcp',
     cmd: 'pnpm studio',
@@ -240,7 +240,11 @@ function page(rows) {
 // behind it is, so a request that arrives early gets a readable message rather
 // than a bare connection reset from tailscaled.
 function startProxy(svc) {
-  const to = { host: '127.0.0.1', port: svc.port };
+  // `localhost` rather than a literal address, so Node tries both loopback
+  // families. The servers here disagree about which one they bind -- Astro and
+  // vite take [::1], wrangler takes 127.0.0.1 -- and pinning either one here
+  // means half of them answer 502.
+  const to = { host: 'localhost', port: svc.port, autoSelectFamily: true };
   const rewrite = (req) => ({ ...req.headers, host: `localhost:${svc.port}` });
 
   const srv = http.createServer((req, res) => {

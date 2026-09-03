@@ -43,8 +43,10 @@ One row in `SERVICES` in `hub.mjs`, restart the hub, then on anchor:
 tailscale serve --bg --https=<local+10000> http://localhost:<local+20000>
 ```
 
-Start the dev server with its bind address pinned — `--host 127.0.0.1`. Left to
-itself Astro binds IPv6 loopback only on that box, and a restart can move it.
+The proxy dials `localhost`, not a literal address, so it reaches a service on
+either loopback family. That matters: Astro and vite bind `[::1]` on that box
+while wrangler binds `127.0.0.1`, and pinning either one leaves half of them
+answering 502.
 
 ## Notes
 
@@ -54,3 +56,17 @@ itself Astro binds IPv6 loopback only on that box, and a restart can move it.
 - The `PATH` line in each unit is not decoration: a systemd user unit gets no
   login shell, so none of mise's tools are on its path — the same trap that
   makes `ssh anchor '<cmd>'` fail to find node.
+
+## What each service actually needs
+
+| Service | Local | State |
+|---|---|---|
+| Ecosystem docs | 4321 | a systemd unit; survives a reboot |
+| Marketing site | 4330 | a systemd unit; survives a reboot |
+| Cloud API | 8787 | started by hand; local D1 and R2 report healthy |
+| Online console | 5190 | started by hand; answers 503 — the upstream credentials it reads with are not on anchor, and there is no `.dev.vars` there |
+| MCP studio | 4347 | started by hand; serves, but every gallery block fails to render |
+
+🔴 **Do not make the MCP studio a unit.** Its start command rebuilds the shared
+dgmo checkout and rewrites a tracked `registry.json`, so a unit with `Restart=`
+would do both on every crash.
