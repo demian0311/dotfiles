@@ -1,0 +1,39 @@
+[Unit]
+Description=Diagrammo web editor, built (vite preview, :5173)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# 🔴 It serves a BUILD, not a dev server, and that is not a detail. `vite dev`
+# hands the browser one request per module; over the tailnet the editor's
+# module graph did not finish a DOMContentLoaded in 90 seconds, measured
+# 2026-09-03. A build is one bundle and loads like the real thing -- which is
+# the point, since this is meant to be what online.diagrammo.app serves.
+#
+# 🔴 The build is made BY HAND, and it has to be, twice over. `pnpm build:web`
+# rebuilds the shared dgmo checkout, which a unit with Restart= would do on
+# every crash while other work is live in that repo. And the two variables
+# below are what point the editor at the Cloud API on this box; they are read
+# at BUILD time (vite envPrefix DGMO_), so nothing set here would reach it.
+#
+#   cd ~/code/diagrammo/diagrammo-app
+#   DGMO_CLOUD_API_URL=https://anchor.tailb10eb2.ts.net:18787 \
+#   DGMO_CLOUD_WEB_URL=https://anchor.tailb10eb2.ts.net:15173 \
+#   pnpm build:web
+#   systemctl --user restart anchor-editor
+#
+# That origin also has to be in DEV_ORIGINS in the Cloud API's .dev.vars, or
+# the browser throws away every answer it gets.
+Type=simple
+WorkingDirectory=/home/demian/code/diagrammo/diagrammo-app
+Environment=PATH=/home/demian/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/demian/code/diagrammo/diagrammo-app/node_modules/.bin/vite preview --config vite.web.config.ts --port 5173 --strictPort --host 127.0.0.1
+# vite exits 143 on SIGTERM, so without this a clean `systemctl stop`
+# leaves the unit reading `failed` for good.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

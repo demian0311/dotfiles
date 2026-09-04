@@ -4,6 +4,17 @@ Anchor serves its dev servers over Tailscale, at real HTTPS, to any device on
 the tailnet. `https://anchor.tailb10eb2.ts.net/` lists them and links to the
 ones that are running.
 
+The front page groups them, and the groups are the point rather than
+decoration: **Diagrammo apps**, **Diagrammo Cloud**, **Reference**, and
+**Other projects** — the last of which is where anything that is *not*
+Diagrammo lives, currently OpenClaw. It runs on this box and it can be pointed
+at Diagrammo; it is a separate project with its own repo, and the page says so
+rather than leaving a reader to infer it from a card sitting in a grid with six
+Diagrammo services.
+
+Each entry is one row rather than a card. Eight links do not need a screen and
+a half of scrolling, which is what the card grid had become.
+
 Nothing here is public. Tailscale answers only devices on your own tailnet, and
 no port is open to the internet.
 
@@ -12,7 +23,7 @@ no port is open to the internet.
 | File | What |
 |---|---|
 | `hub.mjs` | the front door, plus one Host-rewriting proxy per service, and the Cloud API reference at `/api-docs` |
-| `systemd/` | user units for the hub, the ecosystem docs and the marketing site |
+| `systemd/` | one user unit per service, plus the hub's. Not OpenClaw's — that is its own project's |
 | `install.sh` | run it on anchor from a checkout of this repo |
 
 ## The port arithmetic
@@ -61,11 +72,24 @@ answering 502.
 
 | Service | Local | State |
 |---|---|---|
-| Ecosystem docs | 4321 | unit; survives a reboot |
+| Web editor | 5173 | unit (`anchor-editor`); serves a BUILD — see below |
 | Marketing site | 4330 | unit; survives a reboot |
 | Cloud API | 8787 | unit; local D1 and R2 report healthy on `/health` |
 | Online console | 5190 | unit; needs a `.dev.vars` — see below |
+| Ecosystem docs | 4321 | unit; survives a reboot |
 | MCP studio | 4347 | unit (`anchor-studio`); gallery renders 156 of 156 |
+| OpenClaw | 18789 | its own unit (`openclaw-gateway`), not installed by `install.sh` |
+
+🔴 **A unit with `--strictPort` and `Restart=` loops forever against an orphan
+holding its port, and nothing in its own log says that is what is happening.**
+`anchor-studio` was found on 2026-09-03 with a **restart counter of 9,885** —
+roughly fourteen hours at `RestartSec=5`, ~92 MB peak per attempt — because a
+`vite` from an earlier by-hand `pnpm studio` still had `[::1]:4347`. The hub
+reported the service *ready* throughout, correctly: something was serving it.
+Before believing a unit is broken, run `ss -ltnp | grep ':<port> '` and read
+the pid. ⚠️ `pkill -f 'vite --config …'` does not match it — the real command
+line is `node …/vite/bin/vite.js --config …`, the same shape that makes the
+wrangler warning below necessary.
 
 🔴 **Killing a wrangler dev server needs the JOB, not the listener.** wrangler
 runs `workerd` as a supervised child and respawns it the instant it dies, so
@@ -75,6 +99,43 @@ runs `workerd` as a supervised child and respawns it the instant it dies, so
 contiguous in it. Kill the process group of the `wrangler-dist/cli.js` process.
 Getting this wrong put both wrangler units into a restart loop against their
 own orphans: 34 restarts on one, 23 on the other, ~300 MB peak per attempt.
+
+## The web editor
+
+`https://anchor.tailb10eb2.ts.net:15173` — the same app `online.diagrammo.app`
+serves, pointed at the Cloud API on this box.
+
+🔴 **`anchor-editor` serves a BUILD (`vite preview`), not a dev server.** Vite's
+dev server hands the browser one request per module; over the tailnet the
+editor's module graph did not reach `DOMContentLoaded` in 90 seconds (measured
+2026-09-03, with the modules themselves answering fine — 30 concurrent fetches
+in 6.9s). The build loads in 2.4s and behaves like the real thing, which is the
+entire point of having it here. Rendering was compared against production in
+the same headless browser and matches.
+
+🔴 **The build is made by hand, and the two variables are read at BUILD time.**
+`vite`'s `envPrefix` is `DGMO_`, so nothing set in the unit would reach the
+bundle. `pnpm build:web` also rebuilds the shared dgmo checkout, which a unit
+with `Restart=` would do on every crash.
+
+```bash
+cd ~/code/diagrammo/diagrammo-app
+DGMO_CLOUD_API_URL=https://anchor.tailb10eb2.ts.net:18787 \
+DGMO_CLOUD_WEB_URL=https://anchor.tailb10eb2.ts.net:15173 \
+pnpm build:web
+systemctl --user restart anchor-editor
+```
+
+🔴 **That origin must also be in `DEV_ORIGINS` in the Cloud API's `.dev.vars`.**
+A browser sends the origin it was *loaded* from, which is the `:15173` https
+one, not `localhost:5173` — so without it the editor loads, signs in, and every
+Cloud answer is thrown away by the browser with a 200 sitting in the network
+tab. `.dev.vars` REPLACES the `DEV_ORIGINS` in `wrangler.jsonc` rather than
+adding to it, so the localhost entries have to be repeated there.
+
+⚠️ A build-time API override makes the environment picker inert (by design —
+`src/platform/cloud/environment.ts` says so). This editor therefore talks to
+anchor's Cloud and nothing else; production would refuse the origin anyway.
 
 🔴 **The studio's unit runs `vite` alone, never `pnpm studio`.** That command
 rebuilds the shared dgmo checkout and rewrites a tracked `registry.json`, so a

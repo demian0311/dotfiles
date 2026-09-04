@@ -19,12 +19,13 @@ systemctl --user daemon-reload
 #   cd ~/code/diagrammo/dgmo-mcp && pnpm studio   # ctrl-c once it says ready
 systemctl --user enable --now anchor-hub.service anchor-docs.service \
   anchor-site.service anchor-api.service anchor-console.service \
-  anchor-studio.service
+  anchor-studio.service anchor-editor.service
 loginctl enable-linger "$USER"
 
 echo
 echo "Units:"
-systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-console anchor-studio
+systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-console \
+  anchor-studio anchor-editor
 
 # The proxy mappings persist by themselves once set: every line below uses
 # --bg, and Tailscale documents that such a configuration resumes after a
@@ -35,7 +36,11 @@ systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-
 # public port must NOT equal the local one: tailscaled's own listener would
 # then look like a busy port to Vite, and the dev server would slide to the
 # next one, leaving the proxy pointing at nothing.
-for pair in 4321 4330 5190 8787 4347; do
+#
+# 18789 is OpenClaw, which is NOT a Diagrammo service and has no unit here --
+# it brings its own. The mapping still belongs in this loop, because the
+# listener on the other end of it is one of the hub's proxies.
+for pair in 4321 4330 5173 5190 8787 4347 18789; do
   tailscale serve --bg --https=$((pair + 10000)) "http://localhost:$((pair + 20000))"
 done
 
