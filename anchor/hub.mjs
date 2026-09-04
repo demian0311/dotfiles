@@ -574,6 +574,9 @@ const SLATE = `
     --accent: #3b6ea5;      /* primary  */
     --bar: rgba(243, 245, 248, .88);
     --chip: #eaeef3;
+    /* Redoc's sample panel only; deliberately dark in both themes. */
+    --panel: #202833;       /* dark surface */
+    --panel-ink: #e6eaef;   /* dark text    */
     /* Group identity, from the palette's nine hue slots. 🔴 Never green,
        yellow or gray -- those three are status, and a tint that borrowed one
        could be read as a health claim. */
@@ -599,6 +602,8 @@ const SLATE = `
       --accent: #5b9bd5;    /* primary  */
       --bar: rgba(22, 27, 34, .88);
       --chip: #29323e;
+      --panel: #202833;      /* surface — one step above the ground */
+      --panel-ink: #e6eaef;
       --t-blue: #5b9bd5;
       --t-purple: #a585c9;
       --t-teal: #45b3a3;
@@ -815,6 +820,17 @@ ${SLATE}
 // Redoc renders the spec this page proxies. The spec is served from THIS
 // origin rather than from the Worker's own port, so the browser never makes a
 // cross-origin request and the Worker's CORS allowlist is irrelevant.
+//
+// 🔴 The theme is READ OUT OF THE PAGE'S OWN CSS VARIABLES at init rather than
+// written again as a JS object. Redoc wants hex strings and the palette lives
+// in `SLATE` as custom properties, so the obvious move is a second copy in
+// JavaScript -- and a second copy of a palette is a second thing to forget
+// when the first one changes. `getComputedStyle` already resolves the media
+// query, so light and dark both fall out of the block that is already there.
+//
+// ⚠️ Every key below was read from Redoc 2.5.0's own `src/theme.ts` on
+// 2026-09-04, not recalled. A key it does not know is dropped silently, so a
+// misremembered name reads as "the theme did not apply".
 function docsPage() {
   return `<!doctype html>
 <html lang="en">
@@ -824,16 +840,31 @@ function docsPage() {
 <title>Cloud API reference</title>
 <style>
 ${SLATE}
-  body { margin: 0; background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); }
   .bar {
     display: flex; align-items: center; gap: .75rem;
     padding: .6rem 1rem; border-bottom: 1px solid var(--line-soft); background: var(--raise);
-    font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   .bar a { color: var(--accent); text-decoration: none; }
   .bar a:hover { text-decoration: underline; }
   .bar span { color: var(--muted); }
-  #redoc { background: #fff; }
+  /* Redoc shouts two kinds of label and only one of them has a theme key.
+     The sidebar.groupItems.textTransform key handles the nav; these h5 section
+     labels (Authorizations, query Parameters, Response schema) have none, so
+     they are undone here. Redoc's own class names are emotion-generated and
+     change between builds, so the selector is the element, never the class.
+
+     The source text is mid-sentence ("query Parameters"), hence the
+     first-letter rule -- without it, removing the caps leaves a lowercase
+     heading, which is a different kind of wrong. */
+  #redoc h5 { text-transform: none; color: var(--muted); }
+  #redoc h5::first-letter { text-transform: uppercase; }
+
+  /* 🔴 The colour above is a fix, not a preference. Redoc hard-codes these
+     labels at rgba(38, 50, 56, .5) with no theme key -- measured 2026-09-04 at
+     2.61:1 on the light ground, and on the dark one it is a near-black at half
+     alpha, which is all but invisible. textMuted is 5.36:1 and 6.91:1. */
 </style>
 </head>
 <body>
@@ -845,8 +876,64 @@ ${SLATE}
 <div id="redoc"></div>
 <script src="https://cdn.jsdelivr.net/npm/redoc@2.5.0/bundles/redoc.standalone.js"></script>
 <script>
-  Redoc.init('/openapi.json', { hideDownloadButton: false, expandResponses: '200,201' },
-    document.getElementById('redoc'));
+  const v = (name) =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  const theme = () => ({
+    colors: {
+      primary: { main: v('--accent') },
+      success: { main: v('--ready') },
+      warning: { main: v('--warn') },
+      error: { main: v('--t-red') },
+      gray: { 50: v('--raise'), 100: v('--line-soft') },
+      text: { primary: v('--ink'), secondary: v('--muted') },
+      border: { dark: v('--line'), light: v('--line-soft') },
+      // One hue per method, from the same six slots the front page groups use.
+      http: {
+        get: v('--t-blue'),
+        post: v('--t-teal'),
+        put: v('--t-purple'),
+        options: v('--t-cyan'),
+        patch: v('--t-orange'),
+        delete: v('--t-red'),
+        basic: v('--muted'),
+        link: v('--t-cyan'),
+        head: v('--t-purple'),
+      },
+    },
+    schema: { nestedBackground: v('--raise') },
+    typography: {
+      fontSize: '14px',
+      fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+      headings: {
+        fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+        fontWeight: '650',
+      },
+      code: {
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        color: v('--t-red'),
+        backgroundColor: v('--raise'),
+      },
+      links: { color: v('--accent') },
+    },
+    sidebar: {
+      backgroundColor: v('--raise'),
+      textColor: v('--ink'),
+      // The house rule is no shouted headings anywhere.
+      groupItems: { textTransform: 'none' },
+    },
+    rightPanel: { backgroundColor: v('--panel'), textColor: v('--panel-ink') },
+  });
+
+  const draw = () =>
+    Redoc.init('/openapi.json',
+      { hideDownloadButton: false, expandResponses: '200,201', theme: theme() },
+      document.getElementById('redoc'));
+
+  draw();
+  // Redoc takes its theme once, at init. The rest of this hub follows the OS
+  // theme live through CSS, so redrawing on the change keeps the two honest.
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
 </script>
 </body>
 </html>`;
