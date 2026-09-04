@@ -67,9 +67,9 @@ const ICONS = {
 // Diagrammo and which are simply other things that happen to run here.
 //
 // `tint` is the group's colour, carried by every icon in it and by its
-// heading. It is identity, NOT status: the pip on each icon is what says
-// whether a thing is up, and no tint is ever green, amber or grey, so the two
-// can never be read for each other.
+// heading. It names a hue slot in dgmo's slate palette. It is identity, NOT
+// status: the pip on each icon is what says whether a thing is up, and no tint
+// is ever green, yellow or gray, so the two can never be read for each other.
 //
 // `probed` says whether the rows in it are servers on this box. The last two
 // groups are addresses elsewhere on the internet -- nothing here can know
@@ -79,7 +79,7 @@ const GROUPS = [
     id: 'apps',
     name: 'Diagrammo apps',
     blurb: 'What a person opens: the editor, and the page that sells it.',
-    tint: 'sky',
+    tint: 'blue',
     probed: true,
   },
   {
@@ -87,7 +87,7 @@ const GROUPS = [
     name: 'Diagrammo Cloud',
     blurb:
       'The Worker the app talks to, and the console that watches it. Its database is throwaway and lives on this box — nothing here is production data.',
-    tint: 'violet',
+    tint: 'purple',
     probed: true,
   },
   {
@@ -102,21 +102,21 @@ const GROUPS = [
     name: 'Other projects',
     blurb:
       'Not Diagrammo. Separate projects that happen to run on this machine — one of them can drive Diagrammo without being part of it.',
-    tint: 'fuchsia',
+    tint: 'orange',
     probed: true,
   },
   {
     id: 'production',
     name: 'Production',
     blurb: 'The real thing, on the real internet, with real customer data behind it.',
-    tint: 'rose',
+    tint: 'red',
     probed: false,
   },
   {
     id: 'consoles',
     name: 'Consoles',
     blurb: 'The vendor dashboards and the tracker. Each one wants you signed in.',
-    tint: 'indigo',
+    tint: 'cyan',
     probed: false,
   },
 ];
@@ -472,53 +472,69 @@ function nav(groups, rows) {
     .join('\n      ');
 }
 
+// The palette is dgmo's own `slate` -- `palettes.slate` in @diagrammo/dgmo,
+// the one rendered at https://diagrammo.app/slate/. Not Tailwind's slate,
+// which is a different set of colours wearing the same name.
+//
+// 🔴 These hexes are a COPY, and there is no way for them not to be: this file
+// has no dependencies on purpose, so it cannot import the palette that the
+// marketing site imports at build time. If dgmo's slate ever changes, this is
+// the second place to edit. Read the real values rather than adjusting one by
+// eye:
+//
+//   node -e "console.log(require('~/code/diagrammo/dgmo/dist/index.js').palettes.slate)"
+//
+// The mapping from the palette's roles to this page's variables:
+//   page ground = surface · code + chips = overlay · rules = border
+//   name = text · blurb = textMuted · detail, host, port = gray / secondary
+//   links = primary · ready = green · running-not-shared = yellow
 const SLATE = `
   :root {
     color-scheme: light dark;
-    --bg: #f1f5f9;          /* slate-100 */
-    --raise: #f8fafc;       /* slate-50  */
-    --card: #ffffff;
-    --ink: #0f172a;         /* slate-900 */
-    --ink-soft: #334155;    /* slate-700 */
-    --muted: #64748b;       /* slate-500 */
-    --line: #cbd5e1;        /* slate-300 */
-    --line-soft: #e2e8f0;   /* slate-200 */
-    --ready: #15803d;
-    --warn: #b45309;
-    --off: #94a3b8;         /* slate-400 */
-    --accent: #0369a1;
-    --bar: rgba(248, 250, 252, .88);
-    --chip: #e2e8f0;
-    /* Group identity. Never green, amber or grey -- those three are status. */
-    --t-sky: #0284c7;
-    --t-violet: #7c3aed;
-    --t-teal: #0d9488;
-    --t-fuchsia: #a21caf;
-    --t-rose: #be123c;
-    --t-indigo: #4338ca;
+    --bg: #f3f5f8;          /* surface */
+    --raise: #eaeef3;       /* overlay  */
+    --card: #ffffff;        /* bg       */
+    --ink: #1f2933;         /* text     */
+    --muted: #5b6672;       /* textMuted */
+    --line: #d4dae1;        /* border   */
+    --line-soft: #eaeef3;   /* overlay  */
+    --off: #7e8a97;         /* gray — the stopped pip ONLY, never text */
+    --ready: #5b9357;       /* green    */
+    --warn: #c9a227;        /* yellow   */
+    --accent: #3b6ea5;      /* primary  */
+    --bar: rgba(243, 245, 248, .88);
+    --chip: #eaeef3;
+    /* Group identity, from the palette's nine hue slots. 🔴 Never green,
+       yellow or gray -- those three are status, and a tint that borrowed one
+       could be read as a health claim. */
+    --t-blue: #3b6ea5;
+    --t-purple: #7d5ba6;
+    --t-teal: #3a9188;
+    --t-orange: #cc7a33;
+    --t-red: #c0504d;
+    --t-cyan: #4f96c4;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0f172a;        /* slate-900 */
-      --raise: #1e293b;     /* slate-800 */
-      --card: #1e293b;
-      --ink: #e2e8f0;       /* slate-200 */
-      --ink-soft: #cbd5e1;  /* slate-300 */
-      --muted: #94a3b8;     /* slate-400 */
-      --line: #334155;      /* slate-700 */
-      --line-soft: #1e293b;
-      --ready: #4ade80;
-      --warn: #fbbf24;
-      --off: #64748b;       /* slate-500 */
-      --accent: #7dd3fc;
-      --bar: rgba(15, 23, 42, .88);
-      --chip: #334155;
-      --t-sky: #38bdf8;
-      --t-violet: #a78bfa;
-      --t-teal: #2dd4bf;
-      --t-fuchsia: #e879f9;
-      --t-rose: #fb7185;
-      --t-indigo: #818cf8;
+      --bg: #161b22;        /* bg       */
+      --raise: #29323e;     /* overlay  */
+      --card: #202833;      /* surface  */
+      --ink: #e6eaef;       /* text     */
+      --muted: #9aa5b1;     /* textMuted */
+      --line: #38424f;      /* border   */
+      --line-soft: #29323e; /* overlay  */
+      --off: #8593a3;       /* secondary — the stopped pip ONLY */
+      --ready: #74b56e;     /* green    */
+      --warn: #d9bd5a;      /* yellow   */
+      --accent: #5b9bd5;    /* primary  */
+      --bar: rgba(22, 27, 34, .88);
+      --chip: #29323e;
+      --t-blue: #5b9bd5;
+      --t-purple: #a585c9;
+      --t-teal: #45b3a3;
+      --t-orange: #e0975a;
+      --t-red: #e07b6e;
+      --t-cyan: #62b0d9;
     }
   }`;
 
@@ -612,14 +628,14 @@ ${SLATE}
     text-decoration: none; color: inherit;
   }
   .row[href]:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
-  .name { font-weight: 600; }
+  .name { font-weight: 600; }  /* text, bold */
   .row[href]:hover .name { color: var(--tint); }
-  .what { color: var(--muted); font-size: .86rem; max-width: 74ch; }
+  .what { color: var(--ink); font-size: .86rem; max-width: 74ch; }
   .name, .what, .where { padding-top: .2rem; }
-  .detail { color: var(--off); }
+  .detail { color: var(--muted); }
   .where {
     font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--off); white-space: nowrap;
+    color: var(--muted); white-space: nowrap;
   }
   .row.ready .where { color: var(--accent); }
 
@@ -631,8 +647,8 @@ ${SLATE}
   .row.ready .state {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
   }
-  .row.unexposed .state { color: var(--warn); }
-  .row.stopped .state { color: var(--off); }
+  .row.unexposed .state { color: var(--ink); }
+  .row.stopped .state { color: var(--ink); }
   .row.ready .state .s.ready,
   .row.unexposed .state .s.unexposed,
   .row.stopped .state .s.stopped { display: inline; }
@@ -643,7 +659,7 @@ ${SLATE}
     display: inline-block; margin-top: .2rem; padding: .18rem .4rem; border-radius: 5px;
     background: var(--raise); border: 1px solid var(--line-soft);
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    white-space: pre-wrap; word-break: break-all; color: var(--ink-soft);
+    white-space: pre-wrap; word-break: break-all; color: var(--ink);
   }
 
   .tiles {
@@ -661,10 +677,10 @@ ${SLATE}
   .tile .name { line-height: 1.35; }
   .host {
     font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--off); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  footer { margin-top: 1.4rem; color: var(--off); font-size: .78rem; }
+  footer { margin-top: 1.4rem; color: var(--muted); font-size: .78rem; }
 </style>
 </head>
 <body>

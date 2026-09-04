@@ -32,22 +32,54 @@ because reaching it is a departure rather than a navigation.
 
 ## Colour
 
-Two colour systems, deliberately disjoint, because one of them is identity and
-the other is health:
+The palette is **dgmo's own `slate`** — `palettes.slate` in `@diagrammo/dgmo`,
+the one rendered at <https://diagrammo.app/slate/>. Not Tailwind's slate, which
+is a different set of colours wearing the same name.
 
-- **The group tint** — sky, violet, teal, fuchsia, rose, indigo — colours every
-  icon in a group, its heading and its nav badge. 🔴 **No tint is ever green,
-  amber or grey.** Those three are reserved, so a tint can never be misread as
-  a status.
-- **The pip** riding the corner of each icon is the status: green ready, amber
-  running-but-not-shared, grey stopped. **External tiles have no pip**, because
+🔴 **The hexes in `hub.mjs` are a COPY, and there is no way for them not to
+be.** This file has no dependencies on purpose, so it cannot import the palette
+the way the marketing site does at build time. If dgmo's slate changes, this is
+the second place to edit. Read the real values rather than nudging one by eye:
+
+```bash
+node -e "console.log(require('$HOME/code/diagrammo/dgmo/dist/index.js').palettes.slate)"
+```
+
+Two colour systems, deliberately disjoint, because one is identity and the
+other is health:
+
+- **The group tint** colours every icon in a group, its heading and its nav
+  badge, and names a hue slot in the palette: blue, purple, teal, orange, red,
+  cyan. 🔴 **Never green, yellow or gray** — those three are status, and a tint
+  borrowing one could be read as a health claim.
+- **The pip** on the corner of each icon is the status: green ready, yellow
+  running-but-not-shared, gray stopped. **External tiles have no pip**, because
   nothing on this box can honestly say whether `dash.cloudflare.com` is up, and
-  a dot that always reads green would be a health check nobody performed. For
-  the same reason their nav badge is a plain count, not `4/4`.
+  a dot that always read green would be a health check nobody performed. Their
+  nav badge is a plain count for the same reason, not `4/4`.
 
-Icons are hand-written SVG primitives in `ICONS` in `hub.mjs` — circles, rects
-and short paths — not path data copied from an icon set. Nothing about them can
-be remembered wrongly, and no install can break them.
+🔴 **A hue slot is a FILL colour in this palette, not a text colour**, and
+using one as text is how the first pass got it wrong. Measured against the
+light ground (`surface`, `#f3f5f8`) on 2026-09-04:
+
+| Used for | Was | Ratio | Now |
+|---|---|---|---|
+| the "Running, not shared" line | `yellow` `#c9a227` | **2.21:1** | `text` — the pip keeps the colour |
+| detail, host and port text | `gray` `#7e8a97` | **3.22:1** | `textMuted` `#5b6672`, 5.36:1 |
+| the blurb | `textMuted` | 5.36:1 | `text` `#1f2933`, 13.51:1 |
+
+So the text ramp is the palette's own two roles — `text` for a name and a
+blurb, `textMuted` for the detail beneath it — and the separation between name
+and blurb comes from **weight**, not from a third colour the palette does not
+have. `gray` is now used for exactly one thing: the stopped pip, where 3.22:1
+clears the 3:1 a graphic needs.
+
+⚠️ **The group headings still sit between 2.96:1 (cyan) and 4.91:1 (purple)**,
+which is under the 4.5 a small bold label wants. That is accepted: there are
+six groups and six usable hues, so no reassignment escapes it, and the heading
+is a landmark next to full-contrast prose rather than something you read. The
+alternative — darkening a hue for text — would leave the page on colours that
+are not in the palette, which is the thing this section exists to prevent.
 
 🔴 **The two vendor ids in `LINKS` came from the repo, not from memory.** The
 Cloudflare account (`e073da7b4a152b6c8feea8ee1d7c6eb9`) and the PostHog project
