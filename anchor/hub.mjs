@@ -60,6 +60,21 @@ const ICONS = {
   bars: '<path d="M3.5 20h17"/><path d="M6.5 20v-6"/><path d="M12 20V4.5"/><path d="M17.5 20v-9"/>',
   // a dot in a ring — an open issue
   issue: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/>',
+  // a box — a published package
+  package:
+    '<path d="M12 3.2 3.9 7.3v9.4L12 20.8l8.1-4.1V7.3Z"/><path d="M3.9 7.3 12 11.4l8.1-4.1"/><path d="M12 11.4v9.4"/>',
+  // an envelope — mail we send
+  mail: '<rect x="2.8" y="5" width="18.4" height="14" rx="2.4"/><path d="M3.4 6.8 12 12.9l8.6-6.1"/>',
+  // a card — money
+  card: '<rect x="2.5" y="5" width="19" height="14" rx="2.4"/><path d="M2.5 9.9h19"/><path d="M6.3 15.2h3.6"/>',
+  // a key — an OAuth client and its consent screen
+  key: '<circle cx="8.2" cy="12" r="3.5"/><path d="M11.7 11.4H21"/><path d="M18.2 11.4v3.1"/><path d="M15.2 11.4v2.3"/>',
+  // a rosette — signing certificates and identifiers
+  badge:
+    '<circle cx="12" cy="9.1" r="5.1"/><path d="M8.7 13.3 7.5 20.6l4.5-2.4 4.5 2.4-1.2-7.3"/>',
+  // a window — an app in review
+  window:
+    '<rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M3 9.3h18"/><path d="M6.3 6.95h.01M9 6.95h.01"/>',
 };
 
 // The sections of the page, in order. `blurb` says what a stranger needs to
@@ -225,12 +240,14 @@ const VIEWS = [
 // can honestly say whether they are up, and they open in a new tab, because
 // leaving the hub to reach one is a departure rather than a navigation.
 //
-// 🔴 Every id below was checked against a source in the repo rather than
-// recalled: the Cloudflare account and the PostHog project are the ones the
-// ecosystem docs record (infrastructure/vendors/cloudflare.md and
-// .../posthog.md), and each address was fetched on 2026-09-04 -- a 302 to a
-// login page is the right answer for a console, and a 403 from curl is
-// Cloudflare declining a non-browser, not a wrong URL.
+// 🔴 Every address below came from the ecosystem docs' own vendor pages
+// (infrastructure/vendors/*.md), not from memory -- including the Cloudflare
+// account id and the PostHog project number. Each was then fetched on
+// 2026-09-04: a 302 or a redirect to a login page is the right answer for a
+// console, and a 403 is a bot challenge rather than a wrong URL.
+//
+// ⚠️ Where a deeper path could not be confirmed, the ROOT is used instead of a
+// guess. npm is the one that matters -- see its row.
 const LINKS = [
   {
     id: 'prod-editor',
@@ -297,6 +314,59 @@ const LINKS = [
     name: 'Issues',
     host: 'github.com/diagrammo/diagrammo',
     url: 'https://github.com/diagrammo/diagrammo/issues',
+  },
+  {
+    id: 'npm',
+    group: 'consoles',
+    icon: 'package',
+    // 🔴 The ROOT on purpose. An org or settings path could not be confirmed:
+    // npmjs.com answers a Cloudflare challenge to curl AND to a headless
+    // browser, so a deeper link would be a guess dressed as a fact. The docs
+    // record this address, and package Settings -> Trusted Publisher is two
+    // clicks from it.
+    name: 'npm',
+    host: 'npmjs.com',
+    url: 'https://www.npmjs.com',
+  },
+  {
+    id: 'stripe',
+    group: 'consoles',
+    icon: 'card',
+    name: 'Stripe',
+    host: 'dashboard.stripe.com',
+    url: 'https://dashboard.stripe.com',
+  },
+  {
+    id: 'resend',
+    group: 'consoles',
+    icon: 'mail',
+    name: 'Resend',
+    host: 'resend.com',
+    url: 'https://resend.com',
+  },
+  {
+    id: 'google',
+    group: 'consoles',
+    icon: 'key',
+    name: 'Google Cloud',
+    host: 'console.cloud.google.com',
+    url: 'https://console.cloud.google.com',
+  },
+  {
+    id: 'apple-dev',
+    group: 'consoles',
+    icon: 'badge',
+    name: 'Apple Developer',
+    host: 'developer.apple.com',
+    url: 'https://developer.apple.com/account',
+  },
+  {
+    id: 'apple-asc',
+    group: 'consoles',
+    icon: 'window',
+    name: 'App Store Connect',
+    host: 'appstoreconnect.apple.com',
+    url: 'https://appstoreconnect.apple.com',
   },
 ];
 

@@ -18,7 +18,7 @@ decoration:
 | Reference | ecosystem docs, MCP studio, the API reference | yes |
 | Other projects | anything that is **not** Diagrammo — currently OpenClaw | yes |
 | Production | online / api / docs / diagrammo.app | no |
-| Consoles | Tailscale, Cloudflare, PostHog, the issue tracker | no |
+| Consoles | Tailscale, Cloudflare, PostHog, Issues, npm, Stripe, Resend, Google Cloud, Apple Developer, App Store Connect | no |
 
 **Other projects** exists so OpenClaw is not read as a seventh Diagrammo
 service. It runs here and it can be pointed at Diagrammo; it is a separate
@@ -81,26 +81,39 @@ is a landmark next to full-contrast prose rather than something you read. The
 alternative — darkening a hue for text — would leave the page on colours that
 are not in the palette, which is the thing this section exists to prevent.
 
-🔴 **The two vendor ids in `LINKS` came from the repo, not from memory.** The
-Cloudflare account (`e073da7b4a152b6c8feea8ee1d7c6eb9`) and the PostHog project
-(`351484`) are the ones the ecosystem docs record, in
-`infrastructure/vendors/cloudflare.md` and `.../posthog.md`. Every address was
-fetched on 2026-09-04 before it went in: a **302 to a login page is the right
-answer** for a console, and a **403 from curl is Cloudflare declining a
-non-browser**, not a wrong URL. `api.diagrammo.app` is linked at `/health`
-rather than at its root, because the root has no route and its 404 reads as an
-outage.
+## Where the external addresses came from
 
-Nothing here is public. Tailscale answers only devices on your own tailnet, and
-no port is open to the internet.
+🔴 **Every one of them traces to the ecosystem docs' own vendor pages**
+(`infrastructure/vendors/*.md`), not to memory — including the Cloudflare
+account id and the PostHog project number, both of which those pages record.
+Each address was then fetched on 2026-09-04. **A redirect to a login page is
+the right answer for a console**, and a 403 is a bot challenge rather than a
+wrong URL.
 
-## Contents
+| Tile | Address | How it checked out |
+|---|---|---|
+| Tailscale | `login.tailscale.com/admin/machines` | 302 → login |
+| Cloudflare | `dash.cloudflare.com/<account>` | 403, bot challenge |
+| PostHog | `us.posthog.com/project/351484` | 302 → login |
+| Issues | `github.com/diagrammo/diagrammo/issues` | 404 to curl; repo confirmed private via `gh repo view` |
+| npm | `npmjs.com` | 403 to curl **and** to a real browser |
+| Stripe | `dashboard.stripe.com` | 200 → `/login` |
+| Resend | `resend.com` | 200 → `/login` |
+| Google Cloud | `console.cloud.google.com` | 200 → `accounts.google.com` |
+| Apple Developer | `developer.apple.com/account` | 200 → `idmsa.apple.com` |
+| App Store Connect | `appstoreconnect.apple.com` | 200 → `/login` |
 
-| File | What |
-|---|---|
-| `hub.mjs` | the front door, plus one Host-rewriting proxy per service, and the Cloud API reference at `/api-docs` |
-| `systemd/` | one user unit per service, plus the hub's. Not OpenClaw's — that is its own project's |
-| `install.sh` | run it on anchor from a checkout of this repo |
+⚠️ **npm points at the root deliberately.** `npmjs.com` answers a Cloudflare
+challenge to curl *and* to a headless browser, so `/org/diagrammo` and
+`/settings/diagrammo/packages` could not be confirmed either way — and an
+unconfirmed deep link is a guess wearing the clothes of a fact. Package
+**Settings → Trusted Publisher**, which is what you actually go there for, is
+two clicks from the root. Same reasoning for Resend: the docs name an
+**Emails** section but `resend.com/emails` and a nonexistent path both bounce
+to the same login, so the root is what goes in.
+
+`api.diagrammo.app` is linked at `/health` rather than at its root, because the
+root has no route and its 404 reads as an outage.
 
 ## The port arithmetic
 
