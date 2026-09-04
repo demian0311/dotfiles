@@ -30,6 +30,26 @@ screen and a half of scrolling, which is what the card grid had become — and
 each external one is a tile with its host under it, opening in a new tab
 because reaching it is a departure rather than a navigation.
 
+Nothing here is public. Tailscale answers only devices on your own tailnet, and
+no port is open to the internet.
+
+## Contents
+
+| File | What |
+|---|---|
+| `hub.mjs` | the front door, plus one Host-rewriting proxy per service, and the Cloud API reference at `/api-docs` |
+| `systemd/` | one user unit per service, plus the hub's. Not OpenClaw's — that is its own project's |
+| `install.sh` | run it on anchor from a checkout of this repo |
+
+🔴 **`~/anchor-hub/` on the box holds exactly one file, `hub.mjs`, and it is a
+COPY of the one here.** Anything beside it — a `hub.mjs.bak-*`, a `hub.mjs.new`
+— means somebody edited the hub on the box instead of in this repo, and is a
+backup of a version git already has. Two of those were deleted on 2026-09-04
+after checking their hash: both were byte-identical to `anchor/hub.mjs` at
+commit `5276164`, so neither held anything that was not already committed. Edit here, then copy it across. Hand-editing on
+the box is what made the file feel unversioned enough to need backups, and it
+is the same reason the duplicate API reference service existed.
+
 ## Colour
 
 The palette is **dgmo's own `slate`** — `palettes.slate` in `@diagrammo/dgmo`,
