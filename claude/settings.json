@@ -5,13 +5,11 @@
     "allow": [
       "WebSearch",
       "WebFetch",
-      "Bash",
       "Read",
       "Write",
       "Edit",
       "Glob",
       "Grep",
-      "Task",
       "TodoWrite",
       "Edit(~/.claude/**)"
     ],
@@ -171,7 +169,57 @@
   },
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
-  "theme": "dark-ansi",
+  "theme": "dark",
   "editorMode": "vim",
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(pnpm status)"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Bash(gh workflow run:*)",
+      "Bash(npm publish:*)"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: diagrammo (GitHub org/user `diagrammo`; this repo's remote is `github.com/diagrammo/diagrammo`)",
+      "**Cloud provider(s)**: Cloudflare (Workers, D1, R2) — per CLAUDE.md, `diagrammo-cloud`'s `cloud-api` Worker and the marketing/docs sites deploy via `wrangler`",
+      "**Repository visibility**: private (diagrammo/diagrammo, confirmed via gh) — CLAUDE.md also lists several sibling repos as public: dgmo, dgmo-mcp, obsidian-dgmo, dgmo-content, remark-dgmo, astro-dgmo, docusaurus-plugin-dgmo, fumadocs-dgmo, nextra-dgmo, vitepress-dgmo, homebrew-dgmo (publishing repos, described as public in CLAUDE.md); private siblings named: diagrammo_app_site, diagrammo-app (app), diagrammo-cloud, diagrammo-ecosystem-docs, my-diagrams",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: npm Trusted Publishing (OIDC) for CI publishes; a local bypass-2FA npm token in `~/.npmrc` is a fallback only (per CLAUDE.md) — do not run `npm login`/`npm logout`",
+      "**Default / protected branches**: main (default, via gh); Protected branches: none listed and rulesets not queryable here — treat main as sensitive to force-push/history-rewrite regardless",
+      "**CI/CD deploy targets**: GitHub Actions (workflow_dispatch release.yml/release-cli.yml per package) publishing to npm; Cloudflare Workers/Pages deploys via `wrangler deploy` for diagrammo-cloud, diagrammo_app_site, diagrammo-ecosystem-docs",
+      "**Network posture**: None configured",
+      "**Source control**: GitHub — this repo (diagrammo/diagrammo) and its remote only; sibling repos under the diagrammo org referenced in CLAUDE.md but not independently verified this session",
+      "**Trusted internal domains**: diagrammo.app and its subdomains (docs.diagrammo.app, api.diagrammo.app, online.diagrammo.app) — top contacted hosts this session",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: api.diagrammo.app (live Worker API), online.diagrammo.app (web editor), docs.diagrammo.app (ecosystem docs, Cloudflare Access-gated), diagrammo.app (marketing site)",
+      "**Internal package registry**: npm registry (registry.npmjs.org) publishing scoped `@diagrammo/*` packages and several unscoped ones (remark-dgmo, astro-dgmo, docusaurus-plugin-dgmo, fumadocs-dgmo, nextra-dgmo, vitepress-dgmo)",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited)",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic; note the k8s namespaces seen this session (scripts, dgmo, release) do not carry a prod/production segment",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "**Repository visibility**: private (diagrammo/diagrammo, confirmed via gh)",
+      "**Secrets management**: npm Trusted Publishing (OIDC) for CI publishes; a local bypass-2FA npm token in `~/.npmrc` is a fallback only (per CLAUDE.md) — never run `npm login`/`npm logout`",
+      "**Source control**: this repo (diagrammo/diagrammo) and its origin remote only",
+      "**Trusted internal domains**: diagrammo.app and its subdomains (docs.diagrammo.app, api.diagrammo.app, online.diagrammo.app)",
+      "**Internal package registry**: npm registry (registry.npmjs.org) publishing scoped `@diagrammo/*` packages",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment (hyphen/underscore/dot-delimited — e.g. matches `prod-db`, not `producer`)",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic; k8s namespaces seen this session (scripts, dgmo, release) do not carry a prod/production segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development — Diagrammo diagram-authoring ecosystem (multi-repo workspace: library/CLI, desktop app, Cloudflare Worker backend, docs/marketing sites, Obsidian plugin)",
+      "**Trusted repo**: this repo (diagrammo/diagrammo, private) and its origin remote (github.com/diagrammo/diagrammo.git) only — scope not expanded to sibling repos since this session did not gather/verify them",
+      "**Org-specific CLIs**: gh (with `--repo diagrammo/diagrammo` required, per CLAUDE.md), pnpm, wrangler, dgmo CLI, scripts/release.sh",
+      "routine under this repo's docs/, _bmad-output/, scripts/, tasks/, console/ — all tracked in this repo per CLAUDE.md",
+      "**Primary use of Claude Code**: software development — Diagrammo diagram-authoring ecosystem, working in the `diagrammo/diagrammo` workspace-root repo (docs/, _bmad-output/, scripts/, tasks/, console/)",
+      "**Trusted repo**: this repo (diagrammo/diagrammo, private) and its origin remote (github.com/diagrammo/diagrammo.git) only — scope not expanded to sibling repos since this session did not gather or verify them",
+      "**Org-specific CLIs**: gh (requires `--repo diagrammo/diagrammo` — infers from cwd otherwise), pnpm, wrangler, dgmo CLI, scripts/release.sh"
+    ]
+  },
+  "crossSessionInbound": "accept"
 }
