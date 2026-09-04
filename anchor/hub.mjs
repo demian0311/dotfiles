@@ -1,10 +1,13 @@
-// anchor-hub — the front door for the servers on this box, served over
-// Tailscale so no port numbers have to be remembered. Each one is exposed by
-// `tailscale serve` on its own https port; this page sits on 443, groups them,
-// and links to the ones that are reachable.
+// anchor-hub — the front door for the servers on this box, plus the consoles
+// and production addresses you would otherwise keep in bookmarks. Served over
+// Tailscale so no port numbers have to be remembered: each local service is
+// exposed by `tailscale serve` on its own https port, and this page sits on
+// 443, groups everything, and links to what is reachable.
 //
 // No dependencies on purpose: a hub that needs `pnpm install` to come back
-// after a reboot is a hub that is down when you need it.
+// after a reboot is a hub that is down when you need it. That extends to the
+// icons -- they are hand-written SVG primitives below rather than an icon
+// package, so nothing here can break on an install.
 import http from 'node:http';
 import net from 'node:net';
 import { execFile } from 'node:child_process';
@@ -24,31 +27,97 @@ const PUBLIC = (p) => p + 10000;
 // every repo, which a `git stash` cycle silently drops. One place, no repo dirt.
 const PROXY = (p) => p + 20000;
 
-// The sections of the page, in order. `blurb` is what a stranger needs to know
-// before reading the cards under it -- above all which of these are Diagrammo
-// and which are simply other things that happen to run on this machine.
+// Icons, as SVG primitives rather than path data copied from an icon set.
+// Authoring them from circles, rects and short paths means none of it is
+// remembered wrongly, and the whole set costs nothing to serve.
+const ICONS = {
+  // a pencil — you write here
+  editor: '<path d="M4 20h16"/><path d="M14.6 4.4a2.1 2.1 0 0 1 3 3L8.2 16.8 4 18l1.2-4.2Z"/>',
+  // a globe — the public web
+  globe:
+    '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5a13 13 0 0 1 0 17a13 13 0 0 1 0-17Z"/>',
+  // stacked racks — a server
+  server:
+    '<rect x="3" y="4.5" width="18" height="6.5" rx="2"/><rect x="3" y="13" width="18" height="6.5" rx="2"/><path d="M6.8 7.75h.01M6.8 16.25h.01"/>',
+  // a trace — something being watched
+  pulse: '<path d="M3 12h3.5L9 5.5 13 18.5l2.4-6.5H21"/>',
+  // an open book
+  book: '<path d="M12 6.6C10.4 5 8.4 4.4 4.4 4.4v13c4 0 6 .6 7.6 2.2 1.6-1.6 3.6-2.2 7.6-2.2v-13c-4 0-6 .6-7.6 2.2Z"/><path d="M12 6.6v13"/>',
+  // four panes — a gallery
+  grid:
+    '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>',
+  // braces — a generated schema
+  braces:
+    '<path d="M8.5 3.5H7.5a2 2 0 0 0-2 2v3.2a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3.6a2 2 0 0 0 2 2h1"/><path d="M15.5 3.5h1a2 2 0 0 1 2 2v3.2a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3.6a2 2 0 0 1-2 2h-1"/>',
+  // a machine with an antenna — an agent
+  bot: '<rect x="3.5" y="8" width="17" height="12" rx="3.5"/><path d="M12 8V4.6"/><circle cx="12" cy="3.4" r="1.3" fill="currentColor" stroke="none"/><path d="M8.8 13.5h.01M15.2 13.5h.01"/><path d="M9.6 16.8h4.8"/>',
+  // nine dots — Tailscale's own mark
+  tailscale:
+    '<g fill="currentColor" stroke="none"><circle cx="6" cy="6" r="1.7" opacity=".45"/><circle cx="12" cy="6" r="1.7"/><circle cx="18" cy="6" r="1.7" opacity=".45"/><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/><circle cx="6" cy="18" r="1.7" opacity=".45"/><circle cx="12" cy="18" r="1.7"/><circle cx="18" cy="18" r="1.7" opacity=".45"/></g>',
+  // a cloud
+  cloud: '<path d="M6.8 18.5h10a3.6 3.6 0 0 0 .4-7.2 5.6 5.6 0 0 0-10.7-1.1A3.9 3.9 0 0 0 6.8 18.5Z"/>',
+  // bars — product analytics
+  bars: '<path d="M3.5 20h17"/><path d="M6.5 20v-6"/><path d="M12 20V4.5"/><path d="M17.5 20v-9"/>',
+  // a dot in a ring — an open issue
+  issue: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/>',
+};
+
+// The sections of the page, in order. `blurb` says what a stranger needs to
+// know before reading the rows under it -- above all which of these are
+// Diagrammo and which are simply other things that happen to run here.
+//
+// `tint` is the group's colour, carried by every icon in it and by its
+// heading. It is identity, NOT status: the pip on each icon is what says
+// whether a thing is up, and no tint is ever green, amber or grey, so the two
+// can never be read for each other.
+//
+// `probed` says whether the rows in it are servers on this box. The last two
+// groups are addresses elsewhere on the internet -- nothing here can know
+// whether they are up, and pretending otherwise with a dot would be a lie.
 const GROUPS = [
   {
     id: 'apps',
     name: 'Diagrammo apps',
     blurb: 'What a person opens: the editor, and the page that sells it.',
+    tint: 'sky',
+    probed: true,
   },
   {
     id: 'cloud',
     name: 'Diagrammo Cloud',
     blurb:
       'The Worker the app talks to, and the console that watches it. Its database is throwaway and lives on this box — nothing here is production data.',
+    tint: 'violet',
+    probed: true,
   },
   {
     id: 'reference',
     name: 'Reference',
     blurb: 'How the system fits together, and what it exposes.',
+    tint: 'teal',
+    probed: true,
   },
   {
     id: 'other',
     name: 'Other projects',
     blurb:
-      'Not Diagrammo. Separate projects that happen to run on this machine. One of them drives Diagrammo; none of them are part of it.',
+      'Not Diagrammo. Separate projects that happen to run on this machine — one of them can drive Diagrammo without being part of it.',
+    tint: 'fuchsia',
+    probed: true,
+  },
+  {
+    id: 'production',
+    name: 'Production',
+    blurb: 'The real thing, on the real internet, with real customer data behind it.',
+    tint: 'rose',
+    probed: false,
+  },
+  {
+    id: 'consoles',
+    name: 'Consoles',
+    blurb: 'The vendor dashboards and the tracker. Each one wants you signed in.',
+    tint: 'indigo',
+    probed: false,
   },
 ];
 
@@ -56,23 +125,25 @@ const GROUPS = [
 // runbook in the ecosystem docs has the whole recipe.
 //
 // `unit` is the systemd user unit that actually runs it, and it is what the
-// card prints when the thing is stopped. Everything here is started by systemd
+// row prints when the thing is stopped. Everything here is started by systemd
 // rather than by hand, so a `cd … && pnpm dev` hint would be a command nobody
 // runs and would leave an unsupervised second copy behind if anybody did.
 const SERVICES = [
   {
     id: 'editor',
     group: 'apps',
+    icon: 'editor',
     name: 'Web editor',
     blurb: 'The diagram editor in a browser — the same app online.diagrammo.app serves.',
     detail:
-      'A dev build, so the Cloud environment picker is in Settings. It reaches the Cloud API on this box; production refuses this origin on purpose.',
+      'Built against the Cloud API on this box, so its diagrams are throwaway. Rebuilding it is by hand — see the README.',
     port: 5173,
     unit: 'anchor-editor',
   },
   {
     id: 'site',
     group: 'apps',
+    icon: 'globe',
     name: 'Marketing site',
     blurb: 'The public diagrammo.app front page.',
     port: 4330,
@@ -81,6 +152,7 @@ const SERVICES = [
   {
     id: 'api',
     group: 'cloud',
+    icon: 'server',
     name: 'Cloud API',
     blurb: 'The one Cloudflare Worker, run here by wrangler against a local database.',
     detail: 'Sign-in mail is logged rather than sent — read the link out of journalctl --user -u anchor-api.',
@@ -90,6 +162,7 @@ const SERVICES = [
   {
     id: 'console',
     group: 'cloud',
+    icon: 'pulse',
     name: 'Online console',
     blurb: 'Cloud health and the issue board.',
     detail: 'Sign in to see anything — every data route needs a session.',
@@ -99,6 +172,7 @@ const SERVICES = [
   {
     id: 'docs',
     group: 'reference',
+    icon: 'book',
     name: 'Ecosystem docs',
     blurb: 'How the app, the Workers and the vendors fit together.',
     port: 4321,
@@ -107,6 +181,7 @@ const SERVICES = [
   {
     id: 'mcp',
     group: 'reference',
+    icon: 'grid',
     name: 'MCP studio',
     blurb: 'Inspector for the dgmo MCP server, with a rendered gallery per chart type.',
     detail: 'It serves what pnpm studio last produced, so run that by hand after a dgmo change.',
@@ -120,10 +195,10 @@ const SERVICES = [
     // on; rewriting Host to localhost makes it refuse the pairing routes.
     id: 'openclaw',
     group: 'other',
+    icon: 'bot',
     name: 'OpenClaw',
     blurb: 'A personal agent gateway and its control page, on the Claude CLI backend.',
-    detail:
-      'Its own project, with its own repo and no Diagrammo code in it. It can be pointed at Diagrammo — draw a diagram, drive the CLI — the way it can be pointed at anything else.',
+    detail: 'Its own repo, with no Diagrammo code in it. It can drive Diagrammo the way it can drive anything else.',
     port: 18789,
     hostRewrite: false,
     unit: 'openclaw-gateway',
@@ -138,10 +213,90 @@ const VIEWS = [
   {
     id: 'api-docs',
     group: 'reference',
+    icon: 'braces',
     name: 'Cloud API reference',
     blurb: 'Every endpoint, generated from the schemas the Worker on this box is serving.',
     path: '/api-docs',
     dependsOn: 'api',
+  },
+];
+
+// Addresses that are not on this box. They get no dot, because nothing here
+// can honestly say whether they are up, and they open in a new tab, because
+// leaving the hub to reach one is a departure rather than a navigation.
+//
+// 🔴 Every id below was checked against a source in the repo rather than
+// recalled: the Cloudflare account and the PostHog project are the ones the
+// ecosystem docs record (infrastructure/vendors/cloudflare.md and
+// .../posthog.md), and each address was fetched on 2026-09-04 -- a 302 to a
+// login page is the right answer for a console, and a 403 from curl is
+// Cloudflare declining a non-browser, not a wrong URL.
+const LINKS = [
+  {
+    id: 'prod-editor',
+    group: 'production',
+    icon: 'editor',
+    name: 'Web editor',
+    host: 'online.diagrammo.app',
+    url: 'https://online.diagrammo.app',
+  },
+  {
+    id: 'prod-site',
+    group: 'production',
+    icon: 'globe',
+    name: 'Marketing site',
+    host: 'diagrammo.app',
+    url: 'https://diagrammo.app',
+  },
+  {
+    id: 'prod-api',
+    group: 'production',
+    icon: 'server',
+    name: 'Cloud API',
+    // Its root has no route and answers 404, which reads as an outage. /health
+    // is the endpoint that says something true about the Worker.
+    host: 'api.diagrammo.app/health',
+    url: 'https://api.diagrammo.app/health',
+  },
+  {
+    id: 'prod-docs',
+    group: 'production',
+    icon: 'book',
+    name: 'Ecosystem docs',
+    host: 'docs.diagrammo.app',
+    url: 'https://docs.diagrammo.app',
+  },
+  {
+    id: 'tailscale',
+    group: 'consoles',
+    icon: 'tailscale',
+    name: 'Tailscale',
+    host: 'login.tailscale.com',
+    url: 'https://login.tailscale.com/admin/machines',
+  },
+  {
+    id: 'cloudflare',
+    group: 'consoles',
+    icon: 'cloud',
+    name: 'Cloudflare',
+    host: 'dash.cloudflare.com',
+    url: 'https://dash.cloudflare.com/e073da7b4a152b6c8feea8ee1d7c6eb9',
+  },
+  {
+    id: 'posthog',
+    group: 'consoles',
+    icon: 'bars',
+    name: 'PostHog',
+    host: 'us.posthog.com · project 351484',
+    url: 'https://us.posthog.com/project/351484',
+  },
+  {
+    id: 'tracker',
+    group: 'consoles',
+    icon: 'issue',
+    name: 'Issues',
+    host: 'github.com/diagrammo/diagrammo',
+    url: 'https://github.com/diagrammo/diagrammo/issues',
   },
 ];
 
@@ -218,11 +373,23 @@ async function snapshot() {
       requires: on?.name ?? v.dependsOn,
     };
   });
-  return { services, views };
+  const links = LINKS.map((l) => ({ ...l, kind: 'link', state: 'link' }));
+  return { services, views, links };
 }
 
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+// The icon plus, for anything on this box, a status pip riding its corner.
+// Putting the pip ON the icon rather than beside it keeps one object per row
+// where there would otherwise be two competing for the same glance.
+function mark(id, withPip) {
+  return `<span class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id] ?? ''}</svg>
+          ${withPip ? '<span class="pip" aria-hidden="true"></span>' : ''}
+        </span>`;
+}
 
 // Every row is an <a>, with the href present only when it leads somewhere. An
 // <a> without href is inert and takes no hover, so the state can change without
@@ -241,7 +408,7 @@ function row(s) {
       : `<p class="note unexposed">On anchor:<code>${esc(s.expose)}</code></p>
         <p class="note stopped">On anchor:<code>${esc(s.start)}</code></p>`;
   return `<a class="row ${s.state}" id="card-${esc(s.id)}" data-id="${esc(s.id)}"${href}>
-        <span class="dot" aria-hidden="true"></span>
+        ${mark(s.icon, true)}
         <span class="name">${esc(s.name)}</span>
         <span class="what">${esc(s.blurb)}${detail}
           <span class="state">
@@ -255,27 +422,52 @@ function row(s) {
       </a>`;
 }
 
+// An address elsewhere is a tile rather than a row: there is no status to
+// report and no command to print, so all it owes you is what it is and where
+// it goes.
+function tile(l) {
+  return `<a class="tile" id="card-${esc(l.id)}" href="${esc(l.url)}" target="_blank" rel="noreferrer">
+        ${mark(l.icon, false)}
+        <span class="tile-body">
+          <span class="name">${esc(l.name)}</span>
+          <span class="host">${esc(l.host)}</span>
+        </span>
+      </a>`;
+}
+
 function section(group, rows) {
-  return `<section id="${esc(group.id)}" class="group" data-group="${esc(group.id)}">
+  const body = group.probed
+    ? `<div class="rows">
+        ${rows.map(row).join('\n        ')}
+      </div>`
+    : `<div class="tiles">
+        ${rows.map(tile).join('\n        ')}
+      </div>`;
+  return `<section id="${esc(group.id)}" class="group" data-group="${esc(group.id)}"
+      style="--tint: var(--t-${esc(group.tint)})">
       <div class="group-head">
         <h2>${esc(group.name)}</h2>
         <p>${esc(group.blurb)}</p>
       </div>
-      <div class="rows">
-        ${rows.map(row).join('\n        ')}
-      </div>
+      ${body}
     </section>`;
 }
 
 // The counts are rendered here as well as patched by the refresh. A badge that
 // is blank until the first fetch lands reads as a broken badge, and on a page
 // whose whole job is to say what is up, blank is the wrong first impression.
+// A group of external addresses gets a plain total: `4/4` there would claim a
+// health check nobody performed.
 function nav(groups, rows) {
   return groups
     .map((g) => {
       const mine = rows.filter((r) => r.group === g.id);
-      const ready = mine.filter((r) => r.state === 'ready').length;
-      return `<a class="nav-link" href="#${esc(g.id)}" data-nav="${esc(g.id)}">${esc(g.name)}<span class="count" data-count="${esc(g.id)}">${ready}/${mine.length}</span></a>`;
+      const badge = g.probed
+        ? `${mine.filter((r) => r.state === 'ready').length}/${mine.length}`
+        : `${mine.length}`;
+      return `<a class="nav-link" href="#${esc(g.id)}" data-nav="${esc(g.id)}"
+        style="--tint: var(--t-${esc(g.tint)})">${esc(g.name)}<span class="count"
+        data-count="${esc(g.id)}" data-probed="${g.probed ? '1' : '0'}">${badge}</span></a>`;
     })
     .join('\n      ');
 }
@@ -296,8 +488,14 @@ const SLATE = `
     --off: #94a3b8;         /* slate-400 */
     --accent: #0369a1;
     --bar: rgba(248, 250, 252, .88);
-    --hover: #f8fafc;
     --chip: #e2e8f0;
+    /* Group identity. Never green, amber or grey -- those three are status. */
+    --t-sky: #0284c7;
+    --t-violet: #7c3aed;
+    --t-teal: #0d9488;
+    --t-fuchsia: #a21caf;
+    --t-rose: #be123c;
+    --t-indigo: #4338ca;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -314,13 +512,18 @@ const SLATE = `
       --off: #64748b;       /* slate-500 */
       --accent: #7dd3fc;
       --bar: rgba(15, 23, 42, .88);
-      --hover: #243044;
       --chip: #334155;
+      --t-sky: #38bdf8;
+      --t-violet: #a78bfa;
+      --t-teal: #2dd4bf;
+      --t-fuchsia: #e879f9;
+      --t-rose: #fb7185;
+      --t-indigo: #818cf8;
     }
   }`;
 
-function page(services, views) {
-  const rows = [...services, ...views];
+function page(services, views, links) {
+  const rows = [...services, ...views, ...links];
   const byGroup = (id) => rows.filter((r) => r.group === id);
   const groups = GROUPS.filter((g) => byGroup(g.id).length);
   return `<!doctype html>
@@ -346,19 +549,19 @@ ${SLATE}
   }
   .bar-inner {
     max-width: 72rem; margin: 0 auto; padding: .55rem 1.5rem;
-    display: flex; align-items: center; gap: 1.3rem; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 1.15rem; flex-wrap: wrap;
   }
   .brand { font-weight: 650; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
-  nav { display: flex; gap: 1.05rem; flex-wrap: wrap; align-items: center; }
+  nav { display: flex; gap: .95rem; flex-wrap: wrap; align-items: center; }
   .nav-link {
     display: inline-flex; align-items: baseline; gap: .38rem;
     color: var(--muted); text-decoration: none; font-size: .84rem;
   }
-  .nav-link:hover { color: var(--ink); }
+  .nav-link:hover { color: var(--tint); }
   .count {
     font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     padding: .2rem .34rem; border-radius: 5px;
-    background: var(--chip); color: var(--ink-soft);
+    background: color-mix(in srgb, var(--tint) 16%, transparent); color: var(--tint);
   }
   .bar .raw { margin-left: auto; font-size: .8rem; color: var(--muted); text-decoration: none; }
   .bar .raw:hover { color: var(--accent); }
@@ -367,50 +570,64 @@ ${SLATE}
   h1 { margin: 0 0 .25rem; font-size: 1.4rem; letter-spacing: -.02em; }
   header p { margin: 0; color: var(--muted); font-size: .87rem; }
 
-  /* Heading on the left, its rows on the right: one band per category, so
+  /* Heading on the left, its entries on the right: one band per category, so
      eight links are eight lines rather than eight boxes. */
   .group {
     display: grid; grid-template-columns: 12.5rem 1fr; gap: 0 1.75rem;
     padding: 1.15rem 0; border-top: 1px solid var(--line-soft);
   }
   .group:first-of-type { border-top: 0; }
-  .group-head h2 { margin: 0 0 .12rem; font-size: .92rem; font-weight: 650; letter-spacing: -.01em; }
+  .group-head h2 {
+    margin: 0 0 .12rem; font-size: .92rem; font-weight: 650;
+    letter-spacing: -.01em; color: var(--tint);
+  }
   .group-head p { margin: 0; color: var(--muted); font-size: .78rem; }
-  #other { border-top: 2px solid var(--line); margin-top: .5rem; }
+  #other, #production { border-top: 2px solid var(--line); }
+  #other { margin-top: .5rem; }
   @media (max-width: 52rem) {
     .group { grid-template-columns: 1fr; gap: .6rem; }
   }
 
-  .rows { display: flex; flex-direction: column; }
+  .mark {
+    position: relative; width: 1.65rem; height: 1.65rem; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--chip);
+    background: color-mix(in srgb, var(--tint) 15%, transparent);
+    color: var(--tint); flex: none;
+  }
+  .mark svg { width: 1rem; height: 1rem; }
+  .pip {
+    position: absolute; right: -3px; bottom: -3px; width: .48rem; height: .48rem;
+    border-radius: 50%; background: var(--off); box-shadow: 0 0 0 2px var(--bg);
+  }
+  .row.ready .pip { background: var(--ready); }
+  .row.unexposed .pip { background: var(--warn); }
+
+  .rows { display: flex; flex-direction: column; gap: .1rem; }
   .row {
-    display: grid; grid-template-columns: .55rem 9.5rem 1fr auto;
-    align-items: baseline; gap: 0 .75rem;
-    padding: .42rem .6rem; margin: 0 -.6rem; border-radius: 7px;
+    position: relative;
+    display: grid; grid-template-columns: 1.65rem 9rem 1fr auto;
+    align-items: start; gap: 0 .75rem;
+    padding: .38rem .6rem; margin: 0 -.6rem; border-radius: 8px;
     text-decoration: none; color: inherit;
   }
-  .row[href]:hover { background: var(--hover); }
-  .row { position: relative; }
-  .dot {
-    width: .5rem; height: .5rem; border-radius: 50%;
-    background: var(--off); transform: translateY(-.1rem);
-  }
-  .row.ready .dot { background: var(--ready); }
-  .row.unexposed .dot { background: var(--warn); }
+  .row[href]:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
   .name { font-weight: 600; }
-  .row[href]:hover .name { color: var(--accent); }
+  .row[href]:hover .name { color: var(--tint); }
   .what { color: var(--muted); font-size: .86rem; max-width: 74ch; }
+  .name, .what, .where { padding-top: .2rem; }
   .detail { color: var(--off); }
   .where {
-    font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--off); white-space: nowrap;
   }
   .row.ready .where { color: var(--accent); }
 
   /* One note and one state word per row; CSS picks the pair that matches the
      state class, so the refresh only has to swap that class. A ready row says
-     so with its dot and its link, and keeps the word for a screen reader. */
+     so with its pip and its link, and keeps the word for a screen reader. */
   .state .s, .note { display: none; }
-  .state { display: block; font-size: .8rem; font-weight: 600; margin-top: .1rem; }
+  .state { display: block; font-size: .8rem; font-weight: 600; }
   .row.ready .state {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
   }
@@ -421,13 +638,32 @@ ${SLATE}
   .row.stopped .state .s.stopped { display: inline; }
   .row.unexposed .note.unexposed,
   .row.stopped .note.stopped { display: block; }
-  .note { margin: .2rem 0 .35rem; font-size: .8rem; color: var(--muted); }
+  .note { margin: .1rem 0 .3rem; font-size: .8rem; color: var(--muted); }
   code {
     display: inline-block; margin-top: .2rem; padding: .18rem .4rem; border-radius: 5px;
     background: var(--raise); border: 1px solid var(--line-soft);
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
     white-space: pre-wrap; word-break: break-all; color: var(--ink-soft);
   }
+
+  .tiles {
+    display: grid; gap: .35rem .75rem;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  }
+  .tile {
+    display: flex; align-items: center; gap: .65rem;
+    padding: .4rem .6rem; margin: 0 -.6rem; border-radius: 8px;
+    text-decoration: none; color: inherit; min-width: 0;
+  }
+  .tile:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
+  .tile-body { display: flex; flex-direction: column; min-width: 0; }
+  .tile:hover .name { color: var(--tint); }
+  .tile .name { line-height: 1.35; }
+  .host {
+    font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--off); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
   footer { margin-top: 1.4rem; color: var(--off); font-size: .78rem; }
 </style>
 </head>
@@ -444,15 +680,16 @@ ${SLATE}
 <main id="top">
   <header>
     <h1>anchor</h1>
-    <p>Everything running on the Linux box, reachable from any device signed in to Tailscale. Nothing here is open to the internet.</p>
+    <p>Everything running on the Linux box, reachable from any device signed in to Tailscale — and the addresses off it that you would otherwise keep in bookmarks.</p>
   </header>
   ${groups.map((g) => section(g, byGroup(g.id))).join('\n  ')}
-  <footer>Checked <span id="stamp">${new Date().toLocaleTimeString('en-GB')}</span>, and every 5 seconds after.</footer>
+  <footer>Checked <span id="stamp">${new Date().toLocaleTimeString('en-GB')}</span>, and every 5 seconds after. Nothing on this box is open to the internet.</footer>
 </main>
 <script>
   // Repaint in place rather than reloading: a reload every 5 seconds throws
   // away the scroll position, which on a page you are reading is the one thing
-  // you were holding on to.
+  // you were holding on to. External addresses are never touched -- they carry
+  // no state to repaint.
   const paint = (r) => {
     const el = document.getElementById('card-' + r.id);
     if (!el) return;
@@ -464,16 +701,18 @@ ${SLATE}
     for (const link of document.querySelectorAll('[data-count]')) {
       const g = link.dataset.count;
       const mine = rows.filter((r) => r.group === g);
-      link.textContent = mine.filter((r) => r.state === 'ready').length + '/' + mine.length;
+      link.textContent =
+        link.dataset.probed === '1'
+          ? mine.filter((r) => r.state === 'ready').length + '/' + mine.length
+          : String(mine.length);
     }
   };
   async function tick() {
     try {
       const res = await fetch('/status.json', { cache: 'no-store' });
-      const { services, views } = await res.json();
-      const rows = [...services, ...views];
-      rows.forEach(paint);
-      counts(rows);
+      const { services, views, links } = await res.json();
+      [...services, ...views].forEach(paint);
+      counts([...services, ...views, ...links]);
       document.getElementById('stamp').textContent =
         new Date().toLocaleTimeString('en-GB');
     } catch {
@@ -611,14 +850,14 @@ http
       return;
     }
 
-    const { services, views } = await snapshot();
+    const { services, views, links } = await snapshot();
     if (url.startsWith('/status.json')) {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ groups: GROUPS, services, views }, null, 2));
+      res.end(JSON.stringify({ groups: GROUPS, services, views, links }, null, 2));
       return;
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    res.end(page(services, views));
+    res.end(page(services, views, links));
   })
   .listen(PORT, '127.0.0.1', () => {
     console.log(`anchor-hub on http://127.0.0.1:${PORT}/ for ${HOST}`);

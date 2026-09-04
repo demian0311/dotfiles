@@ -4,16 +4,60 @@ Anchor serves its dev servers over Tailscale, at real HTTPS, to any device on
 the tailnet. `https://anchor.tailb10eb2.ts.net/` lists them and links to the
 ones that are running.
 
-The front page groups them, and the groups are the point rather than
-decoration: **Diagrammo apps**, **Diagrammo Cloud**, **Reference**, and
-**Other projects** — the last of which is where anything that is *not*
-Diagrammo lives, currently OpenClaw. It runs on this box and it can be pointed
-at Diagrammo; it is a separate project with its own repo, and the page says so
-rather than leaving a reader to infer it from a card sitting in a grid with six
-Diagrammo services.
+It also carries the addresses that are **not** on this box — production, and
+the vendor consoles — so the page is the one place you start from rather than a
+launcher for half of it.
 
-Each entry is one row rather than a card. Eight links do not need a screen and
-a half of scrolling, which is what the card grid had become.
+The front page groups everything, and the groups are the point rather than
+decoration:
+
+| Group | What is in it | On this box? |
+|---|---|---|
+| Diagrammo apps | the web editor, the marketing site | yes |
+| Diagrammo Cloud | the Worker, the online console | yes |
+| Reference | ecosystem docs, MCP studio, the API reference | yes |
+| Other projects | anything that is **not** Diagrammo — currently OpenClaw | yes |
+| Production | online / api / docs / diagrammo.app | no |
+| Consoles | Tailscale, Cloudflare, PostHog, the issue tracker | no |
+
+**Other projects** exists so OpenClaw is not read as a seventh Diagrammo
+service. It runs here and it can be pointed at Diagrammo; it is a separate
+project with its own repo, and the page says so in words rather than leaving a
+reader to infer it from a row sitting among Diagrammo ones.
+
+Each local entry is one row rather than a card — eight links do not need a
+screen and a half of scrolling, which is what the card grid had become — and
+each external one is a tile with its host under it, opening in a new tab
+because reaching it is a departure rather than a navigation.
+
+## Colour
+
+Two colour systems, deliberately disjoint, because one of them is identity and
+the other is health:
+
+- **The group tint** — sky, violet, teal, fuchsia, rose, indigo — colours every
+  icon in a group, its heading and its nav badge. 🔴 **No tint is ever green,
+  amber or grey.** Those three are reserved, so a tint can never be misread as
+  a status.
+- **The pip** riding the corner of each icon is the status: green ready, amber
+  running-but-not-shared, grey stopped. **External tiles have no pip**, because
+  nothing on this box can honestly say whether `dash.cloudflare.com` is up, and
+  a dot that always reads green would be a health check nobody performed. For
+  the same reason their nav badge is a plain count, not `4/4`.
+
+Icons are hand-written SVG primitives in `ICONS` in `hub.mjs` — circles, rects
+and short paths — not path data copied from an icon set. Nothing about them can
+be remembered wrongly, and no install can break them.
+
+🔴 **The two vendor ids in `LINKS` came from the repo, not from memory.** The
+Cloudflare account (`e073da7b4a152b6c8feea8ee1d7c6eb9`) and the PostHog project
+(`351484`) are the ones the ecosystem docs record, in
+`infrastructure/vendors/cloudflare.md` and `.../posthog.md`. Every address was
+fetched on 2026-09-04 before it went in: a **302 to a login page is the right
+answer** for a console, and a **403 from curl is Cloudflare declining a
+non-browser**, not a wrong URL. `api.diagrammo.app` is linked at `/health`
+rather than at its root, because the root has no route and its 404 reads as an
+outage.
 
 Nothing here is public. Tailscale answers only devices on your own tailnet, and
 no port is open to the internet.
