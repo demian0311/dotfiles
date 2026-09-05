@@ -33,9 +33,22 @@ here can say. Filing them by owner put four unprobeable addresses in the middle
 of a column of pips that all mean something. OpenClaw has no production and no
 vendor consoles, so the move costs that band nothing.
 
-A band is a heading, a hairline rule and a tally — no fill, no rail. The filled
-band and the tinted rail this replaced were two of **four** nested devices the
-page had been spending on a hierarchy that is one list of twenty-two links.
+Three levels, each told apart by a **different device** rather than by three
+sizes of the same one: a band is a large heading on the page ground, a section
+is a **panel with a tinted title strip**, and a row lives inside it.
+
+🔴 **The strip is not decoration — type scale alone had failed, and measurably.
+Fixed 2026-09-05.** For a few hours the section was a bare label above a bare
+list, and at **790px — the width this page is actually read at** — that label
+measured **13.1px against a row name of 14px**, its glyph **18px against a row
+glyph of 26px**, and its left edge sat **9px to the right of the rows it
+contained**, in the identical colour. Size, weight, colour, glyph and
+indentation: the parent lost to its own children on all five, so nothing said
+that *Apps* held *Web editor* and *Marketing site*.
+
+A card as page structure is usually the lazy container. Here it is the brief:
+the tint filling the strip edge to edge is the containment signal no amount of
+type scale was going to be.
 
 **A local entry is a row of four fixed lanes** — mark, name, port, prose — and
 the lanes are the point. Before 2026-09-05 the port sat in an `auto` column at
@@ -48,6 +61,19 @@ name lane and the port lane without re-finding either.
 glyph, opening in a new tab because reaching it is a departure rather than a
 navigation. Fourteen filled chips down there out-weighed the eight servers they
 sit under.
+
+🔴 **The lane breakpoint is 40rem, and raising it back is a regression.** It was
+56rem for a few hours, which threw the four lanes away at 790px and handed the
+width this page is read at the stacked phone fallback. Check a layout change at
+**790**, not only at 1440 and 390 — a layout can be correct at both ends and
+broken between them, and this one was.
+
+🔴 **`page()` is one template literal, so a backtick anywhere inside it — a
+`/* */` in the CSS included — ends the string**, and every line after it parses
+as JavaScript. The `SyntaxError` then points at the literal's opening line, and
+counting backticks in the file proves nothing because the ones in `//` comments
+are skipped. `awk '/^function page\(/,/^}$/' hub.mjs | grep -c '\`'` must
+print **2**.
 
 ## Filtering
 

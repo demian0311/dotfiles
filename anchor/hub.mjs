@@ -621,11 +621,21 @@ function tile(l) {
       </a>`;
 }
 
-// Heading, blurb and rows, with no rule and no fill. A section is the inner of
-// only two levels now: the band above it is the one that gets a rule and a
-// tally, and this one is told apart by size and by the smaller glyph. The tint
-// lives on the glyphs rather than on the heading, because four of the six hues
-// fall under 4.5:1 against the light ground and a heading is text.
+// A section is a PANEL with a titled strip across the top, and that is the
+// whole of what makes "these belong together" visible.
+//
+// 🔴 It was a bare label above a bare list until 2026-09-05, and that failed on
+// the only axis that mattered. Measured at 790px -- the width this page is
+// actually read at -- the section label was 13.1px against a row name of 14px,
+// its glyph 18px against a row glyph of 26px, and its left edge sat 9px to the
+// RIGHT of the rows it contained. Size, weight, colour, glyph and indentation:
+// the parent lost to its own children on every one, so nothing said that Apps
+// held Web editor and Marketing site. A card as page structure is normally the
+// lazy container; here it is the brief, and the strip does the work no amount
+// of type scale was doing.
+//
+// The tint fills the strip and the glyph, never the heading text: four of the
+// six hues fall under 4.5:1 against the light ground and a heading is text.
 function section(group, rows) {
   const body = group.probed
     ? `<div class="rows">
@@ -634,6 +644,9 @@ function section(group, rows) {
     : `<div class="tiles">
         ${rows.map(tile).join('\n        ')}
       </div>`;
+  // A section whose band heading already named it takes no strip of its own.
+  // OpenClaw is one project with one address; a band, a strip and a row for it
+  // would be three lines of chrome on one link.
   const head = group.bare
     ? ''
     : `<div class="group-head">
@@ -786,6 +799,15 @@ const SLATE = `
     }
   }`;
 
+// 🔴 Everything below is ONE template literal, so a backtick anywhere inside it
+// -- including inside a /* */ in the CSS -- ends the string, and every line
+// after it parses as JavaScript. The SyntaxError then names THIS line rather
+// than the backtick, and counting backticks in the file proves nothing, because
+// the ones in // comments are skipped by the tokenizer. Write identifiers bare
+// in here. To find a stray one:
+//
+//   awk '/^function page\(/,/^}$/' hub.mjs | grep -c '`'   # must be exactly 2
+//
 function page(services, views, links) {
   const rows = [...services, ...views, ...links];
   const byGroup = (id) => rows.filter((r) => r.group === id);
@@ -900,32 +922,47 @@ ${SLATE}
     max-width: 74ch; text-wrap: balance;
   }
 
-  /* Two levels of heading and nothing else: a band with a rule and a tally, a
-     section with a smaller glyph. The older page spent four devices -- a filled
-     band, a tinted rail, a section head with its own rule, then the row -- on a
-     hierarchy that is one list of twenty-two links. */
-  .band { margin: 0 0 1.65rem; }
+  /* Three levels, each told apart by a DIFFERENT device rather than by three
+     sizes of the same one: the band is a large heading on the page ground, the
+     section is a panel with a titled strip, the row lives inside it. Type scale
+     alone was what failed -- see the note over the section() helper. */
+  .band { margin: 0 0 2rem; }
   .band:last-child { margin-bottom: 0; }
-  .band-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .7rem; }
+  .band-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .8rem; }
   .band-head h2 {
-    margin: 0; font-size: 1.02rem; font-weight: 650;
-    letter-spacing: -.015em; color: var(--ink); white-space: nowrap;
+    margin: 0; font-size: 1.2rem; font-weight: 680;
+    letter-spacing: -.02em; color: var(--ink); white-space: nowrap;
   }
-  .band-head p { margin: 0; color: var(--muted); font-size: .8rem; }
+  .band-head p { margin: 0; color: var(--muted); font-size: .82rem; }
   .band-head .rule { flex: 1 1 2rem; height: 1px; min-width: 1.5rem; background: var(--line); }
   .band-stat { color: var(--muted); font-size: .8rem; white-space: nowrap; }
   .band-stat b {
     font: 12.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600;
   }
-  .groups { display: flex; flex-direction: column; gap: 1rem; }
+  .groups { display: flex; flex-direction: column; gap: .75rem; }
 
-  .group-head { display: flex; align-items: center; gap: .42rem; margin-bottom: .3rem; }
-  .group-head h3 {
-    margin: 0; font-size: .82rem; font-weight: 650;
-    letter-spacing: -.005em; color: var(--ink); white-space: nowrap;
+  /* The panel. One elevation and one only -- a surface a step off the ground
+     with a hairline, never a shadow as well. */
+  .group {
+    background: var(--card); border: 1px solid var(--line-soft);
+    border-radius: 12px; overflow: hidden;
   }
-  .group-head p { margin: 0; color: var(--muted); font-size: .78rem; }
+  /* The strip: the tint fills it edge to edge, which is the containment signal
+     a 13px label could never be. */
+  .group-head {
+    display: flex; align-items: baseline; gap: .5rem;
+    padding: .48rem .8rem .5rem;
+    background: color-mix(in srgb, var(--tint) 11%, transparent);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .group-head .mark { align-self: center; }
+  .group-head h3 {
+    margin: 0; font-size: .98rem; font-weight: 650;
+    letter-spacing: -.012em; color: var(--ink); white-space: nowrap;
+  }
+  .group-head p { margin: 0; color: var(--muted); font-size: .79rem; }
+  .rows, .tiles { padding: .42rem .55rem .5rem; }
 
   .mark {
     position: relative; width: 1.6rem; height: 1.6rem; border-radius: 7px;
@@ -935,10 +972,10 @@ ${SLATE}
     color: var(--tint); flex: none;
   }
   .mark svg { width: .95rem; height: .95rem; }
-  .mark.sm { width: 1.15rem; height: 1.15rem; border-radius: 5px; }
-  .mark.sm svg { width: .78rem; height: .78rem; }
-  .mark.big { width: 1.7rem; height: 1.7rem; border-radius: 8px; }
-  .mark.big svg { width: 1.05rem; height: 1.05rem; }
+  .mark.sm { width: 1.55rem; height: 1.55rem; border-radius: 7px; }
+  .mark.sm svg { width: .95rem; height: .95rem; }
+  .mark.big { width: 1.95rem; height: 1.95rem; border-radius: 9px; }
+  .mark.big svg { width: 1.2rem; height: 1.2rem; }
   /* An address elsewhere carries the glyph without the chip: fourteen filled
      chips down there out-weighed the eight servers they sit under. */
   .mark.flat { width: 1.15rem; height: 1.15rem; background: none; border-radius: 0; }
@@ -952,15 +989,15 @@ ${SLATE}
   .pip {
     position: absolute; right: -3px; bottom: -3px; width: .46rem; height: .46rem;
     border-radius: 50%; background: var(--pip);
-    box-shadow: 0 0 0 2px var(--bg);
+    box-shadow: 0 0 0 2px var(--card);
   }
 
   /* The page's one authored moment, and it is spent where attention is owed:
      a pip that is not green breathes until somebody deals with it. Nothing
      else on the page moves by itself. */
   @keyframes breathe {
-    0%, 100% { box-shadow: 0 0 0 2px var(--bg), 0 0 0 2px color-mix(in srgb, var(--pip) 60%, transparent); }
-    55%      { box-shadow: 0 0 0 2px var(--bg), 0 0 0 6px color-mix(in srgb, var(--pip) 0%, transparent); }
+    0%, 100% { box-shadow: 0 0 0 2px var(--card), 0 0 0 2px color-mix(in srgb, var(--pip) 60%, transparent); }
+    55%      { box-shadow: 0 0 0 2px var(--card), 0 0 0 6px color-mix(in srgb, var(--pip) 0%, transparent); }
   }
   .row.unexposed .pip, .row.stopped .pip { animation: breathe 2.6s ease-out infinite; }
 
@@ -971,7 +1008,7 @@ ${SLATE}
   .row {
     display: grid; grid-template-columns: 1.6rem 9.75rem 5.2rem 1fr;
     align-items: start; gap: 0 .65rem;
-    padding: .3rem .55rem; margin: 0 -.55rem; border-radius: 8px;
+    padding: .32rem .5rem; margin: 0; border-radius: 7px;
     border: 1px solid transparent;
     text-decoration: none; color: inherit;
     transition: background-color 120ms ease-out;
@@ -1024,7 +1061,9 @@ ${SLATE}
     display: inline-block; margin-top: .2rem; padding: .18rem .4rem; border-radius: 5px;
     background: var(--raise); border: 1px solid var(--line-soft);
     font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-    white-space: pre-wrap; word-break: break-all; color: var(--ink);
+    /* break-word, not break-all: this is a command someone reads before they
+       copy it, and break-all split localhost:28787 across two lines. */
+    white-space: pre-wrap; overflow-wrap: break-word; color: var(--ink);
   }
 
   .tiles {
@@ -1033,7 +1072,7 @@ ${SLATE}
   }
   .tile {
     display: flex; align-items: center; gap: .62rem;
-    padding: .28rem .55rem; margin: 0 -.55rem; border-radius: 8px;
+    padding: .3rem .5rem; margin: 0; border-radius: 7px;
     text-decoration: none; color: inherit; min-width: 0;
     transition: background-color 120ms ease-out;
   }
@@ -1066,7 +1105,12 @@ ${SLATE}
   /* Narrow: the name and the port keep line one, the prose drops under both.
      Left to auto-placement the port landed on a third row under the mark and
      read as a row of its own. */
-  @media (max-width: 56rem) {
+  /* 🔴 40rem, not 56rem. At 56 the four lanes were being thrown away at 790px,
+     which is the width this page is actually read at, and the stacked fallback
+     that replaced them is what left a section looking like an unlabelled list.
+     Lanes hold down to 640px; below that the name and its blurb genuinely stop
+     sharing a line. */
+  @media (max-width: 40rem) {
     main { padding-top: .75rem; }
     .row { grid-template-columns: 1.6rem 1fr auto; gap: 0 .6rem; }
     .row .where { grid-column: 3; grid-row: 1; }
