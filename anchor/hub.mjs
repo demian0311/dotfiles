@@ -36,6 +36,11 @@ const PROXY = (p) => p + 20000;
 // above it -- two identical marks in a column read as a repeat rather than as
 // a hierarchy.
 const ICONS = {
+  // a magnifier — the filter
+  search: '<circle cx="11" cy="11" r="6.4"/><path d="m15.9 15.9 4.6 4.6"/>',
+  // a box with an arrow leaving it — addresses that are not on this machine
+  outbound:
+    '<path d="M13.8 4.2h6v6"/><path d="M19.8 4.2 11.2 12.8"/><path d="M18.2 13.8v4.4a2.1 2.1 0 0 1-2.1 2.1H5.7a2.1 2.1 0 0 1-2.1-2.1V7.8a2.1 2.1 0 0 1 2.1-2.1h4.5"/>',
   // an anchor — this page
   anchor:
     '<circle cx="12" cy="4.6" r="2"/><path d="M12 6.6V21"/><path d="M7.6 10.1h8.8"/><path d="M3.8 14.2a8.4 8.4 0 0 0 8.2 6.8 8.4 8.4 0 0 0 8.2-6.8"/>',
@@ -103,11 +108,22 @@ const ICONS = {
     '<rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M3 9.3h18"/><path d="M6.3 6.95h.01M9 6.95h.01"/>',
 };
 
-// The two things that live on this box. A realm is the outermost cut, and it
-// exists because the older flat list buried "not Diagrammo" as one section
-// among six: a reader scanning headings had to notice a word to tell a project
-// boundary from a category boundary. Now every Diagrammo section hangs off a
-// tinted rail under the Diagrammo band, and OpenClaw's does not touch it.
+// The page's outermost cut: the two projects that run on this box, then
+// everything that does not. It exists because the older flat list buried "not
+// Diagrammo" as one section among six -- a reader scanning headings had to
+// notice a word to tell a project boundary from a category boundary.
+//
+// 🔴 `elsewhere` is not a project, and putting it here is deliberate. The first
+// question this page answers is "can I reach it, and is it up", and the honest
+// answer for the fourteen addresses off this box is that nothing here can say.
+// Filing them by owner instead put four unprobeable addresses in the middle of
+// a column of pips that all mean something. OpenClaw has no production and no
+// vendor consoles, so the move costs that realm nothing.
+//
+// A band is a heading, a hairline and a tally -- no fill, no rail. The filled
+// band and the tinted rail this replaced on 2026-09-05 were two of the four
+// nested devices the page was spending on a hierarchy that is one list of
+// twenty-two links.
 //
 // Adding a third project is a realm here plus `realm:` on its groups.
 const REALMS = [
@@ -116,7 +132,7 @@ const REALMS = [
     name: 'Diagrammo',
     glyph: 'flow',
     tint: 'blue',
-    blurb: 'The product — what runs here, what runs in production, and the accounts behind it.',
+    blurb: 'The product, on this box, against a throwaway database.',
   },
   {
     id: 'openclaw',
@@ -124,6 +140,13 @@ const REALMS = [
     glyph: 'claw',
     tint: 'orange',
     blurb: 'A separate project that happens to run on this box. No Diagrammo code in it.',
+  },
+  {
+    id: 'elsewhere',
+    name: 'Elsewhere',
+    glyph: 'outbound',
+    tint: 'cyan',
+    blurb: 'Addresses that are not on this machine.',
   },
 ];
 
@@ -140,10 +163,9 @@ const REALMS = [
 // tint is ever green, yellow or gray, so the two can never be read for each
 // other.
 //
-// `probed` says whether the rows in it are servers on this box. The two
-// external sections are addresses elsewhere on the internet -- nothing here
-// can know whether they are up, and pretending otherwise with a dot would be a
-// lie.
+// `probed` says whether the rows in it are servers on this box. The sections
+// under `elsewhere` are addresses on the internet -- nothing here can know
+// whether they are up, and pretending otherwise with a dot would be a lie.
 //
 // `bare` drops the section heading, for a section whose realm band already
 // said everything the heading would have. OpenClaw is one project with one
@@ -179,7 +201,7 @@ const GROUPS = [
   },
   {
     id: 'production',
-    realm: 'diagrammo',
+    realm: 'elsewhere',
     name: 'Production',
     glyph: 'rocket',
     blurb: 'The real internet, with real customer data behind it.',
@@ -188,7 +210,7 @@ const GROUPS = [
   },
   {
     id: 'consoles',
-    realm: 'diagrammo',
+    realm: 'elsewhere',
     name: 'Consoles',
     glyph: 'dials',
     blurb: 'Vendor dashboards and the tracker, plus the tailnet serving this page. Each wants you signed in.',
@@ -525,6 +547,9 @@ const esc = (s) =>
 //
 // Putting the pip ON the icon rather than beside it keeps one object per row
 // where there would otherwise be two competing for the same glance.
+// The icon, plus — for anything on this box — a status pip riding its corner.
+// Putting the pip ON the icon rather than beside it keeps one object per row
+// where there would otherwise be two competing for the same glance.
 function mark(id, withPip, extra = '') {
   return `<span class="mark${extra ? ' ' + extra : ''}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
@@ -533,26 +558,44 @@ function mark(id, withPip, extra = '') {
         </span>`;
 }
 
+// Everything the filter matches on, in one lowercased attribute. Building it
+// server-side means the client never walks the DOM for text, and a row whose
+// port or host is only in a mono span is still findable by typing it.
+const haystack = (...parts) => esc(parts.filter(Boolean).join(' ').toLowerCase());
+
+// A service or a view. Four lanes, fixed: mark, name, port, prose. The lanes
+// are the whole point of this layout -- the older row put the port in an `auto`
+// column at the far right edge, a thousand pixels from the name it belongs to,
+// and let the prose run to 92ch in full-contrast ink between them. The name you
+// are looking for was the lightest thing on its own row.
+//
+// The prose lane always renders both lines, blurb then detail, so every row is
+// the same height whether or not it has a caveat. Uniform rows are what let the
+// eye run down the name lane without re-finding it on each line.
+//
 // Every row is an <a>, with the href present only when it leads somewhere. An
 // <a> without href is inert and takes no hover, so the state can change without
 // the tag changing -- which is what lets the 5-second refresh repaint in place
 // instead of reloading the whole page and throwing away the scroll position.
 //
-// For the same reason all three notes are rendered up front and CSS shows the
-// one matching the row's state class. The refresh then never has to build
-// HTML, and there is no second copy of this markup living in a <script>.
+// For the same reason all the notes are rendered up front and CSS shows the one
+// matching the row's state class. The refresh then never has to build HTML, and
+// there is no second copy of this markup living in a <script>.
 function row(s) {
   const href = s.state === 'ready' ? ` href="${esc(s.url)}"` : '';
-  const detail = s.detail ? ` <span class="detail">${esc(s.detail)}</span>` : '';
   const notes =
     s.kind === 'view'
       ? `<p class="note stopped">Needs ${esc(s.requires)} running.</p>`
       : `<p class="note unexposed">On anchor:<code>${esc(s.expose)}</code></p>
         <p class="note stopped">On anchor:<code>${esc(s.start)}</code></p>`;
-  return `<a class="row ${s.state}" id="card-${esc(s.id)}" data-id="${esc(s.id)}"${href}>
+  return `<a class="row ${s.state}" id="card-${esc(s.id)}" data-id="${esc(s.id)}"
+        data-find="${haystack(s.name, s.blurb, s.detail, s.short)}"${href}>
         ${mark(s.icon, true)}
         <span class="name">${esc(s.name)}</span>
-        <span class="what">${esc(s.blurb)}${detail}
+        <span class="where">${esc(s.short)}</span>
+        <span class="what">
+          <span class="blurb">${esc(s.blurb)}</span>
+          <span class="detail">${s.detail ? esc(s.detail) : ''}</span>
           <span class="state">
             <span class="s ready">Ready</span>
             <span class="s unexposed">Running, not shared</span>
@@ -560,16 +603,17 @@ function row(s) {
           </span>
           ${notes}
         </span>
-        <span class="where">${esc(s.short)}</span>
       </a>`;
 }
 
 // An address elsewhere is a tile rather than a row: there is no status to
-// report and no command to print, so all it owes you is what it is and where
-// it goes.
+// report and no command to print, so all it owes you is what it is and where it
+// goes. Fourteen of these used to carry as much page height as the eight
+// servers above them; they are the cheapest thing here and now read that way.
 function tile(l) {
-  return `<a class="tile" id="card-${esc(l.id)}" href="${esc(l.url)}" target="_blank" rel="noreferrer">
-        ${mark(l.icon, false)}
+  return `<a class="tile" id="card-${esc(l.id)}" data-find="${haystack(l.name, l.host)}"
+        href="${esc(l.url)}" target="_blank" rel="noreferrer">
+        ${mark(l.icon, false, 'flat')}
         <span class="tile-body">
           <span class="name">${esc(l.name)}</span>
           <span class="host">${esc(l.host)}</span>
@@ -577,10 +621,11 @@ function tile(l) {
       </a>`;
 }
 
-// Heading and blurb on ONE line, with a rule running out to the right edge.
-// The older layout parked both in a 12.5rem rail down the left, which cost
-// every section that width for the length of its longest blurb and left the
-// rows to wrap in what was left. Inline, the rows get the whole page.
+// Heading, blurb and rows, with no rule and no fill. A section is the inner of
+// only two levels now: the band above it is the one that gets a rule and a
+// tally, and this one is told apart by size and by the smaller glyph. The tint
+// lives on the glyphs rather than on the heading, because four of the six hues
+// fall under 4.5:1 against the light ground and a heading is text.
 function section(group, rows) {
   const body = group.probed
     ? `<div class="rows">
@@ -595,7 +640,6 @@ function section(group, rows) {
         ${mark(group.glyph, false, 'sm')}
         <h3>${esc(group.name)}</h3>
         ${group.blurb ? `<p>${esc(group.blurb)}</p>` : ''}
-        <span class="rule" aria-hidden="true"></span>
       </div>`;
   return `<section id="${esc(group.id)}" class="group" data-group="${esc(group.id)}"
       style="--tint: var(--t-${esc(group.tint)})">
@@ -604,15 +648,24 @@ function section(group, rows) {
     </section>`;
 }
 
-// The band, and the rail that hangs its sections off it. The rail is the whole
-// point: it is what makes "this belongs to Diagrammo" a thing you see rather
-// than a thing you read.
-function realm(r, sections, stat) {
-  return `<section class="realm" id="realm-${esc(r.id)}" style="--tint: var(--t-${esc(r.tint)})">
-    <div class="realm-head">
+// A band is the page's outermost cut, and there are three: the two projects
+// that run on this box, then everything that does not.
+//
+// 🔴 The cut CHANGED here on 2026-09-05, and it is the one decision in this
+// rewrite that moves data rather than pixels. Production and the vendor
+// consoles used to hang under Diagrammo, because they are Diagrammo's. They now
+// hang under `elsewhere`, because the question this page answers first is "can I
+// reach it, and is it up" -- and the honest answer for those fourteen addresses
+// is that nothing here can say. Grouping by owner put four addresses this page
+// cannot probe in the middle of a column of pips that all mean something.
+// OpenClaw has no production and no consoles, so nothing is lost by the move.
+function band(r, sections, stat) {
+  return `<section class="band" id="band-${esc(r.id)}" style="--tint: var(--t-${esc(r.tint)})">
+    <div class="band-head">
       ${mark(r.glyph, false, 'big')}
       <h2>${esc(r.name)}</h2>
       <p>${esc(r.blurb)}</p>
+      <span class="rule" aria-hidden="true"></span>
       ${stat}
     </div>
     <div class="groups">
@@ -621,48 +674,39 @@ function realm(r, sections, stat) {
   </section>`;
 }
 
-// The band's own tally: how much of the realm is up, and how many of its
-// addresses live somewhere this page cannot see. The fraction carries a
-// data attribute so the 5-second refresh patches it the same way it patches
-// the nav badges.
-function realmStat(r, groups, rows) {
+// What a band is worth in one glance: how much of it is up, or -- for the band
+// this page cannot probe -- how many addresses it holds and the fact that no
+// dot under it is a health claim. The fraction carries a data attribute so the
+// 5-second refresh patches it without rebuilding anything.
+function bandStat(r, groups, rows) {
   const mine = groups.filter((g) => g.realm === r.id);
   const here = rows.filter((x) => mine.some((g) => g.id === x.group && g.probed));
-  const away = rows.filter((x) => mine.some((g) => g.id === x.group && !g.probed));
-  const parts = [];
-  if (here.length)
-    parts.push(`<b data-realm-up="${esc(r.id)}">${here.filter((x) => x.state === 'ready').length}/${
-      here.length
-    }</b> ready`);
-  if (away.length) parts.push(`${away.length} elsewhere`);
-  return `<span class="realm-stat">${parts.join(' · ')}</span>`;
+  if (!here.length) {
+    const away = rows.filter((x) => mine.some((g) => g.id === x.group));
+    return `<span class="band-stat">${away.length} addresses · no status from here</span>`;
+  }
+  return `<span class="band-stat"><b data-band-up="${esc(r.id)}">${
+    here.filter((x) => x.state === 'ready').length
+  }/${here.length}</b> running</span>`;
 }
 
-// The counts are rendered here as well as patched by the refresh. A badge that
-// is blank until the first fetch lands reads as a broken badge, and on a page
-// whose whole job is to say what is up, blank is the wrong first impression.
-// A section of external addresses gets a plain total: `4/4` there would claim
-// a health check nobody performed.
-//
-// The nav is cut by realm too, with a rule between them, so the boundary the
-// page draws is the boundary the bar draws.
-function nav(realms, groups, rows) {
-  return realms
-    .map((r) =>
-      groups
-        .filter((g) => g.realm === r.id)
-        .map((g) => {
-          const mine = rows.filter((x) => x.group === g.id);
-          const badge = g.probed
-            ? `${mine.filter((x) => x.state === 'ready').length}/${mine.length}`
-            : `${mine.length}`;
-          return `<a class="nav-link" href="#${esc(g.id)}" data-nav="${esc(g.id)}"
-        style="--tint: var(--t-${esc(g.tint)})">${mark(g.glyph, false, 'tiny')}${esc(g.name)}<span
-        class="count" data-count="${esc(g.id)}" data-probed="${g.probed ? '1' : '0'}">${badge}</span></a>`;
-        })
-        .join('\n      ')
-    )
-    .join('\n      <span class="nav-sep" aria-hidden="true"></span>\n      ');
+// The one sentence the bar owes you before you read anything else. All-clear is
+// the normal state, so it is the quiet one; anything else names the count that
+// is wrong, because "7 of 8" without saying which kind of wrong sends you
+// hunting down the page for the odd row.
+function tallyText(rows) {
+  const probed = rows.filter((r) => r.kind === 'service' || r.kind === 'view');
+  const up = probed.filter((r) => r.state === 'ready').length;
+  const unexposed = probed.filter((r) => r.state === 'unexposed').length;
+  const stopped = probed.filter((r) => r.state === 'stopped').length;
+  const tail = [
+    stopped ? `${stopped} stopped` : '',
+    unexposed ? `${unexposed} not shared` : '',
+  ].filter(Boolean);
+  return {
+    cls: stopped ? 'bad' : unexposed ? 'warn' : 'ok',
+    text: `${up} of ${probed.length} running${tail.length ? ' · ' + tail.join(' · ') : ''}`,
+  };
 }
 
 // The palette is dgmo's own `slate` -- `palettes.slate` in @diagrammo/dgmo,
@@ -681,6 +725,12 @@ function nav(realms, groups, rows) {
 //   page ground = surface · code + chips = overlay · rules = border
 //   name = text · blurb = textMuted · detail, host, port = gray / secondary
 //   links = primary · ready = green · running-not-shared = yellow
+//
+// 🔴 A tint is NEVER used for text. Measured against the light ground on
+// 2026-09-05: teal 3.44:1, red 4.28:1, orange 3.00:1, cyan 2.96:1 -- four of
+// the six fail 4.5:1, and slate has no darker variant to reach for. Headings
+// are therefore `--ink` and the hue rides the glyph beside them, which is a
+// graphic and answers to 3:1. Do not "fix" a heading back to its tint.
 const SLATE = `
   :root {
     color-scheme: light dark;
@@ -740,7 +790,8 @@ function page(services, views, links) {
   const rows = [...services, ...views, ...links];
   const byGroup = (id) => rows.filter((r) => r.group === id);
   const groups = GROUPS.filter((g) => byGroup(g.id).length);
-  const realms = REALMS.filter((r) => groups.some((g) => g.realm === r.id));
+  const bands = REALMS.filter((r) => groups.some((g) => g.realm === r.id));
+  const t = tallyText(rows);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -754,141 +805,221 @@ ${SLATE}
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  main { max-width: 78rem; margin: 0 auto; padding: .85rem 1.5rem 2rem; }
+  main { max-width: 74rem; margin: 0 auto; padding: .9rem 1.5rem 2.5rem; }
 
-  /* The bar carries the identity, the sections and the clock, so the page
-     itself needs neither a title block nor a footer -- both were a line of
-     text and a lot of air for something already on screen. */
+  /* The surfaces nobody draws still belong to the page. Left alone they ship
+     the browser's own blue, which is the cheapest tell that a page was
+     assembled rather than built. */
+  ::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+
+  /* The bar carries the identity, the one sentence of status and the filter,
+     so the page under it needs neither a title block nor a footer. */
   .bar {
     position: sticky; top: 0; z-index: 5;
-    background: var(--bar); backdrop-filter: blur(8px);
+    background: var(--bar); backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--line-soft);
   }
   .bar-inner {
-    max-width: 78rem; margin: 0 auto; padding: .4rem 1.5rem;
-    display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
+    max-width: 74rem; margin: 0 auto; padding: .45rem 1.5rem;
+    display: flex; align-items: center; gap: .85rem; flex-wrap: wrap;
   }
   .brand {
-    display: inline-flex; align-items: center; gap: .4rem;
+    display: inline-flex; align-items: center; gap: .42rem;
     font-weight: 650; letter-spacing: -.01em; color: var(--ink); text-decoration: none;
   }
   .brand svg { width: 1.1rem; height: 1.1rem; color: var(--accent); }
-  nav { display: flex; gap: .7rem; flex-wrap: wrap; align-items: center; }
-  .nav-sep { width: 1px; height: 1.05rem; margin: 0 .1rem; background: var(--muted); opacity: .45; }
-  .nav-link {
-    display: inline-flex; align-items: center; gap: .3rem;
-    color: var(--muted); text-decoration: none; font-size: .82rem;
+
+  /* The answer to the page's first question, before any scanning. All-clear is
+     the normal state and so the quiet one. */
+  .tally {
+    display: inline-flex; align-items: center; gap: .42rem;
+    font-size: .84rem; color: var(--ink); white-space: nowrap;
   }
-  .nav-link:hover { color: var(--tint); }
-  .count {
+  .tally .dot {
+    width: .5rem; height: .5rem; border-radius: 50%; background: var(--ready); flex: none;
+  }
+  .tally.warn .dot { background: var(--warn); }
+  .tally.bad .dot { background: var(--warn); }
+  .tally.warn, .tally.bad { font-weight: 600; }
+
+  .find {
+    margin-left: auto; margin-right: .35rem;
+    display: flex; align-items: center; gap: .55rem;
+  }
+  .find-field {
+    display: flex; align-items: center; gap: .4rem;
+    padding: .2rem .5rem .2rem .55rem; border-radius: 7px;
+    background: var(--raise); border: 1px solid var(--line);
+    transition: border-color 120ms ease-out;
+  }
+  /* The ring belongs to the field, not to the bare input inside it: an input
+     left to focus for itself draws Chromium's own 3px ring in its own colour,
+     which is nobody's design system. */
+  .find-field:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+  .find-field svg { width: .82rem; height: .82rem; color: var(--muted); flex: none; }
+  /* A fixed width, not one that grows on focus: widening an input animates a
+     layout property, and the field is already wide enough for anything anyone
+     types into it. */
+  #q {
+    width: 12rem; border: 0; background: none; color: var(--ink);
+    caret-color: var(--accent); font: inherit; font-size: .82rem; padding: 0;
+  }
+  #q:focus, #q:focus-visible { outline: none; box-shadow: none; }
+  #q::placeholder { color: var(--muted); }
+  /* type=search buys the semantics and, unasked, an OS-drawn clear button that
+     belongs to no design system. Escape is the clear. */
+  #q::-webkit-search-cancel-button, #q::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+  .kbd {
     font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-    padding: .2rem .32rem; border-radius: 5px;
-    background: color-mix(in srgb, var(--tint) 16%, transparent); color: var(--tint);
+    color: var(--muted); border: 1px solid var(--line); border-radius: 4px;
+    padding: .18rem .3rem; flex: none;
   }
-  .bar .meta {
-    margin-left: auto; display: flex; align-items: center; gap: .9rem;
-    font-size: .78rem; color: var(--muted);
+  .find-field:focus-within .kbd { display: none; }
+  .hits {
+    font: 11.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap;
   }
-  .bar .meta a { color: var(--muted); text-decoration: none; }
-  .bar .meta a:hover { color: var(--accent); }
+  .hits:empty { display: none; }
+  .meta {
+    display: flex; align-items: center; gap: .8rem;
+    font-size: .78rem; color: var(--muted); white-space: nowrap;
+  }
+  .meta a { color: var(--muted); text-decoration: none; }
+  .meta a:hover { color: var(--accent); }
 
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .lede { margin: 0 0 .85rem; color: var(--muted); font-size: .84rem; }
-
-  /* A realm is a tinted band plus a rail. Everything hanging off the rail is
-     that project; anything that is not, is not. */
-  .realm { margin: 0 0 1.15rem; }
-  .realm-head {
-    display: flex; align-items: center; gap: .55rem;
-    padding: .38rem .6rem; border-radius: 9px;
-    background: color-mix(in srgb, var(--tint) 11%, transparent);
-  }
-  .realm-head h2 {
-    margin: 0; font-size: .95rem; font-weight: 650;
-    letter-spacing: -.01em; color: var(--tint); white-space: nowrap;
-  }
-  .realm-head p { margin: 0; color: var(--muted); font-size: .78rem; }
-  .realm-stat {
-    margin-left: auto; padding-left: .8rem; white-space: nowrap;
-    color: var(--muted); font-size: .78rem;
-  }
-  .realm-stat b {
-    font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-variant-numeric: tabular-nums; color: var(--tint);
-  }
-  .groups {
-    display: flex; flex-direction: column; gap: .6rem;
-    margin: .4rem 0 0 .85rem; padding-left: 1.1rem;
-    border-left: 2px solid color-mix(in srgb, var(--tint) 30%, transparent);
+  .lede {
+    margin: .1rem 0 1.15rem; color: var(--muted); font-size: .84rem;
+    max-width: 74ch; text-wrap: balance;
   }
 
-  .group-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .12rem; }
+  /* Two levels of heading and nothing else: a band with a rule and a tally, a
+     section with a smaller glyph. The older page spent four devices -- a filled
+     band, a tinted rail, a section head with its own rule, then the row -- on a
+     hierarchy that is one list of twenty-two links. */
+  .band { margin: 0 0 1.65rem; }
+  .band:last-child { margin-bottom: 0; }
+  .band-head { display: flex; align-items: center; gap: .55rem; margin-bottom: .7rem; }
+  .band-head h2 {
+    margin: 0; font-size: 1.02rem; font-weight: 650;
+    letter-spacing: -.015em; color: var(--ink); white-space: nowrap;
+  }
+  .band-head p { margin: 0; color: var(--muted); font-size: .8rem; }
+  .band-head .rule { flex: 1 1 2rem; height: 1px; min-width: 1.5rem; background: var(--line); }
+  .band-stat { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+  .band-stat b {
+    font: 12.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600;
+  }
+  .groups { display: flex; flex-direction: column; gap: 1rem; }
+
+  .group-head { display: flex; align-items: center; gap: .42rem; margin-bottom: .3rem; }
   .group-head h3 {
-    margin: 0; font-size: .84rem; font-weight: 650;
-    letter-spacing: -.01em; color: var(--tint); white-space: nowrap;
+    margin: 0; font-size: .82rem; font-weight: 650;
+    letter-spacing: -.005em; color: var(--ink); white-space: nowrap;
   }
   .group-head p { margin: 0; color: var(--muted); font-size: .78rem; }
-  .group-head .rule { flex: 1 1 1.5rem; height: 1px; background: var(--line-soft); }
 
   .mark {
-    position: relative; width: 1.55rem; height: 1.55rem; border-radius: 7px;
+    position: relative; width: 1.6rem; height: 1.6rem; border-radius: 7px;
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--chip);
-    background: color-mix(in srgb, var(--tint) 15%, transparent);
+    background: color-mix(in srgb, var(--tint) 14%, transparent);
     color: var(--tint); flex: none;
   }
   .mark svg { width: .95rem; height: .95rem; }
-  .mark.sm { width: 1.3rem; height: 1.3rem; border-radius: 6px; }
-  .mark.sm svg { width: .82rem; height: .82rem; }
-  .mark.big { width: 1.85rem; height: 1.85rem; border-radius: 8px; }
-  .mark.big svg { width: 1.15rem; height: 1.15rem; }
-  /* In the bar the glyph is the label's own mark, not a chip on it. */
-  .mark.tiny { width: .9rem; height: .9rem; background: none; border-radius: 0; }
-  .mark.tiny svg { width: .9rem; height: .9rem; }
+  .mark.sm { width: 1.15rem; height: 1.15rem; border-radius: 5px; }
+  .mark.sm svg { width: .78rem; height: .78rem; }
+  .mark.big { width: 1.7rem; height: 1.7rem; border-radius: 8px; }
+  .mark.big svg { width: 1.05rem; height: 1.05rem; }
+  /* An address elsewhere carries the glyph without the chip: fourteen filled
+     chips down there out-weighed the eight servers they sit under. */
+  .mark.flat { width: 1.15rem; height: 1.15rem; background: none; border-radius: 0; }
+  .mark.flat svg { width: 1.15rem; height: 1.15rem; }
+  /* One variable holds the row's state colour, and the pip, the ring, the
+     border and the wash all read it. Three places naming their own hex is how
+     a stopped row ends up with a grey dot inside a yellow frame. */
+  .row { --pip: var(--off); }
+  .row.ready { --pip: var(--ready); }
+  .row.unexposed { --pip: var(--warn); }
   .pip {
     position: absolute; right: -3px; bottom: -3px; width: .46rem; height: .46rem;
-    border-radius: 50%; background: var(--off); box-shadow: 0 0 0 2px var(--bg);
+    border-radius: 50%; background: var(--pip);
+    box-shadow: 0 0 0 2px var(--bg);
   }
-  .row.ready .pip { background: var(--ready); }
-  .row.unexposed .pip { background: var(--warn); }
 
-  .rows { display: flex; flex-direction: column; gap: .05rem; }
-  .row {
-    position: relative;
-    display: grid; grid-template-columns: 1.55rem 9rem 1fr auto;
-    align-items: start; gap: 0 .7rem;
-    padding: .26rem .55rem; margin: 0 -.55rem; border-radius: 8px;
-    text-decoration: none; color: inherit;
+  /* The page's one authored moment, and it is spent where attention is owed:
+     a pip that is not green breathes until somebody deals with it. Nothing
+     else on the page moves by itself. */
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 0 2px var(--bg), 0 0 0 2px color-mix(in srgb, var(--pip) 60%, transparent); }
+    55%      { box-shadow: 0 0 0 2px var(--bg), 0 0 0 6px color-mix(in srgb, var(--pip) 0%, transparent); }
   }
-  .row[href]:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
-  .name { font-weight: 600; }  /* text, bold */
-  .row[href]:hover .name { color: var(--tint); }
-  .what { color: var(--ink); font-size: .85rem; max-width: 92ch; }
-  .name, .what, .where { padding-top: .16rem; }
-  .detail { color: var(--muted); }
+  .row.unexposed .pip, .row.stopped .pip { animation: breathe 2.6s ease-out infinite; }
+
+  .rows { display: flex; flex-direction: column; gap: .04rem; }
+
+  /* Four lanes: mark, name, port, prose. Fixed, so the eye runs down the name
+     lane and the port lane without re-finding either on every line. */
+  .row {
+    display: grid; grid-template-columns: 1.6rem 9.75rem 5.2rem 1fr;
+    align-items: start; gap: 0 .65rem;
+    padding: .3rem .55rem; margin: 0 -.55rem; border-radius: 8px;
+    border: 1px solid transparent;
+    text-decoration: none; color: inherit;
+    transition: background-color 120ms ease-out;
+  }
+  .row[href]:hover { background: color-mix(in srgb, var(--tint) 10%, transparent); }
+  .name { font-weight: 600; letter-spacing: -.005em; }
+  .row[href]:hover .name, .tile:hover .name { color: var(--tint); }
+  .name, .where, .what { padding-top: .1rem; }
   .where {
     font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
     color: var(--muted); white-space: nowrap;
   }
-  .row.ready .where { color: var(--accent); }
+  .row[href]:hover .where { color: var(--tint); }
+
+  /* Blurb then detail, both lines always present so every row is the same
+     height. The blurb used to be set in full-contrast ink at 92ch, which made
+     the explanation heavier on the page than the thing you came to click. */
+  .what { min-width: 0; }
+  .blurb { display: block; color: var(--ink); font-size: .84rem; }
+  /* 🔴 The caveat line is a second COLOUR, never the same colour at a lower
+     opacity: muted at .74 measures 3.6:1 on the light ground and fails. */
+  .detail { display: block; color: var(--muted); font-size: .79rem; }
+  .detail:empty { display: none; }
 
   /* One note and one state word per row; CSS picks the pair that matches the
      state class, so the refresh only has to swap that class. A ready row says
      so with its pip and its link, and keeps the word for a screen reader. */
   .state .s, .note { display: none; }
-  .state { display: block; font-size: .8rem; font-weight: 600; }
+  .state { display: block; font-size: .8rem; font-weight: 600; margin-top: .1rem; }
   .row.ready .state {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
   }
-  .row.unexposed .state { color: var(--ink); }
-  .row.stopped .state { color: var(--ink); }
+  .row.unexposed .state, .row.stopped .state { color: var(--ink); }
   .row.ready .state .s.ready,
   .row.unexposed .state .s.unexposed,
   .row.stopped .state .s.stopped { display: inline; }
   .row.unexposed .note.unexposed,
   .row.stopped .note.stopped { display: block; }
-  .note { margin: .1rem 0 .3rem; font-size: .8rem; color: var(--muted); }
+  /* A row that is not ready gets a real frame rather than relying on a 7px
+     pip. Yellow reaches only 2.2:1 on the light ground, so the dot can never be
+     the whole signal there -- the bold state word in --ink is, and the frame
+     and the wash are what make the row findable from across the page. */
+  .row.unexposed, .row.stopped {
+    border-color: color-mix(in srgb, var(--pip) 55%, var(--line));
+    background: color-mix(in srgb, var(--pip) 7%, transparent);
+  }
+  .note { margin: .15rem 0 .2rem; font-size: .8rem; color: var(--muted); }
   code {
     display: inline-block; margin-top: .2rem; padding: .18rem .4rem; border-radius: 5px;
     background: var(--raise); border: 1px solid var(--line-soft);
@@ -897,39 +1028,61 @@ ${SLATE}
   }
 
   .tiles {
-    display: grid; gap: .1rem .6rem;
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    display: grid; gap: .04rem .45rem;
+    grid-template-columns: repeat(auto-fill, minmax(14.75rem, 1fr));
   }
   .tile {
-    display: flex; align-items: center; gap: .55rem;
-    padding: .26rem .55rem; margin: 0 -.55rem; border-radius: 8px;
+    display: flex; align-items: center; gap: .62rem;
+    padding: .28rem .55rem; margin: 0 -.55rem; border-radius: 8px;
     text-decoration: none; color: inherit; min-width: 0;
+    transition: background-color 120ms ease-out;
   }
-  .tile:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
+  .tile:hover { background: color-mix(in srgb, var(--tint) 10%, transparent); }
   .tile-body { display: flex; flex-direction: column; min-width: 0; }
-  .tile:hover .name { color: var(--tint); }
   .tile .name { line-height: 1.3; font-size: .87rem; }
   .host {
-    font: 11.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  /* Narrow: the rail costs width a phone does not have, and a row's name and
-     blurb stop fitting on one line together. */
-  @media (max-width: 52rem) {
-    .groups { margin-left: 0; padding-left: .7rem; }
-    /* The port keeps its place at the end of the name's line; the blurb drops
-       underneath both. Left to auto-placement it landed on a third row under
-       the icon, reading as a row of its own. */
-    .row { grid-template-columns: 1.55rem 1fr auto; }
+  /* Filtering. A hidden row is display:none rather than moved, so nothing
+     reflows sideways and the lanes hold their positions as the list shortens. */
+  [hidden] { display: none !important; }
+  .row.sel, .tile.sel {
+    background: color-mix(in srgb, var(--tint) 16%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--tint) 55%, transparent);
+    outline-offset: -1px;
+  }
+  .empty {
+    display: none; margin: .5rem 0 0; color: var(--muted); font-size: .86rem;
+  }
+  .empty b { color: var(--ink); font-weight: 600; }
+  body.no-hits .empty { display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+
+  /* Narrow: the name and the port keep line one, the prose drops under both.
+     Left to auto-placement the port landed on a third row under the mark and
+     read as a row of its own. */
+  @media (max-width: 56rem) {
+    main { padding-top: .75rem; }
+    .row { grid-template-columns: 1.6rem 1fr auto; gap: 0 .6rem; }
     .row .where { grid-column: 3; grid-row: 1; }
     .row .what { grid-column: 2 / -1; grid-row: 2; }
+    .band-head { flex-wrap: wrap; }
+    .band-head .rule { display: none; }
+    .band-head p { order: 3; flex: 1 0 100%; margin-top: -.1rem; }
     .group-head { flex-wrap: wrap; }
-    .group-head .rule { display: none; }
-    /* Name and tally on one line, blurb under them: at this width the blurb
-       cannot share a row without collapsing into a column of single words. */
-    .realm-head { flex-wrap: wrap; }
-    .realm-head p { order: 3; flex: 1 0 100%; }
+    main { padding-left: 1.1rem; padding-right: 1.1rem; }
+    /* Two up rather than one: fourteen stacked addresses were a third of the
+       page's height on a phone, for the cheapest links on it. */
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .04rem .5rem; }
+    .find { margin-left: 0; margin-right: 0; order: 3; flex: 1 0 100%; }
+    #q, #q:focus { width: 100%; }
+    .find-field { flex: 1; }
+    .meta { margin-left: auto; }
   }
 </style>
 </head>
@@ -941,9 +1094,19 @@ ${SLATE}
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.anchor}</svg>
       anchor
     </a>
-    <nav>
-      ${nav(realms, groups, rows)}
-    </nav>
+    <span class="tally ${t.cls}" id="tally">
+      <span class="dot" aria-hidden="true"></span><span id="tally-text">${esc(t.text)}</span>
+    </span>
+    <div class="find">
+      <label class="find-field" for="q">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.search}</svg>
+        <input id="q" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Filter" aria-label="Filter this page">
+        <span class="kbd" aria-hidden="true">/</span>
+      </label>
+      <span class="hits" id="hits" role="status"></span>
+    </div>
     <div class="meta">
       <span>Checked <span id="stamp">${new Date().toLocaleTimeString('en-GB')}</span> · every 5s</span>
       <a href="/status.json">Raw status</a>
@@ -953,15 +1116,16 @@ ${SLATE}
 <main id="top">
   <h1 class="sr">anchor</h1>
   <p class="lede">Everything on this box, reachable from any device on the tailnet, plus the addresses off it. Nothing here is open to the internet.</p>
-  ${realms
+  ${bands
     .map((r) =>
-      realm(
+      band(
         r,
         groups.filter((g) => g.realm === r.id).map((g) => section(g, byGroup(g.id))),
-        realmStat(r, groups, rows)
+        bandStat(r, groups, rows)
       )
     )
     .join('\n  ')}
+  <p class="empty" id="empty">Nothing here matches <b id="empty-q"></b>.</p>
 </main>
 <script>
   // Repaint in place rather than reloading: a reload every 5 seconds throws
@@ -971,7 +1135,7 @@ ${SLATE}
   const paint = (r) => {
     const el = document.getElementById('card-' + r.id);
     if (!el) return;
-    el.className = 'row ' + r.state;
+    el.className = 'row ' + r.state + (el.classList.contains('sel') ? ' sel' : '');
     if (r.state === 'ready') el.setAttribute('href', r.url);
     else el.removeAttribute('href');
   };
@@ -979,18 +1143,21 @@ ${SLATE}
     Object.fromEntries(groups.map((g) => [g.id, { realm: g.realm, probed: g.probed }]))
   )};
   const counts = (rows) => {
-    for (const el of document.querySelectorAll('[data-realm-up]')) {
-      const mine = rows.filter((r) => G[r.group]?.probed && G[r.group].realm === el.dataset.realmUp);
+    for (const el of document.querySelectorAll('[data-band-up]')) {
+      const mine = rows.filter((r) => G[r.group] && G[r.group].probed && G[r.group].realm === el.dataset.bandUp);
       el.textContent = mine.filter((r) => r.state === 'ready').length + '/' + mine.length;
     }
-    for (const link of document.querySelectorAll('[data-count]')) {
-      const g = link.dataset.count;
-      const mine = rows.filter((r) => r.group === g);
-      link.textContent =
-        link.dataset.probed === '1'
-          ? mine.filter((r) => r.state === 'ready').length + '/' + mine.length
-          : String(mine.length);
-    }
+    const probed = rows.filter((r) => G[r.group] && G[r.group].probed);
+    const up = probed.filter((r) => r.state === 'ready').length;
+    const un = probed.filter((r) => r.state === 'unexposed').length;
+    const off = probed.filter((r) => r.state === 'stopped').length;
+    const tail = [];
+    if (off) tail.push(off + ' stopped');
+    if (un) tail.push(un + ' not shared');
+    document.getElementById('tally-text').textContent =
+      up + ' of ' + probed.length + ' running' + (tail.length ? ' \\u00b7 ' + tail.join(' \\u00b7 ') : '');
+    document.getElementById('tally').className =
+      'tally ' + (off ? 'bad' : un ? 'warn' : 'ok');
   };
   async function tick() {
     try {
@@ -1006,6 +1173,73 @@ ${SLATE}
   }
   tick();
   setInterval(tick, 5000);
+
+  // Twenty-two links is more than a glance and fewer than a search box usually
+  // earns -- but the fastest route to any of them is two letters and Enter, so
+  // the field is here and the whole keyboard opens it. Matching is on a
+  // data-find attribute built server-side, so nothing walks the DOM for text.
+  const q = document.getElementById('q');
+  const hits = document.getElementById('hits');
+  const items = [...document.querySelectorAll('[data-find]')];
+  let sel = -1;
+
+  const visible = () => items.filter((el) => !el.hidden);
+
+  function select(i) {
+    for (const el of items) el.classList.remove('sel');
+    const list = visible();
+    if (!list.length) { sel = -1; return; }
+    sel = (i + list.length) % list.length;
+    const el = list[sel];
+    el.classList.add('sel');
+    el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function apply() {
+    const term = q.value.trim().toLowerCase();
+    let shown = 0;
+    for (const el of items) {
+      const ok = !term || el.dataset.find.includes(term);
+      el.hidden = !ok;
+      if (ok) shown++;
+    }
+    // A heading with nothing under it is noise; a band with no headings left is
+    // worse. Both fold away as the list shortens.
+    for (const g of document.querySelectorAll('.group')) {
+      g.hidden = !g.querySelector('[data-find]:not([hidden])');
+    }
+    for (const b of document.querySelectorAll('.band')) {
+      b.hidden = !b.querySelector('.group:not([hidden])');
+    }
+    hits.textContent = term ? shown + ' of ' + items.length : '';
+    document.body.classList.toggle('no-hits', Boolean(term) && shown === 0);
+    document.getElementById('empty-q').textContent = q.value.trim();
+    if (term && shown) select(0); else { for (const el of items) el.classList.remove('sel'); sel = -1; }
+  }
+
+  q.addEventListener('input', apply);
+  q.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { q.value = ''; apply(); q.blur(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); select(sel + 1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); select(sel - 1); return; }
+    if (e.key === 'Enter') {
+      const el = visible()[sel < 0 ? 0 : sel];
+      if (el && el.hasAttribute('href')) { e.preventDefault(); el.click(); }
+    }
+  });
+
+  // Any printable key starts a filter, the way a file list does. A key that
+  // would type into something else is left alone.
+  addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.key === '/' || (e.key.length === 1 && /\\S/.test(e.key))) {
+      e.preventDefault();
+      q.focus();
+      if (e.key !== '/') { q.value += e.key; apply(); }
+    }
+  });
 </script>
 </body>
 </html>`;

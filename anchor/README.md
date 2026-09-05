@@ -8,27 +8,57 @@ It also carries the addresses that are **not** on this box — production, and
 the vendor consoles — so the page is the one place you start from rather than a
 launcher for half of it.
 
-The front page groups everything, and the groups are the point rather than
-decoration:
+The front page cuts everything twice: into **bands**, then into **sections**
+inside them. Two levels, and no third.
 
-| Group | What is in it | On this box? |
-|---|---|---|
-| Diagrammo apps | the web editor, the marketing site | yes |
-| Diagrammo Cloud | the Worker, the online console | yes |
-| Reference | ecosystem docs, MCP studio, the API reference | yes |
-| Other projects | anything that is **not** Diagrammo — currently OpenClaw | yes |
-| Production | online / api / docs / diagrammo.app | no |
-| Consoles | Tailscale, Cloudflare, PostHog, Issues, npm, Stripe, Resend, Google Cloud, Apple Developer, App Store Connect | no |
+| Band | Section | What is in it | Can this page probe it? |
+|---|---|---|---|
+| Diagrammo | Apps | the web editor, the marketing site | yes |
+| Diagrammo | Cloud | the Worker, the online console | yes |
+| Diagrammo | Reference | ecosystem docs, MCP studio, the API reference | yes |
+| OpenClaw | — | anything that is **not** Diagrammo — currently the OpenClaw gateway | yes |
+| Elsewhere | Production | online / api / docs / diagrammo.app | no |
+| Elsewhere | Consoles | Tailscale, Cloudflare, PostHog, Issues, npm, Stripe, Resend, Google Cloud, Apple Developer, App Store Connect | no |
 
-**Other projects** exists so OpenClaw is not read as a seventh Diagrammo
-service. It runs here and it can be pointed at Diagrammo; it is a separate
-project with its own repo, and the page says so in words rather than leaving a
-reader to infer it from a row sitting among Diagrammo ones.
+**OpenClaw is its own band** so it is not read as an eighth Diagrammo service.
+It runs here and it can be pointed at Diagrammo; it is a separate project with
+its own repo, and the page says so in words rather than leaving a reader to
+infer it from a row sitting among Diagrammo ones.
 
-Each local entry is one row rather than a card — eight links do not need a
-screen and a half of scrolling, which is what the card grid had become — and
-each external one is a tile with its host under it, opening in a new tab
-because reaching it is a departure rather than a navigation.
+🔴 **`Elsewhere` is not a project, and filing Production and Consoles under it
+rather than under Diagrammo is deliberate — changed 2026-09-05.** They *are*
+Diagrammo's. But the first question this page answers is "can I reach it, and
+is it up", and for those fourteen addresses the honest answer is that nothing
+here can say. Filing them by owner put four unprobeable addresses in the middle
+of a column of pips that all mean something. OpenClaw has no production and no
+vendor consoles, so the move costs that band nothing.
+
+A band is a heading, a hairline rule and a tally — no fill, no rail. The filled
+band and the tinted rail this replaced were two of **four** nested devices the
+page had been spending on a hierarchy that is one list of twenty-two links.
+
+**A local entry is a row of four fixed lanes** — mark, name, port, prose — and
+the lanes are the point. Before 2026-09-05 the port sat in an `auto` column at
+the far right edge, a thousand pixels from the name it belongs to, with the
+description running to 92ch of full-contrast ink in between: the name you were
+looking for was the lightest thing on its own row. Now the eye runs down the
+name lane and the port lane without re-finding either.
+
+**An external entry is a tile** with its host under it, no chip behind its
+glyph, opening in a new tab because reaching it is a departure rather than a
+navigation. Fourteen filled chips down there out-weighed the eight servers they
+sit under.
+
+## Filtering
+
+The bar carries a filter, and **any printable key opens it** — `/` too, the way
+a file list works. Typing narrows every row and tile at once, folding away any
+section and any band left with nothing in it; `↑`/`↓` move the selection,
+`Enter` opens it, `Escape` clears and lets go of the field.
+
+Matching is on a `data-find` attribute built server-side out of the name, the
+blurb, the detail and the port or host, so `4347` finds MCP studio and
+`docs` finds all three. Nothing walks the DOM for text.
 
 Nothing here is public. Tailscale answers only devices on your own tailnet, and
 no port is open to the internet.
@@ -69,15 +99,22 @@ node -e "console.log(require('$HOME/code/diagrammo/dgmo/dist/index.js').palettes
 Two colour systems, deliberately disjoint, because one is identity and the
 other is health:
 
-- **The group tint** colours every icon in a group, its heading and its nav
-  badge, and names a hue slot in the palette: blue, purple, teal, orange, red,
-  cyan. 🔴 **Never green, yellow or gray** — those three are status, and a tint
-  borrowing one could be read as a health claim.
+- **The section tint** colours the glyphs in that section, and names a hue slot
+  in the palette: blue, purple, teal, orange, red, cyan. 🔴 **Never green,
+  yellow or gray** — those three are status, and a tint borrowing one could be
+  read as a health claim. Since 2026-09-05 it colours **only glyphs**; see the
+  ratio table below for why it stopped colouring headings.
 - **The pip** on the corner of each icon is the status: green ready, yellow
-  running-but-not-shared, gray stopped. **External tiles have no pip**, because
-  nothing on this box can honestly say whether `dash.cloudflare.com` is up, and
-  a dot that always read green would be a health check nobody performed. Their
-  nav badge is a plain count for the same reason, not `4/4`.
+  running-but-not-shared, gray stopped. A row that is not ready also takes a
+  frame and a wash in **its own pip's colour** — one CSS variable, `--pip`,
+  feeds the dot, the breathing ring, the border and the background, because
+  three places naming their own hex is how a stopped row ended up with a grey
+  dot inside a yellow frame. **External tiles have no pip**, because nothing on
+  this box can honestly say whether `dash.cloudflare.com` is up, and a dot that
+  always read green would be a health check nobody performed. Their band tally
+  reads `14 addresses · no status from here` for the same reason, never `14/14`.
+- **Motion is spent only on the exception.** A pip that is not green breathes
+  until somebody deals with it, and nothing else on the page moves by itself.
 
 🔴 **A hue slot is a FILL colour in this palette, not a text colour**, and
 using one as text is how the first pass got it wrong. Measured against the
@@ -95,12 +132,18 @@ and blurb comes from **weight**, not from a third colour the palette does not
 have. `gray` is now used for exactly one thing: the stopped pip, where 3.22:1
 clears the 3:1 a graphic needs.
 
-⚠️ **The group headings still sit between 2.96:1 (cyan) and 4.91:1 (purple)**,
-which is under the 4.5 a small bold label wants. That is accepted: there are
-six groups and six usable hues, so no reassignment escapes it, and the heading
-is a landmark next to full-contrast prose rather than something you read. The
-alternative — darkening a hue for text — would leave the page on colours that
-are not in the palette, which is the thing this section exists to prevent.
+✅ **The headings were the last thing still doing it, and they stopped on
+2026-09-05.** They sat between 2.96:1 (cyan) and 4.91:1 (purple) against the
+light ground — four of the six hues under the 4.5 a small bold label wants —
+and it had been written down here as accepted, on the argument that six
+sections need six hues and no reassignment escapes it. That argument was sound
+and the conclusion was wrong: the escape is not to reassign the hue but to stop
+putting it on text. Band and section headings are now `text`, and the hue rides
+the **glyph** beside them, which is a graphic and answers to 3:1.
+
+🔴 **Do not "fix" a heading back to its tint.** It looks like a missing colour
+and it is a resolved defect. Slate has no darker variant to reach for, so there
+is nothing to reassign it to.
 
 ## The display never turned itself off
 
