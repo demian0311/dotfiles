@@ -74,6 +74,54 @@ width this page is read at the stacked phone fallback. Check a layout change at
 **790**, not only at 1440 and 390 — a layout can be correct at both ends and
 broken between them, and this one was.
 
+## What a critique found, 2026-09-05
+
+`$impeccable critique` scored this **29/40** and named five issues; all five
+were fixed the same day. The measurements are kept because they are the reason
+each rule above exists, and because every one of them was taken on a page where
+**every row happened to be `ready`** — the failure state had never been
+rendered in front of anyone.
+
+| Was | Now |
+|---|---|
+| stopped row frame **2.25:1** light / 2.89:1 dark against the card | **4.67 / 5.12**, and chromatic |
+| unexposed row frame 1.91:1 | 2.42:1 light, 8.05 dark — see the note below |
+| hover name/port **2.93–4.71:1** across six hues | never recoloured; 14.76:1 throughout |
+| cursor ring **2.50:1** dark / 2.27:1 light | solid tint, **7.07:1** |
+| reduced-motion killed the breathing pip and put nothing back | a 2px frame instead |
+| `o` → 22 of 22, `ed` → 6, `d` armed Gateway on the word "drive" | `ed` → **2**, unit and port searchable, prose never arms Enter |
+| **15** type sizes, 11 of them within 3px | **6**, as named `--fs-*` tokens |
+| 11 of 14 tile hosts clipped mid-domain at 390px | **0 of 14** at every width |
+| bar controls 18.7–28.1px tall | **44px** at touch widths |
+| a stopped row was unfocusable — its `href` is removed | `tabindex="0"`, so the row carrying the fix is reachable |
+| a row's accessible name ended with its state, 30 words in | starts with it |
+
+⚠️ **The unexposed frame cannot reach 3:1 on the light ground and that is
+accepted.** Yellow measures 2.21:1 against `surface` at full strength, and
+slate has no darker one; the bold *Running, not shared* in `text` at 14.76:1 is
+the signal the frame reinforces. Do not invent a darker yellow to close it.
+
+⚠️ **`flat-type-hierarchy` still fires, and that one is a disagreement rather
+than a miss.** The rule wants a 1.25 ratio between adjacent steps; 12.1 / 13.1 /
+14 / 14.7 / 15.7 are a caveat, secondary prose, the body, a row name and a
+section heading, and a dense operational list needs all five. Fifteen sizes was
+the defect. Six is the floor.
+
+⚠️ **`em-dash-overuse` (23) is advisory and is the house voice.** Leave it.
+
+🔴 **The detector cannot scan `hub.mjs` at all.** `detect.mjs` routes only
+`.html`/`.htm` to its HTML/CSS engine, so a `.mjs` goes to the regex text
+engine and every rule about type, contrast and spacing is structurally unable
+to fire — its exit 0 is a blind run, not a clean one. And `htmlparser2`,
+`css-select`, `css-tree` and `domutils` do not resolve from the skill's
+`scripts/`, so the default run self-declares `DEGRADED` and undercounts.
+Scan the **served page**, with those four linked:
+
+```bash
+curl -s https://anchor.tailb10eb2.ts.net/ > /tmp/anchor.html
+node <impeccable>/scripts/detect.mjs --json /tmp/anchor.html
+```
+
 🔴 **`page()` is one template literal, so a backtick anywhere inside it — a
 `/* */` in the CSS included — ends the string**, and every line after it parses
 as JavaScript. The `SyntaxError` then points at the literal's opening line, and
@@ -131,14 +179,25 @@ node -e "console.log(require('$HOME/code/diagrammo/dgmo/dist/index.js').palettes
 Two colour systems, deliberately disjoint, because one is identity and the
 other is health:
 
-- **The section tint** colours the glyphs in that section, and names a hue slot
-  in the palette: blue, purple, teal, orange, red, cyan. 🔴 **Never green,
-  yellow or gray** — those three are status, and a tint borrowing one could be
-  read as a health claim. Since 2026-09-05 it colours **only glyphs**; see the
-  ratio table below for why it stopped colouring headings.
+- **The section tint** colours the glyphs and the title strip: blue, purple,
+  teal, orange, cyan. 🔴 **Never green, yellow, gray or RED** — those four are
+  status, and a tint borrowing one could be read as a health claim. Since
+  2026-09-05 it colours **only glyphs and strips**, never text; see the ratio
+  table below.
+  - 🔴 **Red left the identity palette on 2026-09-05 and `Production` took
+    orange.** Grey is a *luminance* signal and a stopped row needs a
+    *chromatic* one: a grey frame at 3.5:1 reads as disabled, while a yellow
+    one at 2.2:1 still pops. Five identity hues for six slots means one repeat,
+    and Production/OpenClaw is the least confusable pair on the page —
+    different bands, different row shapes, opposite ends of the scroll.
+  - 🔴 **Hover does NOT recolour a name or a port.** It did until 2026-09-05,
+    and measured against the hover wash on the light ground every hue failed:
+    cyan 2.93:1, orange 2.96:1, teal 3.36:1, red 4.11, blue 4.66, purple 4.71,
+    against a rest state of 14.76:1. It fired on the row under the pointer, so
+    reading a row was what made it hard to read. The wash carries hover alone.
 - **The pip** on the corner of each icon is the status: green ready, yellow
-  running-but-not-shared, gray stopped. A row that is not ready also takes a
-  frame and a wash in **its own pip's colour** — one CSS variable, `--pip`,
+  running-but-not-shared, **red not running**. A row that is not ready also
+  takes a frame and a wash in **its own pip's colour** — one CSS variable, `--pip`,
   feeds the dot, the breathing ring, the border and the background, because
   three places naming their own hex is how a stopped row ended up with a grey
   dot inside a yellow frame. **External tiles have no pip**, because nothing on

@@ -210,7 +210,10 @@ const GROUPS = [
     name: 'Production',
     glyph: 'rocket',
     blurb: 'The real internet, with real customer data behind it.',
-    tint: 'red',
+    // 🔴 Orange, not red. Red became a status colour on 2026-09-05 -- a
+    // stopped row needs a chromatic signal and grey is only a luminance one --
+    // so it left the identity palette entirely.
+    tint: 'orange',
     probed: false,
   },
   {
@@ -563,9 +566,22 @@ function mark(id, withPip, extra = '') {
         </span>`;
 }
 
-// Everything the filter matches on, in one lowercased attribute. Building it
-// server-side means the client never walks the DOM for text, and a row whose
-// port or host is only in a mono span is still findable by typing it.
+// What the filter matches on, in two lowercased attributes rather than one.
+// Building them server-side means the client never walks the DOM for text, and
+// a row whose port or host is only in a mono span is still findable by typing
+// it.
+//
+// 🔴 The split is the whole point, added 2026-09-05. One flat haystack that
+// included the prose could not discriminate: measured on the live page, "o"
+// returned 22 of 22, "e" 20, "d" and "a" 18. Below three characters the list
+// never shortened -- and because any non-empty term auto-selected the first
+// hit, Enter after one keystroke opened whatever sorted first: "d" armed the
+// OpenClaw Gateway, matched on the word "drive" in its detail line. The unit
+// name, which is what you type when something is broken, was in neither.
+//
+// data-key is what you would type on purpose: the name, the port or path, the
+// systemd unit, the host. data-find adds the prose, and only widens what is
+// SHOWN -- never what is armed for Enter.
 const haystack = (...parts) => esc(parts.filter(Boolean).join(' ').toLowerCase());
 
 // A service or a view. Four lanes, fixed: mark, name, port, prose. The lanes
@@ -594,14 +610,19 @@ function row(s) {
       : `<p class="note unexposed">On anchor:<code>${esc(s.expose)}</code></p>
         <p class="note stopped">On anchor:<code>${esc(s.start)}</code></p>`;
   return `<a class="row ${s.state}" id="card-${esc(s.id)}" data-id="${esc(s.id)}"
-        data-find="${haystack(s.name, s.blurb, s.detail, s.short)}"${href}>
+        data-key="${haystack(s.name, s.short, s.unit, s.port)}"
+        data-find="${haystack(s.name, s.short, s.unit, s.port, s.blurb, s.detail)}"${href}
+        ${s.state === 'ready' ? '' : 'tabindex="0"'}>
+        <span class="sr">${
+          s.state === 'ready' ? 'Ready' : s.state === 'unexposed' ? 'Running, not shared' : 'Not running'
+        }.</span>
         ${mark(s.icon, true)}
         <span class="name">${esc(s.name)}</span>
         <span class="where">${esc(s.short)}</span>
         <span class="what">
           <span class="blurb">${esc(s.blurb)}</span>
           <span class="detail">${s.detail ? esc(s.detail) : ''}</span>
-          <span class="state">
+          <span class="state" aria-hidden="true">
             <span class="s ready">Ready</span>
             <span class="s unexposed">Running, not shared</span>
             <span class="s stopped">Not running</span>
@@ -616,7 +637,8 @@ function row(s) {
 // goes. Fourteen of these used to carry as much page height as the eight
 // servers above them; they are the cheapest thing here and now read that way.
 function tile(l) {
-  return `<a class="tile" id="card-${esc(l.id)}" data-find="${haystack(l.name, l.host)}"
+  return `<a class="tile" id="card-${esc(l.id)}" data-key="${haystack(l.name, l.host)}"
+        data-find="${haystack(l.name, l.host)}"
         href="${esc(l.url)}" target="_blank" rel="noreferrer">
         ${mark(l.icon, false, 'flat')}
         <span class="tile-body">
@@ -759,18 +781,27 @@ const SLATE = `
     --muted: #5b6672;       /* textMuted */
     --line: #d4dae1;        /* border   */
     --line-soft: #eaeef3;   /* overlay  */
-    --off: #7e8a97;         /* gray — the stopped pip ONLY, never text */
+    --off: #7e8a97;         /* gray — never text; see --stop */
     --ready: #5b9357;       /* green    */
     --warn: #c9a227;        /* yellow   */
+    --stop: #c0504d;        /* red — NOT RUNNING. A status colour since
+                               2026-09-05, so red left the tint palette; see
+                               the note over the status block below. */
     --accent: #3b6ea5;      /* primary  */
     --bar: rgba(243, 245, 248, .88);
     --chip: #eaeef3;
     /* Redoc's sample panel only; deliberately dark in both themes. */
     --panel: #202833;       /* dark surface */
     --panel-ink: #e6eaef;   /* dark text    */
-    /* Group identity, from the palette's nine hue slots. 🔴 Never green,
-       yellow or gray -- those three are status, and a tint that borrowed one
-       could be read as a health claim. */
+    /* Section identity, from the palette's hue slots. 🔴 Never green, yellow,
+       gray or RED -- those four are status, and a tint that borrowed one could
+       be read as a health claim. Red joined that list on 2026-09-05: grey is a
+       LUMINANCE signal and a stopped row needs a CHROMATIC one, because a grey
+       frame at 3.5:1 reads as disabled while a yellow one at 2.2:1 still pops.
+       Production gave up red and took orange, which it now shares with the
+       OpenClaw band -- five identity hues for six slots means one repeat, and
+       these two are the least confusable pair on the page: different bands,
+       different row shapes, opposite ends of the scroll. */
     --t-blue: #3b6ea5;
     --t-purple: #7d5ba6;
     --t-teal: #3a9188;
@@ -787,9 +818,10 @@ const SLATE = `
       --muted: #9aa5b1;     /* textMuted */
       --line: #38424f;      /* border   */
       --line-soft: #29323e; /* overlay  */
-      --off: #8593a3;       /* secondary — the stopped pip ONLY */
+      --off: #8593a3;       /* secondary — never text */
       --ready: #74b56e;     /* green    */
       --warn: #d9bd5a;      /* yellow   */
+      --stop: #e07b6e;      /* red — not running */
       --accent: #5b9bd5;    /* primary  */
       --bar: rgba(22, 27, 34, .88);
       --chip: #29323e;
@@ -827,6 +859,29 @@ function page(services, views, links) {
 <title>anchor</title>
 <style>
 ${SLATE}
+  /* 🔴 The type scale, seven steps, and every size on the page is one of them.
+     Before 2026-09-05 there were FIFTEEN distinct sizes spanning 11px to
+     21.1px, eleven of them inside three pixels of each other -- a difference
+     no reader can use, bought at the cost of the contrast the real steps
+     need. Add a size here before you add one anywhere else.
+
+     Six of them survive into the served page, and the detector still calls
+     that flat because it wants a 1.25 ratio between adjacent steps. It is
+     right about the principle and wrong about this surface: 12.1 / 13.1 / 14 /
+     14.7 / 15.7 are a caveat, secondary prose, the body, a row name and a
+     section heading, and a dense operational list needs all five. Fifteen
+     sizes was the defect; six is the floor. The fs- prefix is deliberate --
+     the --t- namespace belongs to the tint slots. */
+  :root {
+    --fs-xs: 11.5px;   /* mono asides: a host, the key cap */
+    --fs-sm: 12.1px;   /* the caveat line, a port, a command */
+    --fs-md: 13.1px;   /* every piece of secondary prose */
+    --fs-base: 14px;   /* the body */
+    --fs-lg: 14.7px;   /* a row name */
+    --fs-xl: 15.7px;   /* a section heading */
+    --fs-2xl: 21.1px;  /* a band heading */
+  }
+
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; scroll-padding-top: 3.6rem; }
   body {
@@ -864,13 +919,13 @@ ${SLATE}
      the normal state and so the quiet one. */
   .tally {
     display: inline-flex; align-items: center; gap: .42rem;
-    font-size: .84rem; color: var(--ink); white-space: nowrap;
+    font-size: var(--fs-md); color: var(--ink); white-space: nowrap;
   }
   .tally .dot {
     width: .5rem; height: .5rem; border-radius: 50%; background: var(--ready); flex: none;
   }
   .tally.warn .dot { background: var(--warn); }
-  .tally.bad .dot { background: var(--warn); }
+  .tally.bad .dot { background: var(--stop); }
   .tally.warn, .tally.bad { font-weight: 600; }
 
   .find {
@@ -896,7 +951,7 @@ ${SLATE}
      types into it. */
   #q {
     width: 12rem; border: 0; background: none; color: var(--ink);
-    caret-color: var(--accent); font: inherit; font-size: .82rem; padding: 0;
+    caret-color: var(--accent); font: inherit; font-size: var(--fs-md); padding: 0;
   }
   #q:focus, #q:focus-visible { outline: none; box-shadow: none; }
   #q::placeholder { color: var(--muted); }
@@ -904,27 +959,38 @@ ${SLATE}
      belongs to no design system. Escape is the clear. */
   #q::-webkit-search-cancel-button, #q::-webkit-search-decoration { -webkit-appearance: none; display: none; }
   .kbd {
-    font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: var(--fs-xs)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--muted); border: 1px solid var(--line); border-radius: 4px;
     padding: .18rem .3rem; flex: none;
   }
-  .find-field:focus-within .kbd { display: none; }
+  /* The hint used to hide itself on focus -- at the exact moment it became
+     actionable, and with the native clear button suppressed, that left the
+     field with no visible way out at all. It stays, and says which key. */
+  .kbd.esc { display: none; }
+  .find-field:focus-within .kbd.slash { display: none; }
+  .find-field:focus-within .kbd.esc { display: inline; }
   .hits {
-    font: 11.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: var(--fs-xs)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap;
   }
   .hits:empty { display: none; }
   .meta {
     display: flex; align-items: center; gap: .8rem;
-    font-size: .78rem; color: var(--muted); white-space: nowrap;
+    font-size: var(--fs-sm); color: var(--muted); white-space: nowrap;
   }
-  .meta a { color: var(--muted); text-decoration: none; }
-  .meta a:hover { color: var(--accent); }
+  /* It is a real link to /status.json and it was painted in --muted with no
+     underline, 8px from body text of the identical colour. */
+  .meta a.raw {
+    color: var(--accent); text-decoration: underline;
+    text-decoration-thickness: 1px; text-underline-offset: .18em;
+    padding: .3rem .15rem;
+  }
+  .meta a.raw:hover { text-decoration-thickness: 2px; }
 
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .lede {
-    margin: .1rem 0 1.15rem; color: var(--muted); font-size: .84rem;
-    max-width: 74ch; text-wrap: balance;
+    margin: .1rem 0 1.15rem; color: var(--muted); font-size: var(--fs-md);
+    max-width: 66ch; text-wrap: balance;
   }
 
   /* Three levels, each told apart by a DIFFERENT device rather than by three
@@ -935,14 +1001,14 @@ ${SLATE}
   .band:last-child { margin-bottom: 0; }
   .band-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .8rem; }
   .band-head h2 {
-    margin: 0; font-size: 1.2rem; font-weight: 680;
+    margin: 0; font-size: var(--fs-2xl); font-weight: 680;
     letter-spacing: -.02em; color: var(--ink); white-space: nowrap;
   }
-  .band-head p { margin: 0; color: var(--muted); font-size: .82rem; }
+  .band-head p { margin: 0; color: var(--muted); font-size: var(--fs-md); max-width: 62ch; }
   .band-head .rule { flex: 1 1 2rem; height: 1px; min-width: 1.5rem; background: var(--line); }
-  .band-stat { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+  .band-stat { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; }
   .band-stat b {
-    font: 12.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: var(--fs-sm)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
     font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600;
   }
   .groups { display: flex; flex-direction: column; gap: .75rem; }
@@ -963,10 +1029,10 @@ ${SLATE}
   }
   .group-head .mark { align-self: center; }
   .group-head h3 {
-    margin: 0; font-size: .98rem; font-weight: 650;
+    margin: 0; font-size: var(--fs-xl); font-weight: 650;
     letter-spacing: -.012em; color: var(--ink); white-space: nowrap;
   }
-  .group-head p { margin: 0; color: var(--muted); font-size: .79rem; }
+  .group-head p { margin: 0; color: var(--muted); font-size: var(--fs-md); max-width: 62ch; }
   .rows, .tiles { padding: .42rem .55rem .5rem; }
 
   .mark {
@@ -988,7 +1054,7 @@ ${SLATE}
   /* One variable holds the row's state colour, and the pip, the ring, the
      border and the wash all read it. Three places naming their own hex is how
      a stopped row ends up with a grey dot inside a yellow frame. */
-  .row { --pip: var(--off); }
+  .row { --pip: var(--stop); }
   .row.ready { --pip: var(--ready); }
   .row.unexposed { --pip: var(--warn); }
   .pip {
@@ -1018,32 +1084,46 @@ ${SLATE}
     text-decoration: none; color: inherit;
     transition: background-color 120ms ease-out;
   }
-  .row[href]:hover { background: color-mix(in srgb, var(--tint) 10%, transparent); }
-  .name { font-weight: 600; letter-spacing: -.005em; }
-  .row[href]:hover .name, .tile:hover .name { color: var(--tint); }
+  .row[href]:hover { background: color-mix(in srgb, var(--tint) 12%, transparent); }
+  .name { font-weight: 650; letter-spacing: -.005em; }
+  /* 🔴 Hover does NOT recolour the name or the port, and putting the tint back
+     is the same defect the headings already had. Measured against the hover
+     wash on the light ground, 2026-09-05: cyan 2.93:1, orange 2.96:1, teal
+     3.36:1, red 4.11, blue 4.66, purple 4.71 -- every hue under 4.5, three
+     under 3, against a rest state of 14.76:1. It fires on the row under the
+     pointer, so reading a row was what made it hard to read. The wash carries
+     hover on its own. */
+  .name { font-size: var(--fs-lg); }
   .name, .where, .what { padding-top: .1rem; }
   .where {
-    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: var(--fs-sm)/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
     font-variant-numeric: tabular-nums;
     color: var(--muted); white-space: nowrap;
   }
-  .row[href]:hover .where { color: var(--tint); }
 
-  /* Blurb then detail, both lines always present so every row is the same
-     height. The blurb used to be set in full-contrast ink at 92ch, which made
-     the explanation heavier on the page than the thing you came to click. */
-  .what { min-width: 0; }
-  .blurb { display: block; color: var(--ink); font-size: .84rem; }
+
+  /* Blurb then detail. 🔴 They are NOT the same height row to row -- the
+     comment here claimed they were until 2026-09-05, and .detail:empty had
+     already made that false; measured at 790px the rows run 37.8px to 92px.
+     Uniformity is not what the lanes buy; alignment is.
+     The measure is capped so 790px and 1440px read the same. Uncapped, the
+     prose lane is 1fr in a 74rem container and reaches 93ch at 1440 -- the
+     exact number the README names as the defect the four-lane rewrite fixed. */
+  .what { min-width: 0; max-width: 58ch; }
+  /* Name to blurb is a step of colour AND size AND weight. It was weight
+     alone: same --ink, 0.56px apart, one weight step, and the detector called
+     the whole page flat at a 1.7:1 type ratio. */
+  .blurb { display: block; color: var(--muted); font-size: var(--fs-md); }
   /* 🔴 The caveat line is a second COLOUR, never the same colour at a lower
      opacity: muted at .74 measures 3.6:1 on the light ground and fails. */
-  .detail { display: block; color: var(--muted); font-size: .79rem; }
+  .detail { display: block; color: var(--muted); font-size: var(--fs-sm); }
   .detail:empty { display: none; }
 
   /* One note and one state word per row; CSS picks the pair that matches the
      state class, so the refresh only has to swap that class. A ready row says
      so with its pip and its link, and keeps the word for a screen reader. */
   .state .s, .note { display: none; }
-  .state { display: block; font-size: .8rem; font-weight: 600; margin-top: .1rem; }
+  .state { display: block; font-size: var(--fs-md); font-weight: 650; margin-top: .1rem; }
   .row.ready .state {
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
   }
@@ -1058,14 +1138,19 @@ ${SLATE}
      the whole signal there -- the bold state word in --ink is, and the frame
      and the wash are what make the row findable from across the page. */
   .row.unexposed, .row.stopped {
-    border-color: color-mix(in srgb, var(--pip) 55%, var(--line));
-    background: color-mix(in srgb, var(--pip) 7%, transparent);
+    border-color: var(--pip);
+    background: color-mix(in srgb, var(--pip) 10%, transparent);
   }
-  .note { margin: .15rem 0 .2rem; font-size: .8rem; color: var(--muted); }
+  /* 🔴 The frame is the FULL state colour, not a mix toward --line. Mixed at
+     55% it measured 2.25:1 against the card for a stopped row and 1.91:1 for an
+     unexposed one -- under the 3:1 a non-text signal needs, and quieter than
+     the healthy rows around it. Measured 2026-09-05 on the live page, where
+     every row happened to be ready, so this had never been rendered in anger. */
+  .note { margin: .15rem 0 .2rem; font-size: var(--fs-sm); color: var(--muted); }
   code {
     display: inline-block; margin-top: .2rem; padding: .18rem .4rem; border-radius: 5px;
     background: var(--raise); border: 1px solid var(--line-soft);
-    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: var(--fs-sm)/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
     /* break-word, not break-all: this is a command someone reads before they
        copy it, and break-all split localhost:28787 across two lines. */
     white-space: pre-wrap; overflow-wrap: break-word; color: var(--ink);
@@ -1083,28 +1168,34 @@ ${SLATE}
   }
   .tile:hover { background: color-mix(in srgb, var(--tint) 10%, transparent); }
   .tile-body { display: flex; flex-direction: column; min-width: 0; }
-  .tile .name { line-height: 1.3; font-size: .87rem; }
+  .tile .name { line-height: 1.3; font-size: var(--fs-lg); }
   .host {
-    font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font: var(--fs-xs)/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); overflow-wrap: anywhere;
   }
 
   /* Filtering. A hidden row is display:none rather than moved, so nothing
      reflows sideways and the lanes hold their positions as the list shortens. */
   [hidden] { display: none !important; }
+  /* The cursor mark, and the only thing saying which row Enter will open. A
+     solid tint clears the 3:1 a non-text indicator needs; at color-mix 55% it
+     measured 2.50:1 dark and 2.27:1 light against the card. */
   .row.sel, .tile.sel {
     background: color-mix(in srgb, var(--tint) 16%, transparent);
-    outline: 2px solid color-mix(in srgb, var(--tint) 55%, transparent);
+    outline: 2px solid var(--tint);
     outline-offset: -1px;
   }
   .empty {
-    display: none; margin: .5rem 0 0; color: var(--muted); font-size: .86rem;
+    display: none; margin: .5rem 0 0; color: var(--muted); font-size: var(--fs-md);
   }
   .empty b { color: var(--ink); font-weight: 600; }
   body.no-hits .empty { display: block; }
 
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    /* Killing the breathing pip left this reader with a bold word and nothing
+       else. A heavier frame is the same signal without the movement. */
+    .row.unexposed, .row.stopped { border-width: 2px; padding: calc(.32rem - 1px) calc(.5rem - 1px); }
   }
 
   /* Narrow: the name and the port keep line one, the prose drops under both.
@@ -1128,10 +1219,16 @@ ${SLATE}
     /* Two up rather than one: fourteen stacked addresses were a third of the
        page's height on a phone, for the cheapest links on it. */
     .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .04rem .5rem; }
-    .find { margin-left: 0; margin-right: 0; order: 3; flex: 1 0 100%; }
+    /* The filter is the most-used control on the page and it was sitting
+       BELOW the clock at this width. It leads now, and every bar control
+       clears 44px for a thumb. */
+    .find { margin-left: 0; margin-right: 0; order: 2; flex: 1 0 100%; }
+    .meta { order: 3; margin-left: auto; }
     #q, #q:focus { width: 100%; }
-    .find-field { flex: 1; }
-    .meta { margin-left: auto; }
+    .find-field { flex: 1; min-height: 44px; }
+    .brand, .meta a.raw { min-height: 44px; display: inline-flex; align-items: center; }
+    /* Two-up survives here; the host wraps rather than clipping, as it does
+       at every other width. */
   }
 </style>
 </head>
@@ -1143,7 +1240,7 @@ ${SLATE}
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.anchor}</svg>
       anchor
     </a>
-    <span class="tally ${t.cls}" id="tally">
+    <span class="tally ${t.cls}" id="tally" role="status">
       <span class="dot" aria-hidden="true"></span><span id="tally-text">${esc(t.text)}</span>
     </span>
     <div class="find">
@@ -1152,13 +1249,14 @@ ${SLATE}
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.search}</svg>
         <input id="q" type="search" autocomplete="off" spellcheck="false"
                placeholder="Filter" aria-label="Filter this page">
-        <span class="kbd" aria-hidden="true">/</span>
+        <span class="kbd slash" aria-hidden="true">/</span>
+        <span class="kbd esc" aria-hidden="true">esc</span>
       </label>
       <span class="hits" id="hits" role="status"></span>
     </div>
     <div class="meta">
       <span>Checked <span id="stamp">${new Date().toLocaleTimeString('en-GB')}</span> · every 5s</span>
-      <a href="/status.json">Raw status</a>
+      <a class="raw" href="/status.json">Raw status</a>
     </div>
   </div>
 </div>
@@ -1185,8 +1283,20 @@ ${SLATE}
     const el = document.getElementById('card-' + r.id);
     if (!el) return;
     el.className = 'row ' + r.state + (el.classList.contains('sel') ? ' sel' : '');
-    if (r.state === 'ready') el.setAttribute('href', r.url);
-    else el.removeAttribute('href');
+    if (r.state === 'ready') {
+      el.setAttribute('href', r.url);
+      el.removeAttribute('tabindex');
+    } else {
+      // A non-ready row has no href on purpose -- a dead address must not be
+      // clickable. But removing the href also removed it from the tab order,
+      // so the one row carrying the command that fixes it was the one row a
+      // keyboard could never reach.
+      el.removeAttribute('href');
+      el.setAttribute('tabindex', '0');
+    }
+    const sr = el.querySelector('.sr');
+    if (sr) sr.textContent =
+      (r.state === 'ready' ? 'Ready' : r.state === 'unexposed' ? 'Running, not shared' : 'Not running') + '.';
   };
   const G = ${JSON.stringify(
     Object.fromEntries(groups.map((g) => [g.id, { realm: g.realm, probed: g.probed }]))
@@ -1231,8 +1341,17 @@ ${SLATE}
   const hits = document.getElementById('hits');
   const items = [...document.querySelectorAll('[data-find]')];
   let sel = -1;
+  let term = '';
 
-  const visible = () => items.filter((el) => !el.hidden);
+  // Order matters as much as membership. A row matched on its NAME, port, path
+  // or unit comes before one matched only on its prose, so ArrowDown walks the
+  // deliberate hits first and Enter never opens a row that matched on a word
+  // inside a sentence.
+  const keyed = (el) => term && el.dataset.key.includes(term);
+  const visible = () => {
+    const on = items.filter((el) => !el.hidden);
+    return [...on.filter(keyed), ...on.filter((el) => !keyed(el))];
+  };
 
   function select(i) {
     for (const el of items) el.classList.remove('sel');
@@ -1245,10 +1364,15 @@ ${SLATE}
   }
 
   function apply() {
-    const term = q.value.trim().toLowerCase();
+    term = q.value.trim().toLowerCase();
+    // Prose is the fallback, never the default. Every row's blurb contains an
+    // "o", so matching prose first meant a one-letter term returned all 22 and
+    // told you nothing. Names, ports, paths and units answer first; the
+    // descriptions are only consulted when nothing matched on purpose.
+    const anyKey = Boolean(term) && items.some((el) => el.dataset.key.includes(term));
     let shown = 0;
     for (const el of items) {
-      const ok = !term || el.dataset.find.includes(term);
+      const ok = !term || (anyKey ? el.dataset.key.includes(term) : el.dataset.find.includes(term));
       el.hidden = !ok;
       if (ok) shown++;
     }
@@ -1263,7 +1387,10 @@ ${SLATE}
     hits.textContent = term ? shown + ' of ' + items.length : '';
     document.body.classList.toggle('no-hits', Boolean(term) && shown === 0);
     document.getElementById('empty-q').textContent = q.value.trim();
-    if (term && shown) select(0); else { for (const el of items) el.classList.remove('sel'); sel = -1; }
+    // Arm Enter only when something matched on purpose. A prose-only match
+    // still SHOWS -- it just does not become the thing Enter opens.
+    if (term && shown && items.some(keyed)) select(0);
+    else { for (const el of items) el.classList.remove('sel'); sel = -1; }
   }
 
   q.addEventListener('input', apply);
