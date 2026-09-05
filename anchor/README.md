@@ -13,10 +13,10 @@ inside them. Two levels, and no third.
 
 | Band | Section | What is in it | Can this page probe it? |
 |---|---|---|---|
+| OpenClaw | — | anything that is **not** Diagrammo — currently the OpenClaw gateway | yes |
 | Diagrammo | Apps | the web editor, the marketing site | yes |
 | Diagrammo | Cloud | the Worker, the online console | yes |
 | Diagrammo | Reference | ecosystem docs, MCP studio, the API reference | yes |
-| OpenClaw | — | anything that is **not** Diagrammo — currently the OpenClaw gateway | yes |
 | Elsewhere | Production | online / api / docs / diagrammo.app | no |
 | Elsewhere | Consoles | Tailscale, Cloudflare, PostHog, Issues, npm, Stripe, Resend, Google Cloud, Apple Developer, App Store Connect | no |
 
@@ -24,6 +24,12 @@ inside them. Two levels, and no third.
 It runs here and it can be pointed at Diagrammo; it is a separate project with
 its own repo, and the page says so in words rather than leaving a reader to
 infer it from a row sitting among Diagrammo ones.
+
+🔴 **It comes first, and that is the point of it — moved there 2026-09-05.**
+Second, it sat between Diagrammo's local services and Diagrammo's own
+production and consoles, so the one thing on this box that is not Diagrammo was
+wedged into the middle of the things that are. A band's position in `REALMS` is
+its position on the page; nothing else decides it.
 
 🔴 **`Elsewhere` is not a project, and filing Production and Consoles under it
 rather than under Diagrammo is deliberate — changed 2026-09-05.** They *are*

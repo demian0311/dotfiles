@@ -127,19 +127,24 @@ const ICONS = {
 //
 // Adding a third project is a realm here plus `realm:` on its groups.
 const REALMS = [
-  {
-    id: 'diagrammo',
-    name: 'Diagrammo',
-    glyph: 'flow',
-    tint: 'blue',
-    blurb: 'The product, on this box, against a throwaway database.',
-  },
+  // 🔴 OpenClaw comes FIRST, and the order is the whole reason it does.
+  // Sitting between Diagrammo's local services and Diagrammo's own production
+  // and consoles, it read as a Diagrammo thing wedged into the middle of the
+  // Diagrammo ones -- which is exactly what it is not. One row at the top
+  // reads as the exception it is; nothing else moved.
   {
     id: 'openclaw',
     name: 'OpenClaw',
     glyph: 'claw',
     tint: 'orange',
     blurb: 'A separate project that happens to run on this box. No Diagrammo code in it.',
+  },
+  {
+    id: 'diagrammo',
+    name: 'Diagrammo',
+    glyph: 'flow',
+    tint: 'blue',
+    blurb: 'The product, on this box, against a throwaway database.',
   },
   {
     id: 'elsewhere',
