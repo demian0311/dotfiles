@@ -40,6 +40,7 @@ no port is open to the internet.
 | `hub.mjs` | the front door, plus one Host-rewriting proxy per service, and the Cloud API reference at `/api-docs` |
 | `systemd/` | one user unit per service, plus the hub's. Not OpenClaw's — that is its own project's |
 | `install.sh` | run it on anchor from a checkout of this repo |
+| `hypridle.conf` | the display-off timer — Omarchy 4 ships none. See **The display never turned itself off** below |
 
 🔴 **`~/anchor-hub/` on the box holds exactly one file, `hub.mjs`, and it is a
 COPY of the one here.** Anything beside it — a `hub.mjs.bak-*`, a `hub.mjs.new`
@@ -100,6 +101,57 @@ six groups and six usable hues, so no reassignment escapes it, and the heading
 is a landmark next to full-contrast prose rather than something you read. The
 alternative — darkening a hue for text — would leave the page on colours that
 are not in the palette, which is the thing this section exists to prevent.
+
+## The display never turned itself off
+
+Omarchy 4.0.1's idle service (`omarchy-shell`, quickshell) reads exactly two
+config keys from `~/.config/omarchy/shell.json` — `screensaver` and `lock` — and
+has **no display-off step at all**. Verified 2026-09-05 against
+`/usr/share/omarchy/shell/plugins/services/idle/Service.qml`: the only `dpms`
+references in the whole of `/usr/share/omarchy` are two Hyprland *input* options
+that turn the display back **on**. So the designed behaviour is screensaver at
+600s, lock screen at 1800s, and a lit monitor for the rest of the night.
+
+⚠️ `omarchy-system-lock`'s own header says *"Lock the computer and turn off the
+display."* Read the script: it locks, switches keyboard layout, locks 1Password
+and kills the screensaver. It never touches DPMS. The comment is wrong, and it
+is what makes this gap easy to miss.
+
+`hypridle` fills it and does nothing else — 275 KB from `extra`, one listener,
+no `lock_cmd`, so Omarchy keeps owning the screensaver and the lock screen. The
+timeout is 900s, deliberately between the two Omarchy timers.
+
+🔴 **`hyprctl dispatch dpms off` DOES NOT WORK on this box, and it is the line in
+every hypridle guide and every Omarchy thread.** Hyprland 0.56.2 moved to a Lua
+dispatch API, so the old form fails with a Lua parse error:
+
+```
+error: [string "return hl.dispatch(dpms off)"]:1: ')' expected near 'off'
+```
+
+`hl.dispatch("dpms off")` and `dpms("off")` fail too. The working call, found by
+enumerating `hl.dsp` and proven on the box 2026-09-05, is:
+
+```bash
+hyprctl dispatch 'hl.dsp.dpms({action = "off"})'
+```
+
+A stock hypridle config would have sat there blanking nothing every night and
+looked like hypridle was broken.
+
+⚠️ **Idle inhibitors are respected, and that is the one thing still unproven.**
+On 2026-09-04 `omarchy-shell` logged its last idle event at 06:33:50 and then
+nothing for **25½ hours** — the box never went idle, so it never even reached
+its own lock screen. A held Wayland idle-inhibit (Chromium video playback is the
+likely holder) explains it, but there were none by the time it was looked at, so
+it is a suspicion rather than a finding. hypridle respects inhibitors the same
+way, so if that recurs it will be blocked too. `hypridle.conf` carries the three
+commented `ignore_*_inhibit` lines to flip if the display is again found on all
+morning.
+
+`inhibit_sleep = 0` is set on purpose: with no `lock_cmd` there is nothing for
+hypridle to delay a suspend for, and Omarchy already runs
+`omarchy-sleep-lock.service` for that.
 
 ## Where the external addresses came from
 

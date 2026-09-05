@@ -14,6 +14,26 @@ install -m 0644 "$here/hub.mjs" "$HOME/anchor-hub/hub.mjs"
 install -m 0644 "$here"/systemd/*.service "$units/"
 
 systemctl --user daemon-reload
+
+# Display blanking. Omarchy 4 has no display-off step of its own: its idle
+# service (omarchy-shell) reads only `screensaver` and `lock` from
+# ~/.config/omarchy/shell.json, so the monitor otherwise stays lit all night
+# showing the lock screen. hypridle supplies the missing timer and nothing else
+# -- no lock_cmd, because locking stays with omarchy-system-lock.
+#
+# The package is not installed here: this script runs no sudo. Install it with
+#   sudo pacman -S --needed hypridle
+# 🔴 Hyprland 0.56.2 takes a Lua dispatch API. `hyprctl dispatch dpms off` --
+# the form in every hypridle guide -- fails with a Lua parse error and blanks
+# nothing. hypridle.conf uses hl.dsp.dpms({action = "..."}) instead.
+if command -v hypridle >/dev/null; then
+  mkdir -p "$HOME/.config/hypr"
+  install -m 0644 "$here/hypridle.conf" "$HOME/.config/hypr/hypridle.conf"
+  systemctl --user enable --now hypridle.service
+else
+  echo "hypridle absent; run 'sudo pacman -S --needed hypridle' then re-run this script"
+fi
+
 # anchor-studio serves artifacts that `pnpm studio` produces. On a fresh box
 # run that once first, or the unit starts and serves an empty gallery:
 #   cd ~/code/diagrammo/dgmo-mcp && pnpm studio   # ctrl-c once it says ready
