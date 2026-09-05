@@ -30,7 +30,33 @@ const PROXY = (p) => p + 20000;
 // Icons, as SVG primitives rather than path data copied from an icon set.
 // Authoring them from circles, rects and short paths means none of it is
 // remembered wrongly, and the whole set costs nothing to serve.
+//
+// Three jobs, one set: the mark on a row, the mark on a section heading, and
+// the two realm marks. A glyph is never used for both a row and the heading
+// above it -- two identical marks in a column read as a repeat rather than as
+// a hierarchy.
 const ICONS = {
+  // an anchor — this page
+  anchor:
+    '<circle cx="12" cy="4.6" r="2"/><path d="M12 6.6V21"/><path d="M7.6 10.1h8.8"/><path d="M3.8 14.2a8.4 8.4 0 0 0 8.2 6.8 8.4 8.4 0 0 0 8.2-6.8"/>',
+  // two nodes and an edge — the Diagrammo realm
+  flow: '<rect x="3" y="4" width="8" height="5.4" rx="1.6"/><rect x="13" y="14.6" width="8" height="5.4" rx="1.6"/><path d="M6.4 9.4v4.5a3.4 3.4 0 0 0 3.4 3.4H13"/>',
+  // three hooked talons — the OpenClaw realm
+  claw: '<path d="M6.2 3.6c-2 4.4-2.2 9.1-.6 13.7a3 3 0 0 0 2.9 2.1"/><path d="M12 3c-1.4 4.6-1.4 9.4 0 14a3 3 0 0 0 2.9 2.1"/><path d="M17.8 3.6c.9 4.5.5 9-1.2 13.3a3 3 0 0 0 2.9 2.1"/>',
+  // stacked planes — the apps section
+  layers:
+    '<path d="M12 3.2 3.6 7.4 12 11.6l8.4-4.2Z"/><path d="M3.6 12.1 12 16.3l8.4-4.2"/><path d="M3.6 16.6 12 20.8l8.4-4.2"/>',
+  // a cloud with an upload — the cloud section
+  cloudUp:
+    '<path d="M7.2 17.6h9.4a3.5 3.5 0 0 0 .4-7 5.5 5.5 0 0 0-10.3-1 3.8 3.8 0 0 0 .5 8Z"/><path d="M12 21.2v-6.6"/><path d="M9.7 16.7 12 14.4l2.3 2.3"/>',
+  // a compass — the reference section
+  compass: '<circle cx="12" cy="12" r="8.5"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1Z"/>',
+  // a rocket — the production section
+  rocket:
+    '<path d="M12 3.2c2.8 2 4.5 5.1 4.5 8.6v4H7.5v-4c0-3.5 1.7-6.6 4.5-8.6Z"/><path d="M7.5 12.3 4.6 15v3.3l2.9-1.6"/><path d="M16.5 12.3 19.4 15v3.3l-2.9-1.6"/><circle cx="12" cy="9.9" r="1.6"/><path d="M10.3 19.2h3.4"/>',
+  // two sliders — the consoles section
+  dials:
+    '<path d="M3.5 7.6h8.2"/><path d="M15.9 7.6h4.6"/><circle cx="13.8" cy="7.6" r="2.1"/><path d="M3.5 16.4h3.6"/><path d="M11.3 16.4h9.2"/><circle cx="9.2" cy="16.4" r="2.1"/>',
   // a pencil — you write here
   editor: '<path d="M4 20h16"/><path d="M14.6 4.4a2.1 2.1 0 0 1 3 3L8.2 16.8 4 18l1.2-4.2Z"/>',
   // a globe — the public web
@@ -77,62 +103,107 @@ const ICONS = {
     '<rect x="3" y="4.6" width="18" height="14.8" rx="2.4"/><path d="M3 9.3h18"/><path d="M6.3 6.95h.01M9 6.95h.01"/>',
 };
 
-// The sections of the page, in order. `blurb` says what a stranger needs to
-// know before reading the rows under it -- above all which of these are
-// Diagrammo and which are simply other things that happen to run here.
+// The two things that live on this box. A realm is the outermost cut, and it
+// exists because the older flat list buried "not Diagrammo" as one section
+// among six: a reader scanning headings had to notice a word to tell a project
+// boundary from a category boundary. Now every Diagrammo section hangs off a
+// tinted rail under the Diagrammo band, and OpenClaw's does not touch it.
 //
-// `tint` is the group's colour, carried by every icon in it and by its
-// heading. It names a hue slot in dgmo's slate palette. It is identity, NOT
-// status: the pip on each icon is what says whether a thing is up, and no tint
-// is ever green, yellow or gray, so the two can never be read for each other.
+// Adding a third project is a realm here plus `realm:` on its groups.
+const REALMS = [
+  {
+    id: 'diagrammo',
+    name: 'Diagrammo',
+    glyph: 'flow',
+    tint: 'blue',
+    blurb: 'The product — what runs here, what runs in production, and the accounts behind it.',
+  },
+  {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    glyph: 'claw',
+    tint: 'orange',
+    blurb: 'A separate project that happens to run on this box. No Diagrammo code in it.',
+  },
+];
+
+// The sections of the page, in order, each inside a realm. `blurb` is one line
+// on purpose: it sits beside the heading rather than under it, so a second
+// sentence costs the whole page a row of height.
 //
-// `probed` says whether the rows in it are servers on this box. The last two
-// groups are addresses elsewhere on the internet -- nothing here can know
-// whether they are up, and pretending otherwise with a dot would be a lie.
+// `glyph` is the section's own mark. It is never the same as any row mark
+// beneath it.
+//
+// `tint` is the section's colour, carried by its glyph, its heading and its
+// nav entry. It names a hue slot in dgmo's slate palette. It is identity, NOT
+// status: the pip on each row icon is what says whether a thing is up, and no
+// tint is ever green, yellow or gray, so the two can never be read for each
+// other.
+//
+// `probed` says whether the rows in it are servers on this box. The two
+// external sections are addresses elsewhere on the internet -- nothing here
+// can know whether they are up, and pretending otherwise with a dot would be a
+// lie.
+//
+// `bare` drops the section heading, for a section whose realm band already
+// said everything the heading would have. OpenClaw is one project with one
+// address; a band, a heading and a row for it would be three lines of chrome
+// on one link.
 const GROUPS = [
   {
     id: 'apps',
-    name: 'Diagrammo apps',
-    blurb: 'What a person opens: the editor, and the page that sells it.',
+    realm: 'diagrammo',
+    name: 'Apps',
+    glyph: 'layers',
+    blurb: 'What a person opens.',
     tint: 'blue',
     probed: true,
   },
   {
     id: 'cloud',
-    name: 'Diagrammo Cloud',
-    blurb:
-      'The Worker the app talks to, and the console that watches it. Its database is throwaway and lives on this box — nothing here is production data.',
+    realm: 'diagrammo',
+    name: 'Cloud',
+    glyph: 'cloudUp',
+    blurb: 'The Worker the app talks to, and the console that watches it. Its database here is throwaway.',
     tint: 'purple',
     probed: true,
   },
   {
     id: 'reference',
+    realm: 'diagrammo',
     name: 'Reference',
-    blurb: 'How the system fits together, and what it exposes.',
+    glyph: 'compass',
+    blurb: 'How it fits together, and what it exposes.',
     tint: 'teal',
     probed: true,
   },
   {
-    id: 'other',
-    name: 'Other projects',
-    blurb:
-      'Not Diagrammo. Separate projects that happen to run on this machine — one of them can drive Diagrammo without being part of it.',
-    tint: 'orange',
-    probed: true,
-  },
-  {
     id: 'production',
+    realm: 'diagrammo',
     name: 'Production',
-    blurb: 'The real thing, on the real internet, with real customer data behind it.',
+    glyph: 'rocket',
+    blurb: 'The real internet, with real customer data behind it.',
     tint: 'red',
     probed: false,
   },
   {
     id: 'consoles',
+    realm: 'diagrammo',
     name: 'Consoles',
-    blurb: 'The vendor dashboards and the tracker. Each one wants you signed in.',
+    glyph: 'dials',
+    blurb: 'Vendor dashboards and the tracker, plus the tailnet serving this page. Each wants you signed in.',
     tint: 'cyan',
     probed: false,
+  },
+  {
+    id: 'openclaw',
+    realm: 'openclaw',
+    name: 'OpenClaw',
+    glyph: 'bot',
+    blurb: '',
+    tint: 'orange',
+    probed: true,
+    bare: true,
   },
 ];
 
@@ -149,9 +220,8 @@ const SERVICES = [
     group: 'apps',
     icon: 'editor',
     name: 'Web editor',
-    blurb: 'The diagram editor in a browser — the same app online.diagrammo.app serves.',
-    detail:
-      'Built against the Cloud API on this box, so its diagrams are throwaway. Rebuilding it is by hand — see the README.',
+    blurb: 'The diagram editor, the same app online.diagrammo.app serves.',
+    detail: 'Its diagrams are throwaway, and rebuilding it is by hand — see the README.',
     port: 5173,
     unit: 'anchor-editor',
   },
@@ -169,8 +239,8 @@ const SERVICES = [
     group: 'cloud',
     icon: 'server',
     name: 'Cloud API',
-    blurb: 'The one Cloudflare Worker, run here by wrangler against a local database.',
-    detail: 'Sign-in mail is logged rather than sent — read the link out of journalctl --user -u anchor-api.',
+    blurb: 'The one Cloudflare Worker, run by wrangler against a local database.',
+    detail: 'Sign-in mail is logged, not sent: journalctl --user -u anchor-api.',
     port: 8787,
     unit: 'anchor-api',
   },
@@ -180,7 +250,7 @@ const SERVICES = [
     icon: 'pulse',
     name: 'Online console',
     blurb: 'Cloud health and the issue board.',
-    detail: 'Sign in to see anything — every data route needs a session.',
+    detail: 'Every data route needs a session.',
     port: 5190,
     unit: 'anchor-console',
   },
@@ -198,8 +268,8 @@ const SERVICES = [
     group: 'reference',
     icon: 'grid',
     name: 'MCP studio',
-    blurb: 'Inspector for the dgmo MCP server, with a rendered gallery per chart type.',
-    detail: 'It serves what pnpm studio last produced, so run that by hand after a dgmo change.',
+    blurb: 'Inspector for the dgmo MCP server, with a gallery per chart type.',
+    detail: 'Serves what pnpm studio last produced; rerun it after a dgmo change.',
     port: 4347,
     unit: 'anchor-studio',
   },
@@ -209,11 +279,11 @@ const SERVICES = [
     // hostRewrite is off because the gateway checks the Origin it was reached
     // on; rewriting Host to localhost makes it refuse the pairing routes.
     id: 'openclaw',
-    group: 'other',
+    group: 'openclaw',
     icon: 'bot',
-    name: 'OpenClaw',
-    blurb: 'A personal agent gateway and its control page, on the Claude CLI backend.',
-    detail: 'Its own repo, with no Diagrammo code in it. It can drive Diagrammo the way it can drive anything else.',
+    name: 'Gateway',
+    blurb: 'The personal agent gateway and its control page, on the Claude CLI backend.',
+    detail: 'Its own repo. It can drive Diagrammo the way it can drive anything else.',
     port: 18789,
     hostRewrite: false,
     unit: 'openclaw-gateway',
@@ -230,7 +300,7 @@ const VIEWS = [
     group: 'reference',
     icon: 'braces',
     name: 'Cloud API reference',
-    blurb: 'Every endpoint, generated from the schemas the Worker on this box is serving.',
+    blurb: 'Every endpoint, generated from the schemas the Worker here is serving.',
     path: '/api-docs',
     dependsOn: 'api',
   },
@@ -304,7 +374,7 @@ const LINKS = [
     group: 'consoles',
     icon: 'bars',
     name: 'PostHog',
-    host: 'us.posthog.com · project 351484',
+    host: 'us.posthog.com · 351484',
     url: 'https://us.posthog.com/project/351484',
   },
   {
@@ -450,11 +520,13 @@ async function snapshot() {
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-// The icon plus, for anything on this box, a status pip riding its corner.
+// One mark renderer for all four sizes. `extra` picks the size class; the pip
+// only ever rides a row's mark.
+//
 // Putting the pip ON the icon rather than beside it keeps one object per row
 // where there would otherwise be two competing for the same glance.
-function mark(id, withPip) {
-  return `<span class="mark">
+function mark(id, withPip, extra = '') {
+  return `<span class="mark${extra ? ' ' + extra : ''}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id] ?? ''}</svg>
           ${withPip ? '<span class="pip" aria-hidden="true"></span>' : ''}
@@ -505,6 +577,10 @@ function tile(l) {
       </a>`;
 }
 
+// Heading and blurb on ONE line, with a rule running out to the right edge.
+// The older layout parked both in a 12.5rem rail down the left, which cost
+// every section that width for the length of its longest blurb and left the
+// rows to wrap in what was left. Inline, the rows get the whole page.
 function section(group, rows) {
   const body = group.probed
     ? `<div class="rows">
@@ -513,33 +589,80 @@ function section(group, rows) {
     : `<div class="tiles">
         ${rows.map(tile).join('\n        ')}
       </div>`;
+  const head = group.bare
+    ? ''
+    : `<div class="group-head">
+        ${mark(group.glyph, false, 'sm')}
+        <h3>${esc(group.name)}</h3>
+        ${group.blurb ? `<p>${esc(group.blurb)}</p>` : ''}
+        <span class="rule" aria-hidden="true"></span>
+      </div>`;
   return `<section id="${esc(group.id)}" class="group" data-group="${esc(group.id)}"
       style="--tint: var(--t-${esc(group.tint)})">
-      <div class="group-head">
-        <h2>${esc(group.name)}</h2>
-        <p>${esc(group.blurb)}</p>
-      </div>
+      ${head}
       ${body}
     </section>`;
+}
+
+// The band, and the rail that hangs its sections off it. The rail is the whole
+// point: it is what makes "this belongs to Diagrammo" a thing you see rather
+// than a thing you read.
+function realm(r, sections, stat) {
+  return `<section class="realm" id="realm-${esc(r.id)}" style="--tint: var(--t-${esc(r.tint)})">
+    <div class="realm-head">
+      ${mark(r.glyph, false, 'big')}
+      <h2>${esc(r.name)}</h2>
+      <p>${esc(r.blurb)}</p>
+      ${stat}
+    </div>
+    <div class="groups">
+      ${sections.join('\n      ')}
+    </div>
+  </section>`;
+}
+
+// The band's own tally: how much of the realm is up, and how many of its
+// addresses live somewhere this page cannot see. The fraction carries a
+// data attribute so the 5-second refresh patches it the same way it patches
+// the nav badges.
+function realmStat(r, groups, rows) {
+  const mine = groups.filter((g) => g.realm === r.id);
+  const here = rows.filter((x) => mine.some((g) => g.id === x.group && g.probed));
+  const away = rows.filter((x) => mine.some((g) => g.id === x.group && !g.probed));
+  const parts = [];
+  if (here.length)
+    parts.push(`<b data-realm-up="${esc(r.id)}">${here.filter((x) => x.state === 'ready').length}/${
+      here.length
+    }</b> ready`);
+  if (away.length) parts.push(`${away.length} elsewhere`);
+  return `<span class="realm-stat">${parts.join(' · ')}</span>`;
 }
 
 // The counts are rendered here as well as patched by the refresh. A badge that
 // is blank until the first fetch lands reads as a broken badge, and on a page
 // whose whole job is to say what is up, blank is the wrong first impression.
-// A group of external addresses gets a plain total: `4/4` there would claim a
-// health check nobody performed.
-function nav(groups, rows) {
-  return groups
-    .map((g) => {
-      const mine = rows.filter((r) => r.group === g.id);
-      const badge = g.probed
-        ? `${mine.filter((r) => r.state === 'ready').length}/${mine.length}`
-        : `${mine.length}`;
-      return `<a class="nav-link" href="#${esc(g.id)}" data-nav="${esc(g.id)}"
-        style="--tint: var(--t-${esc(g.tint)})">${esc(g.name)}<span class="count"
-        data-count="${esc(g.id)}" data-probed="${g.probed ? '1' : '0'}">${badge}</span></a>`;
-    })
-    .join('\n      ');
+// A section of external addresses gets a plain total: `4/4` there would claim
+// a health check nobody performed.
+//
+// The nav is cut by realm too, with a rule between them, so the boundary the
+// page draws is the boundary the bar draws.
+function nav(realms, groups, rows) {
+  return realms
+    .map((r) =>
+      groups
+        .filter((g) => g.realm === r.id)
+        .map((g) => {
+          const mine = rows.filter((x) => x.group === g.id);
+          const badge = g.probed
+            ? `${mine.filter((x) => x.state === 'ready').length}/${mine.length}`
+            : `${mine.length}`;
+          return `<a class="nav-link" href="#${esc(g.id)}" data-nav="${esc(g.id)}"
+        style="--tint: var(--t-${esc(g.tint)})">${mark(g.glyph, false, 'tiny')}${esc(g.name)}<span
+        class="count" data-count="${esc(g.id)}" data-probed="${g.probed ? '1' : '0'}">${badge}</span></a>`;
+        })
+        .join('\n      ')
+    )
+    .join('\n      <span class="nav-sep" aria-hidden="true"></span>\n      ');
 }
 
 // The palette is dgmo's own `slate` -- `palettes.slate` in @diagrammo/dgmo,
@@ -617,6 +740,7 @@ function page(services, views, links) {
   const rows = [...services, ...views, ...links];
   const byGroup = (id) => rows.filter((r) => r.group === id);
   const groups = GROUPS.filter((g) => byGroup(g.id).length);
+  const realms = REALMS.filter((r) => groups.some((g) => g.realm === r.id));
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -626,87 +750,122 @@ function page(services, views, links) {
 <style>
 ${SLATE}
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
+  html { scroll-behavior: smooth; scroll-padding-top: 3.6rem; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  main { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem 2.5rem; }
+  main { max-width: 78rem; margin: 0 auto; padding: .85rem 1.5rem 2rem; }
 
+  /* The bar carries the identity, the sections and the clock, so the page
+     itself needs neither a title block nor a footer -- both were a line of
+     text and a lot of air for something already on screen. */
   .bar {
     position: sticky; top: 0; z-index: 5;
     background: var(--bar); backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--line-soft);
   }
   .bar-inner {
-    max-width: 72rem; margin: 0 auto; padding: .55rem 1.5rem;
-    display: flex; align-items: center; gap: 1.15rem; flex-wrap: wrap;
+    max-width: 78rem; margin: 0 auto; padding: .4rem 1.5rem;
+    display: flex; align-items: center; gap: .9rem; flex-wrap: wrap;
   }
-  .brand { font-weight: 650; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
-  nav { display: flex; gap: .95rem; flex-wrap: wrap; align-items: center; }
+  .brand {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-weight: 650; letter-spacing: -.01em; color: var(--ink); text-decoration: none;
+  }
+  .brand svg { width: 1.1rem; height: 1.1rem; color: var(--accent); }
+  nav { display: flex; gap: .7rem; flex-wrap: wrap; align-items: center; }
+  .nav-sep { width: 1px; height: 1.05rem; margin: 0 .1rem; background: var(--muted); opacity: .45; }
   .nav-link {
-    display: inline-flex; align-items: baseline; gap: .38rem;
-    color: var(--muted); text-decoration: none; font-size: .84rem;
+    display: inline-flex; align-items: center; gap: .3rem;
+    color: var(--muted); text-decoration: none; font-size: .82rem;
   }
   .nav-link:hover { color: var(--tint); }
   .count {
     font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-    padding: .2rem .34rem; border-radius: 5px;
+    padding: .2rem .32rem; border-radius: 5px;
     background: color-mix(in srgb, var(--tint) 16%, transparent); color: var(--tint);
   }
-  .bar .raw { margin-left: auto; font-size: .8rem; color: var(--muted); text-decoration: none; }
-  .bar .raw:hover { color: var(--accent); }
-
-  header { padding: 1.7rem 0 .2rem; }
-  h1 { margin: 0 0 .25rem; font-size: 1.4rem; letter-spacing: -.02em; }
-  header p { margin: 0; color: var(--muted); font-size: .87rem; }
-
-  /* Heading on the left, its entries on the right: one band per category, so
-     eight links are eight lines rather than eight boxes. */
-  .group {
-    display: grid; grid-template-columns: 12.5rem 1fr; gap: 0 1.75rem;
-    padding: 1.15rem 0; border-top: 1px solid var(--line-soft);
+  .bar .meta {
+    margin-left: auto; display: flex; align-items: center; gap: .9rem;
+    font-size: .78rem; color: var(--muted);
   }
-  .group:first-of-type { border-top: 0; }
-  .group-head h2 {
-    margin: 0 0 .12rem; font-size: .92rem; font-weight: 650;
-    letter-spacing: -.01em; color: var(--tint);
+  .bar .meta a { color: var(--muted); text-decoration: none; }
+  .bar .meta a:hover { color: var(--accent); }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .lede { margin: 0 0 .85rem; color: var(--muted); font-size: .84rem; }
+
+  /* A realm is a tinted band plus a rail. Everything hanging off the rail is
+     that project; anything that is not, is not. */
+  .realm { margin: 0 0 1.15rem; }
+  .realm-head {
+    display: flex; align-items: center; gap: .55rem;
+    padding: .38rem .6rem; border-radius: 9px;
+    background: color-mix(in srgb, var(--tint) 11%, transparent);
+  }
+  .realm-head h2 {
+    margin: 0; font-size: .95rem; font-weight: 650;
+    letter-spacing: -.01em; color: var(--tint); white-space: nowrap;
+  }
+  .realm-head p { margin: 0; color: var(--muted); font-size: .78rem; }
+  .realm-stat {
+    margin-left: auto; padding-left: .8rem; white-space: nowrap;
+    color: var(--muted); font-size: .78rem;
+  }
+  .realm-stat b {
+    font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums; color: var(--tint);
+  }
+  .groups {
+    display: flex; flex-direction: column; gap: .6rem;
+    margin: .4rem 0 0 .85rem; padding-left: 1.1rem;
+    border-left: 2px solid color-mix(in srgb, var(--tint) 30%, transparent);
+  }
+
+  .group-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .12rem; }
+  .group-head h3 {
+    margin: 0; font-size: .84rem; font-weight: 650;
+    letter-spacing: -.01em; color: var(--tint); white-space: nowrap;
   }
   .group-head p { margin: 0; color: var(--muted); font-size: .78rem; }
-  #other, #production { border-top: 2px solid var(--line); }
-  #other { margin-top: .5rem; }
-  @media (max-width: 52rem) {
-    .group { grid-template-columns: 1fr; gap: .6rem; }
-  }
+  .group-head .rule { flex: 1 1 1.5rem; height: 1px; background: var(--line-soft); }
 
   .mark {
-    position: relative; width: 1.65rem; height: 1.65rem; border-radius: 8px;
+    position: relative; width: 1.55rem; height: 1.55rem; border-radius: 7px;
     display: inline-flex; align-items: center; justify-content: center;
     background: var(--chip);
     background: color-mix(in srgb, var(--tint) 15%, transparent);
     color: var(--tint); flex: none;
   }
-  .mark svg { width: 1rem; height: 1rem; }
+  .mark svg { width: .95rem; height: .95rem; }
+  .mark.sm { width: 1.3rem; height: 1.3rem; border-radius: 6px; }
+  .mark.sm svg { width: .82rem; height: .82rem; }
+  .mark.big { width: 1.85rem; height: 1.85rem; border-radius: 8px; }
+  .mark.big svg { width: 1.15rem; height: 1.15rem; }
+  /* In the bar the glyph is the label's own mark, not a chip on it. */
+  .mark.tiny { width: .9rem; height: .9rem; background: none; border-radius: 0; }
+  .mark.tiny svg { width: .9rem; height: .9rem; }
   .pip {
-    position: absolute; right: -3px; bottom: -3px; width: .48rem; height: .48rem;
+    position: absolute; right: -3px; bottom: -3px; width: .46rem; height: .46rem;
     border-radius: 50%; background: var(--off); box-shadow: 0 0 0 2px var(--bg);
   }
   .row.ready .pip { background: var(--ready); }
   .row.unexposed .pip { background: var(--warn); }
 
-  .rows { display: flex; flex-direction: column; gap: .1rem; }
+  .rows { display: flex; flex-direction: column; gap: .05rem; }
   .row {
     position: relative;
-    display: grid; grid-template-columns: 1.65rem 9rem 1fr auto;
-    align-items: start; gap: 0 .75rem;
-    padding: .38rem .6rem; margin: 0 -.6rem; border-radius: 8px;
+    display: grid; grid-template-columns: 1.55rem 9rem 1fr auto;
+    align-items: start; gap: 0 .7rem;
+    padding: .26rem .55rem; margin: 0 -.55rem; border-radius: 8px;
     text-decoration: none; color: inherit;
   }
   .row[href]:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
   .name { font-weight: 600; }  /* text, bold */
   .row[href]:hover .name { color: var(--tint); }
-  .what { color: var(--ink); font-size: .86rem; max-width: 74ch; }
-  .name, .what, .where { padding-top: .2rem; }
+  .what { color: var(--ink); font-size: .85rem; max-width: 92ch; }
+  .name, .what, .where { padding-top: .16rem; }
   .detail { color: var(--muted); }
   .where {
     font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -738,43 +897,71 @@ ${SLATE}
   }
 
   .tiles {
-    display: grid; gap: .35rem .75rem;
+    display: grid; gap: .1rem .6rem;
     grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
   }
   .tile {
-    display: flex; align-items: center; gap: .65rem;
-    padding: .4rem .6rem; margin: 0 -.6rem; border-radius: 8px;
+    display: flex; align-items: center; gap: .55rem;
+    padding: .26rem .55rem; margin: 0 -.55rem; border-radius: 8px;
     text-decoration: none; color: inherit; min-width: 0;
   }
   .tile:hover { background: color-mix(in srgb, var(--tint) 9%, transparent); }
   .tile-body { display: flex; flex-direction: column; min-width: 0; }
   .tile:hover .name { color: var(--tint); }
-  .tile .name { line-height: 1.35; }
+  .tile .name { line-height: 1.3; font-size: .87rem; }
   .host {
-    font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font: 11.5px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  footer { margin-top: 1.4rem; color: var(--muted); font-size: .78rem; }
+  /* Narrow: the rail costs width a phone does not have, and a row's name and
+     blurb stop fitting on one line together. */
+  @media (max-width: 52rem) {
+    .groups { margin-left: 0; padding-left: .7rem; }
+    /* The port keeps its place at the end of the name's line; the blurb drops
+       underneath both. Left to auto-placement it landed on a third row under
+       the icon, reading as a row of its own. */
+    .row { grid-template-columns: 1.55rem 1fr auto; }
+    .row .where { grid-column: 3; grid-row: 1; }
+    .row .what { grid-column: 2 / -1; grid-row: 2; }
+    .group-head { flex-wrap: wrap; }
+    .group-head .rule { display: none; }
+    /* Name and tally on one line, blurb under them: at this width the blurb
+       cannot share a row without collapsing into a column of single words. */
+    .realm-head { flex-wrap: wrap; }
+    .realm-head p { order: 3; flex: 1 0 100%; }
+  }
 </style>
 </head>
 <body>
 <div class="bar">
   <div class="bar-inner">
-    <a class="brand" href="#top">anchor</a>
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.anchor}</svg>
+      anchor
+    </a>
     <nav>
-      ${nav(groups, rows)}
+      ${nav(realms, groups, rows)}
     </nav>
-    <a class="raw" href="/status.json">Raw status</a>
+    <div class="meta">
+      <span>Checked <span id="stamp">${new Date().toLocaleTimeString('en-GB')}</span> · every 5s</span>
+      <a href="/status.json">Raw status</a>
+    </div>
   </div>
 </div>
 <main id="top">
-  <header>
-    <h1>anchor</h1>
-    <p>Everything running on the Linux box, reachable from any device signed in to Tailscale — and the addresses off it that you would otherwise keep in bookmarks.</p>
-  </header>
-  ${groups.map((g) => section(g, byGroup(g.id))).join('\n  ')}
-  <footer>Checked <span id="stamp">${new Date().toLocaleTimeString('en-GB')}</span>, and every 5 seconds after. Nothing on this box is open to the internet.</footer>
+  <h1 class="sr">anchor</h1>
+  <p class="lede">Everything on this box, reachable from any device on the tailnet, plus the addresses off it. Nothing here is open to the internet.</p>
+  ${realms
+    .map((r) =>
+      realm(
+        r,
+        groups.filter((g) => g.realm === r.id).map((g) => section(g, byGroup(g.id))),
+        realmStat(r, groups, rows)
+      )
+    )
+    .join('\n  ')}
 </main>
 <script>
   // Repaint in place rather than reloading: a reload every 5 seconds throws
@@ -788,7 +975,14 @@ ${SLATE}
     if (r.state === 'ready') el.setAttribute('href', r.url);
     else el.removeAttribute('href');
   };
+  const G = ${JSON.stringify(
+    Object.fromEntries(groups.map((g) => [g.id, { realm: g.realm, probed: g.probed }]))
+  )};
   const counts = (rows) => {
+    for (const el of document.querySelectorAll('[data-realm-up]')) {
+      const mine = rows.filter((r) => G[r.group]?.probed && G[r.group].realm === el.dataset.realmUp);
+      el.textContent = mine.filter((r) => r.state === 'ready').length + '/' + mine.length;
+    }
     for (const link of document.querySelectorAll('[data-count]')) {
       const g = link.dataset.count;
       const mine = rows.filter((r) => r.group === g);
@@ -1026,7 +1220,7 @@ http
     const { services, views, links } = await snapshot();
     if (url.startsWith('/status.json')) {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ groups: GROUPS, services, views, links }, null, 2));
+      res.end(JSON.stringify({ realms: REALMS, groups: GROUPS, services, views, links }, null, 2));
       return;
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
