@@ -1464,6 +1464,45 @@ ${SLATE}
      heading, which is a different kind of wrong. */
   #redoc h5 { text-transform: none; color: var(--muted); }
   #redoc h5::first-letter { text-transform: uppercase; }
+  /* The media type -- "application/json" after "Request Body schema:" -- is a
+     span INSIDE that h5 with no theme key of its own, and Redoc computes it at
+     rgb(0,0,0). On the dark ground that is 1.21:1: black on near-black. The
+     rule above fixed the heading and stopped one level short of the span in it.
+     Inherit, so the two stay together whatever the heading colour becomes. */
+  #redoc h5 span { color: inherit; }
+
+  /* The sample tab strips in the right panel, request and response alike.
+
+     🔴 The blank pill. Redoc styles a selected tab with colors.text.primary as
+     its ink and rightPanel.textColor as its BACKGROUND -- and --panel is
+     deliberately dark in BOTH schemes, so in dark mode the tab painted its own
+     ink colour as its background and measured 1.00:1: an empty pill where
+     "Payload" should be. rightPanel.textColor is only usable as a background
+     while the surrounding page is light.
+     Redoc styles a selected tab with rightPanel.textColor as its BACKGROUND,
+     which is only a background while the surrounding page is light -- and this
+     panel is deliberately dark in both schemes, so the 200 chip measured 2.03:1
+     and the 401 chip 2.24:1 on it.
+
+     The ink is set here too, and deliberately drops the response hue. Those
+     colours have to be readable in the MIDDLE column, where the response rows
+     and their prose live, and that ground is light in light mode while this
+     panel is dark in both -- one value cannot clear both, measured each way
+     round (2.61:1 and 2.69:1 here when they were tuned for the column; 2.03:1
+     and 2.40:1 in the column when they were tuned for here). Nothing is lost
+     that a reader needs: the tab's label is the response code itself.
+
+     🔴 react-tabs owns the two class names below, not emotion. Redoc's own
+     styled-component classes (sc-cWSHoV and friends) are generated per build
+     and must never be selected on. ⚠️ The tabs themselves do NOT carry
+     react-tabs__tab -- Redoc replaces it, and a selected one reads
+     class="tab-success react-tabs__tab--selected" (read off the live page
+     2026-09-06). So the ink rule goes through the LIST, which does keep its
+     class, and a rule written on .react-tabs__tab silently matches nothing. */
+  #redoc .react-tabs__tab-list li { color: var(--panel-ink); }
+  #redoc .react-tabs__tab--selected {
+    background: color-mix(in srgb, var(--panel), var(--panel-ink) 12%);
+  }
 
   /* 🔴 The colour above is a fix, not a preference. Redoc hard-codes these
      labels at rgba(38, 50, 56, .5) with no theme key -- measured 2026-09-04 at
@@ -1483,26 +1522,121 @@ ${SLATE}
   const v = (name) =>
     getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
+  // Contrast, and the smallest nudge that buys it.
+  //
+  // 🔴 These exist because ONE palette hue cannot serve as both ink and fill.
+  // Redoc paints colors.success.main as the text of a response description AND
+  // as the 200 chip, and paints http.get as a badge background under white
+  // text that it never lets you recolour. Measured 2026-09-04 on the live page:
+  // the green read 3.34:1 as prose on the light ground and the method badges
+  // 2.40-2.96:1 under their white, so any single value was going to fail one of
+  // its two jobs.
+  //
+  // Derived rather than written down, so the palette above stays the only place
+  // a colour is chosen. A second set of hand-picked hex would be a second thing
+  // to forget when the first changes -- the same reason the theme is read out
+  // of the CSS at init instead of being a JS object.
+  const hex2rgb = (h) => {
+    var x = h.replace('#', '');
+    if (x.length === 3) x = x[0] + x[0] + x[1] + x[1] + x[2] + x[2];
+    return [
+      parseInt(x.slice(0, 2), 16),
+      parseInt(x.slice(2, 4), 16),
+      parseInt(x.slice(4, 6), 16),
+    ];
+  };
+  const rgb2hex = (c) =>
+    '#' +
+    c
+      .map((n) => {
+        var b = Math.max(0, Math.min(255, Math.round(n))).toString(16);
+        return b.length === 1 ? '0' + b : b;
+      })
+      .join('');
+  const lum = (c) => {
+    const f = (n) => {
+      var u = n / 255;
+      return u <= 0.03928 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]);
+  };
+  const ratio = (a, b) => {
+    const x = lum(a);
+    const y = lum(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  // Walk a hue away from the ground, 6% a step, until it clears the bar. Bounded
+  // at 40 steps: a hue that cannot get there ends at black or white, which is
+  // legible and obviously wrong, rather than looping.
+  const readable = (hue, ground, target) => {
+    const g = hex2rgb(ground);
+    const toward = lum(g) > 0.5 ? [0, 0, 0] : [255, 255, 255];
+    var c = hex2rgb(hue);
+    for (var i = 0; i < 40 && ratio(c, g) < target; i++) {
+      c = c.map((n, k) => n + (toward[k] - n) * 0.06);
+    }
+    return rgb2hex(c);
+  };
+  // A method badge is always white text on the hue, whatever the page scheme,
+  // so its ground is white and the hue is what has to move.
+  const onWhite = (hue) => readable(hue, '#ffffff', 4.5);
+
   const theme = () => ({
     colors: {
       primary: { main: v('--accent') },
-      success: { main: v('--ready') },
-      warning: { main: v('--warn') },
-      error: { main: v('--t-red') },
+      // These three are read as PROSE on the page ground -- a response
+      // description, a "required" label -- so they are the text-readable form
+      // of the hue rather than the hue.
+      success: { main: readable(v('--ready'), v('--bg'), 4.5) },
+      warning: { main: readable(v('--warn'), v('--bg'), 4.5) },
+      error: { main: readable(v('--t-red'), v('--bg'), 4.5) },
       gray: { 50: v('--raise'), 100: v('--line-soft') },
       text: { primary: v('--ink'), secondary: v('--muted') },
       border: { dark: v('--line'), light: v('--line-soft') },
-      // One hue per method, from the same six slots the front page groups use.
+      // 🔴 Set, never derived. Left unset, Redoc builds each chip background as
+      // lighten(.93, main) -- a near-white tint that is right on a light ground
+      // and wrong on a dark one, and it was landing on --panel-ink, so the 200
+      // chip measured 2.03:1 and the 401 chip 2.40:1 in dark mode.
+      //
+      // 🔴 The ground for the color key is --chip, the MIDDLE column, because
+      // that is where the prose is: these values colour the response accordion
+      // rows and their descriptions, not only the chips. Redoc paints them in
+      // the right panel's tab strip as well, and that panel is deliberately
+      // dark in both schemes -- one value cannot clear a light --chip and a
+      // dark --panel at once, which was measured both ways round. The strip
+      // gets its legibility from the CSS rule instead, and keeps the response
+      // code itself as the thing that says which response it is.
+      responses: {
+        success: {
+          color: readable(v('--ready'), v('--chip'), 4.5),
+          backgroundColor: v('--chip'),
+        },
+        error: {
+          color: readable(v('--t-red'), v('--chip'), 4.5),
+          backgroundColor: v('--chip'),
+        },
+        redirect: {
+          color: readable(v('--warn'), v('--chip'), 4.5),
+          backgroundColor: v('--chip'),
+        },
+        info: {
+          color: readable(v('--t-cyan'), v('--chip'), 4.5),
+          backgroundColor: v('--chip'),
+        },
+      },
+      // One hue per method, from the same six slots the front page groups use --
+      // darkened until white sits on them, because Redoc paints the badge label
+      // white and offers no key to change it.
       http: {
-        get: v('--t-blue'),
-        post: v('--t-teal'),
-        put: v('--t-purple'),
-        options: v('--t-cyan'),
-        patch: v('--t-orange'),
-        delete: v('--t-red'),
-        basic: v('--muted'),
-        link: v('--t-cyan'),
-        head: v('--t-purple'),
+        get: onWhite(v('--t-blue')),
+        post: onWhite(v('--t-teal')),
+        put: onWhite(v('--t-purple')),
+        options: onWhite(v('--t-cyan')),
+        patch: onWhite(v('--t-orange')),
+        delete: onWhite(v('--t-red')),
+        basic: onWhite(v('--muted')),
+        link: onWhite(v('--t-cyan')),
+        head: onWhite(v('--t-purple')),
       },
     },
     schema: { nestedBackground: v('--raise') },
@@ -1515,7 +1649,9 @@ ${SLATE}
       },
       code: {
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-        color: v('--t-red'),
+        // Inline code sits on --raise, not on the page ground, so it is the
+        // raise the red has to clear.
+        color: readable(v('--t-red'), v('--raise'), 4.5),
         backgroundColor: v('--raise'),
       },
       links: { color: v('--accent') },
@@ -1531,7 +1667,18 @@ ${SLATE}
 
   const draw = () =>
     Redoc.init('/openapi.json',
-      { hideDownloadButton: false, expandResponses: '200,201', theme: theme() },
+      {
+        hideDownloadButton: false,
+        expandResponses: '200,201',
+        // ⚠️ hideSingleRequestSampleTab was tried here and DOES NOTHING on
+        // Redoc 2.5.0 as loaded from the CDN: the request strip is a row of one
+        // reading ["Payload"], and it still rendered with the option set (read
+        // off the live page 2026-09-06). Removed rather than left in place --
+        // an option that silently does nothing is indistinguishable from one
+        // that is working, which is the same trap as a misremembered theme key.
+        // The tab-strip CSS above is what makes it legible.
+        theme: theme(),
+      },
       document.getElementById('redoc'));
 
   draw();
