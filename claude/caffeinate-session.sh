@@ -13,10 +13,14 @@
 # session owns it and nothing has to clean up on SessionEnd — which matters
 # because a killed session runs no SessionEnd hook at all.
 #
-# What this deliberately does NOT do:
-#   -d  keep the DISPLAY lit. Off by default: on battery that is the
-#       expensive half, and a dark screen over a machine that is still awake
-#       was never the complaint. Set CLAUDE_CAFFEINATE_FLAGS='-di' to add it.
+# -d is included, so the DISPLAY stays lit too. Battery `displaysleep` here is
+# 2 minutes, and a screen that has gone black over a machine which is in fact
+# still awake reads as "it slept" just the same. It is the expensive half on
+# battery, though, so the escape hatch is one variable:
+#
+#   CLAUDE_CAFFEINATE_FLAGS='-i'   system only, let the screen go dark
+#
+# What this still does NOT do:
 #   -s  prevent sleep outright. `man caffeinate`: valid on AC power ONLY, so
 #       on battery it silently asserts nothing.
 #   Nothing here survives CLOSING THE LID. Clamshell sleep is not an idle
@@ -27,7 +31,7 @@
 
 set -u
 
-flags="${CLAUDE_CAFFEINATE_FLAGS:--i}"
+flags="${CLAUDE_CAFFEINATE_FLAGS:--di}"
 
 command -v caffeinate >/dev/null 2>&1 || exit 0
 
