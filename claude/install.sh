@@ -34,6 +34,7 @@ links=(
   set-title.py
   statusline.py
   cmux-relabel-on-clear.sh
+  caffeinate-session.sh
   cmux-session-start.py
   cmux-session-end.py
   cmux-throbber.py

@@ -116,6 +116,11 @@
             "type": "command",
             "command": "/Users/demian/code/dotfiles/claude/install.sh --quiet",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "/Users/demian/.claude/caffeinate-session.sh",
+            "timeout": 10
           }
         ]
       }
