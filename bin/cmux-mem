@@ -530,6 +530,50 @@ def paint(args, m, ws):
             pass
 
 
+def source_stamp():
+    """mtime of this script, or None if it cannot be read.
+
+    Used to notice that the file on disk is no longer the file this process is
+    running. A daemon that never checks will happily serve month-old code: the
+    launcher in .zshrc only asks whether the pidfile's pid is ALIVE, which a
+    stale daemon very much is. On 2026-09-07 one had been up since the previous
+    evening, through a commit it knew nothing about.
+    """
+    try:
+        return os.stat(os.path.abspath(__file__)).st_mtime
+    except OSError:
+        return None
+
+
+def restart_if_source_changed(stamp):
+    """Re-exec into the new code when this file changes underneath us.
+
+    execv rather than exit-and-let-something-else-start-it, for two reasons.
+    The pid survives, so the pidfile stays true and no window opens where the
+    launcher could start a second daemon. And cmux's socket access is granted
+    at SPAWN and inherited — an exec is not a spawn, so the new image keeps the
+    access that only a process started inside cmux can get. Exiting instead
+    would surrender it until somebody happened to open a terminal.
+
+    The compile check is not optional: a file caught half-written would
+    otherwise exec into a process that dies immediately and takes the daemon
+    with it, on a tick, forever.
+    """
+    now = source_stamp()
+    if stamp is None or now is None or now == stamp:
+        return
+    path = os.path.abspath(__file__)
+    try:
+        with open(path) as f:
+            compile(f.read(), path, 'exec')
+    except Exception:
+        return                   # mid-save or broken; try again next tick
+    try:
+        os.execv(sys.executable, [sys.executable, path] + sys.argv[1:])
+    except Exception:
+        pass                     # exec failed, so carry on with the old image
+
+
 def daemon(args):
     if already_running():
         return 0
@@ -540,6 +584,7 @@ def daemon(args):
     except Exception:
         pass
     tidy_every = max(1, int(args.tidy_interval * 60 / args.interval))
+    stamp = source_stamp()
     tick = 0
     try:
         while True:
@@ -550,6 +595,7 @@ def daemon(args):
                 break
             tick += 1
             time.sleep(args.interval)
+            restart_if_source_changed(stamp)
     except KeyboardInterrupt:
         pass
     finally:
