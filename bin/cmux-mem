@@ -7,6 +7,13 @@ counts Claude sessions, on purpose. This one asks "what is heavy, right now" and
 everything, because on a machine running seven agent sessions the Claude processes ARE
 the weight and restarting one is a real option.
 
+It also sweeps ONE specific kind of debris: spin-loop shells left behind by a synthetic
+load probe, orphaned to launchd and burning a core each, forever. That is not a memory
+question, but it is the same job — "what is quietly eating this laptop" — and this is the
+only daemon on the machine that can see every process and is already running. The comment
+above sweep_burners has the two independent reasons the probes' own cleanup fails, and why
+the predicate is the command line rather than CPU.
+
 Two things get surfaced:
 
   A pill per workspace, `<size> <what>` — the ranked list of what to close, sitting on
@@ -26,6 +33,7 @@ is exactly the "you have some warning" property that free RAM lacks.
   cmux-mem                  write the pills once, notify if the machine is tight
   cmux-mem --report         also print the ranked table and the gauge
   cmux-mem --daemon         keep doing it, forever, one instance per machine
+  cmux-mem --sweep-dry-run  list runaway spin loops it would kill, kill nothing
   cmux-mem --off            remove every pill this tool set, and stop
 
 IT CANNOT RUN FROM launchd. cmux's socket is `cmuxOnly` by default and answers
@@ -264,6 +272,11 @@ def run_once(args, tidy_due):
     ws = workspaces()
     if not ws:
         return False             # cmux is gone; the daemon should stop rather than spin
+    if args.sweep:
+        # Before anything is measured: a runaway burner distorts every reading
+        # taken while it is alive, and it is the one thing here worth fixing
+        # without being asked.
+        sweep_burners(args)
     m = machine()
     if args.pretend:
         m['state'] = args.pretend
@@ -290,6 +303,168 @@ def drive_tidy():
     except Exception:
         pass
 
+
+# ---------------------------------------------------------------------------
+# Spin-loop debris.
+#
+# A synthetic-load probe — "spawn N burners, run the suite, kill them" — is a
+# normal thing to do here when asking whether a test is load-independent. What
+# is not normal is the burners outliving it, and on 2026-09-07 fourteen of them
+# had been spinning for four days and five hours, holding 7.8 of this laptop's
+# ten cores. The visible symptom was not a slow suite: it was macOS quietly
+# refusing to switch Spaces, because WindowServer had been starved and a
+# switch that misses its frames is dropped rather than delayed.
+#
+# The cleanup line fails for TWO independent reasons and the first hides the
+# second:
+#
+#   1. The parent shell dies before reaching it — a tool timeout, a session
+#      ending — and the children reparent to launchd.
+#   2. `kill $pids` DOES NOT WORK IN ZSH. zsh does not word-split an unquoted
+#      variable, so a collected "111 222 333" is passed as ONE argument and
+#      zsh answers `illegal pid:  111 222 333` and kills nothing. bash splits
+#      and works. Claude Code's Bash tool runs `/bin/zsh -c`, so every such
+#      cleanup written in bash idiom is silently inert there. Use
+#      `kill ${=pids}`, or a loop, or a `trap`.
+#
+# Both are rules in a file, and the rule for (1) was already written down on
+# 2026-08-25 and was FOLLOWED by the probe that leaked. That is why this is a
+# sweeper and not a third rule.
+#
+# 🔴 The predicate is the command line, never CPU alone. WindowServer runs
+# with PPID 1 and samples at 18-39% on a busy day, cmux and the agent
+# processes are orphans too, and so are esbuild, tsup watchers and wrangler
+# dev. Any rule of the form "orphaned and burning CPU" eventually kills the
+# compositor. What is matched here is a shell whose entire body is a spin
+# loop, which nothing legitimate ever is.
+# ---------------------------------------------------------------------------
+
+SWEEP_LOG = os.path.expanduser('~/Library/Logs/cmux-mem-sweep.log')
+
+# `while :; do :; done` and its spacing variants, anywhere in the command line.
+BURNER = re.compile(r'while\s+(?::|true)\s*;\s*do\s*:\s*;\s*done')
+# ...but only inside a shell invoked with -c, so a text file that merely quotes
+# the idiom — this comment included, once it is grepped by something — cannot
+# match a real process.
+SHELL_C = re.compile(r'^(?:\S*/)?(?:ba|z|k|da)?sh\s+-c\s')
+
+
+def cpu_seconds(t):
+    """Seconds from ps's TIME column.
+
+    The format is [[dd-]hh:]mm:ss.ff and the minutes field is NOT capped at 60
+    — a four-day burner reads `3382:03.68`, which is 3382 minutes, not 56
+    hours in some other notation. Folding left-to-right in base 60 handles
+    every width without having to know which one arrived.
+    """
+    try:
+        nums = [float(p) for p in t.strip().replace('-', ':').split(':')]
+    except ValueError:
+        return 0.0
+    total = 0.0
+    for n in nums:
+        total = total * 60 + n
+    return total
+
+
+def find_burners(min_cpu):
+    """Orphaned spin-loop shells with at least min_cpu seconds on the clock.
+
+    An orphan is the whole tell. While a probe is legitimately running, its
+    burners have a live parent and are skipped; the moment the parent is gone
+    they are debris by definition, because nothing reads their output and
+    nothing will ever kill them. The CPU floor is a second belt, so a loop
+    orphaned one second ago by a session that is still tearing down is left
+    for the next pass rather than raced.
+    """
+    try:
+        out = subprocess.run(['ps', '-Ao', 'pid=,ppid=,time=,command='],
+                             capture_output=True, text=True, timeout=20).stdout
+    except Exception:
+        return []
+    me = os.getpid()
+    try:
+        mine = os.getpgid(0)
+    except OSError:
+        mine = -1
+    found = []
+    for line in out.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 4:
+            continue
+        pid_s, ppid_s, tm, cmd = parts
+        try:
+            pid, ppid = int(pid_s), int(ppid_s)
+        except ValueError:
+            continue
+        if pid in (1, me) or ppid != 1:
+            continue
+        if not SHELL_C.search(cmd) or not BURNER.search(cmd):
+            continue
+        cpu = cpu_seconds(tm)
+        if cpu < min_cpu:
+            continue
+        try:
+            if os.getpgid(pid) == mine:      # never take our own group
+                continue
+        except OSError:
+            continue
+        found.append({'pid': pid, 'cpu': cpu, 'cmd': cmd})
+    return found
+
+
+def sweep_burners(args):
+    """Kill what find_burners found, and always write down that it happened.
+
+    A tool that kills silently is one you cannot audit later, so the log line
+    is not optional and is written before the notification rather than after.
+    """
+    victims = find_burners(args.sweep_after * 60)
+    if not victims:
+        return []
+    if args.sweep_dry_run:
+        return victims
+
+    for v in victims:
+        try:
+            os.kill(v['pid'], 15)
+        except OSError:
+            pass
+    time.sleep(2)
+    for v in victims:
+        try:
+            os.kill(v['pid'], 0)
+            os.kill(v['pid'], 9)             # a spin loop ignoring TERM is still debris
+            v['forced'] = True
+        except OSError:
+            v['forced'] = False
+
+    killed = []
+    for v in victims:
+        try:
+            os.kill(v['pid'], 0)
+        except OSError:
+            killed.append(v)                 # gone, which is what we wanted
+
+    now = datetime.datetime.now()
+    try:
+        with open(SWEEP_LOG, 'a') as f:
+            for v in victims:
+                f.write('%s\tpid %d\t%.0f CPU-minutes\t%s\t%s\n'
+                        % (now.isoformat(timespec='seconds'), v['pid'], v['cpu'] / 60,
+                           'killed' if v in killed else 'SURVIVED',
+                           v['cmd'][:200]))
+    except Exception:
+        pass
+
+    if killed and not args.no_notify:
+        hours = sum(v['cpu'] for v in killed) / 3600
+        cmux(['notify',
+              '--title', 'Swept %d runaway spin loop(s)' % len(killed),
+              '--subtitle', 'They had burned %.0f CPU-hours between them' % hours,
+              '--body', 'Orphaned load-probe burners. See '
+                        '~/Library/Logs/cmux-mem-sweep.log'])
+    return killed
 
 def paint(args, m, ws):
     """Set every pill, and notify if headroom just ran out."""
@@ -403,6 +578,13 @@ def main():
                     help='GB at which a workspace pill turns amber (default 1.2)')
     ap.add_argument('--renotify', type=int, default=45,
                     help='minutes before the same warning repeats (default 45)')
+    ap.add_argument('--sweep', action='store_true', default=True,
+                    help='kill orphaned spin-loop shells left by a load probe (default on)')
+    ap.add_argument('--no-sweep', dest='sweep', action='store_false')
+    ap.add_argument('--sweep-after', type=int, default=5,
+                    help='CPU-minutes a burner must have burned before it is taken (default 5)')
+    ap.add_argument('--sweep-dry-run', action='store_true',
+                    help='list what the sweep would take, kill nothing')
     ap.add_argument('--report', action='store_true', help='print the gauge and the ranking')
     ap.add_argument('--off', action='store_true', help='remove every pill this tool set')
     ap.add_argument('--no-notify', action='store_true', help='pills only, never notify')
@@ -411,6 +593,27 @@ def main():
     ap.add_argument('--log', metavar='PATH',
                     help='append one dated line per run that warns (silent when calm)')
     args = ap.parse_args()
+
+    if args.sweep_dry_run:
+        victims = find_burners(args.sweep_after * 60)
+        if not victims:
+            print('No orphaned spin loops. (Matching: a shell run with -c whose body is')
+            print('a `while :; do :; done`, reparented to launchd, with at least %d'
+                  % args.sweep_after)
+            print('CPU-minutes on the clock.)')
+            return 0
+        print('Would kill %d orphaned spin loop(s):' % len(victims))
+        for v in victims:
+            print('  pid %-7d %8.0f CPU-minutes  %s' % (v['pid'], v['cpu'] / 60, v['cmd'][:96]))
+        return 0
+
+    if args.sweep and not args.daemon and not args.off:
+        # The daemon sweeps from run_once on every tick; a one-off invocation
+        # has to do it here, because the bare path never enters run_once. It
+        # goes before the cmux check on purpose — collecting runaway processes
+        # does not need the socket, and refusing to do it outside cmux would
+        # make the one command a person types by hand the one that cannot.
+        sweep_burners(args)
 
     if args.daemon:
         return daemon(args)
