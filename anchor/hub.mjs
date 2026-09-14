@@ -272,6 +272,10 @@ const SERVICES = [
     blurb: 'The one Cloudflare Worker, run by wrangler against a local database.',
     detail: 'Sign-in mail is logged, not sent: journalctl --user -u anchor-api.',
     port: 8787,
+    // The Worker's root has no route and answers 404 by design, so the card
+    // opens the raw spec -- the one thing the Cloud API reference view beside
+    // it does not give you. Chosen by the owner on #749, 2026-09-07.
+    path: '/openapi.json',
     unit: 'anchor-api',
   },
   {
@@ -524,8 +528,8 @@ async function snapshot() {
         up,
         exposed,
         state: !up ? 'stopped' : exposed ? 'ready' : 'unexposed',
-        url: `https://${HOST}:${PUBLIC(s.port)}/`,
-        short: `:${PUBLIC(s.port)}`,
+        url: `https://${HOST}:${PUBLIC(s.port)}${s.path ?? '/'}`,
+        short: `:${PUBLIC(s.port)}${s.path ?? ''}`,
         start: `systemctl --user start ${s.unit}`,
         expose: `tailscale serve --bg --https=${PUBLIC(s.port)} http://localhost:${PROXY(s.port)}`,
       };
