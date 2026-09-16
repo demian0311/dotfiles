@@ -15,9 +15,9 @@ inside them. Two levels, and no third.
 |---|---|---|---|
 | OpenClaw | — | anything that is **not** Diagrammo — currently the OpenClaw gateway | yes |
 | Diagrammo | Apps | the web editor, the marketing site | yes |
-| Diagrammo | Cloud | the Worker, the online console | yes |
+| Diagrammo | Cloud | the Worker | yes |
 | Diagrammo | Reference | ecosystem docs, MCP studio, the API reference | yes |
-| Elsewhere | Production | online / api / docs / diagrammo.app | no |
+| Elsewhere | Production | online / api / console / docs / diagrammo.app | no |
 | Elsewhere | Consoles | Tailscale, Cloudflare, PostHog, Issues, npm, Stripe, Resend, Google Cloud, Apple Developer, App Store Connect | no |
 
 **OpenClaw is its own band** so it is not read as an eighth Diagrammo service.
@@ -35,7 +35,7 @@ its position on the page; nothing else decides it.
 rather than under Diagrammo is deliberate — changed 2026-09-05.** They *are*
 Diagrammo's. But the first question this page answers is "can I reach it, and
 is it up", and for those fourteen addresses the honest answer is that nothing
-here can say. Filing them by owner put four unprobeable addresses in the middle
+here can say. Filing them by owner put the unprobeable addresses in the middle
 of a column of pips that all mean something. OpenClaw has no production and no
 vendor consoles, so the move costs that band nothing.
 
@@ -65,8 +65,7 @@ name lane and the port lane without re-finding either.
 
 **An external entry is a tile** with its host under it, no chip behind its
 glyph, opening in a new tab because reaching it is a departure rather than a
-navigation. Fourteen filled chips down there out-weighed the eight servers they
-sit under.
+navigation. The filled chips down there out-weighed the servers they sit under.
 
 🔴 **The lane breakpoint is 40rem, and raising it back is a regression.** It was
 56rem for a few hours, which threw the four lanes away at 790px and handed the
@@ -370,7 +369,6 @@ answering 502.
 | Web editor | 5173 | unit (`anchor-editor`); serves a BUILD — see below |
 | Marketing site | 4330 | unit; survives a reboot |
 | Cloud API | 8787 | unit; local D1 and R2 report healthy on `/health` |
-| Online console | 5190 | unit; needs a `.dev.vars` — see below |
 | Ecosystem docs | 4321 | unit; survives a reboot |
 | MCP studio | 4347 | unit (`anchor-studio`); gallery renders 156 of 156 |
 | OpenClaw | 18789 | its own unit (`openclaw-gateway`), not installed by `install.sh` |
@@ -437,7 +435,33 @@ rebuilds the shared dgmo checkout and rewrites a tracked `registry.json`, so a
 unit with `Restart=` would do both on every crash. It serves what `pnpm studio`
 produced; run that by hand once after a dgmo change, then restart the unit.
 
-## The console's `.dev.vars`
+## The online console — retired from this box, 2026-09-16
+
+🗑 **`anchor-console.service` is stopped and disabled, the `:15190` mapping is
+gone, and the front page links `console.diagrammo.app` instead.** The unit file
+is kept, not installed, so this is one commit to reverse.
+
+**Nobody could ever sign in to it here, and it never said so.** Cloudflare's bot
+check (Turnstile) issues a token only for a hostname registered on the
+`diagrammo-signin` widget — `diagrammo.app`, `app-67r.pages.dev`, `localhost`,
+`127.0.0.1`. `anchor.tailb10eb2.ts.net` is none of those and is not a subdomain
+of one, so the widget answers **error 110200** and `Email a sign-in link`
+(`online-console/src/web/App.tsx:178`) stays disabled forever. The message it
+draws is about connectivity, on a box reachable only over a private tailnet, so
+every instinct points at the network. Demian declined to add the hostname on
+2026-09-09 (diagrammo/diagrammo#753) — every device that can reach anchor is on
+the tailnet already — and the row stayed on the page for another week, where it
+was rediscovered as an outage. That is what this change fixes: a page offering
+something nobody can use.
+
+**Two more walls behind that one**, so a future reversal is not one field:
+`validateSelfOrigin` (`online-console/src/server/security.ts`) throws on any
+non-loopback `SELF_ORIGIN` outside production, and the CSRF check answers
+**403 `wrong-origin`, `expectedOrigin: http://localhost:5190`** to a POST from
+this host (measured 2026-09-16). The tailnet console also read **production**
+`api.diagrammo.app`, not the Cloud API on this box.
+
+### Its `.dev.vars`, if it ever comes back
 
 It answers **503 `operation: configuration`** without one. The file is
 gitignored (`online-console/.gitignore:7`) and holds three keys:

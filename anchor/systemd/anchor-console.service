@@ -1,3 +1,23 @@
+# 🔴 NOT INSTALLED, and install.sh does not enable it -- kept so the decision
+# can be reversed in one commit. Stopped and disabled on anchor 2026-09-16.
+#
+# Nobody could ever sign in to the console this served at
+# https://anchor.tailb10eb2.ts.net:15190/. Cloudflare's bot check (Turnstile)
+# issues a token only for a hostname on the `diagrammo-signin` widget's allow
+# list -- `diagrammo.app`, `app-67r.pages.dev`, `localhost`, `127.0.0.1` -- so
+# on this host it answers error 110200 and `Email a sign-in link` stays
+# disabled forever. Demian declined to add the tailnet hostname on 2026-09-09
+# (diagrammo/diagrammo#753): every device that can reach this box is already on
+# the tailnet, so the hosted console is the one to use. The front page links
+# console.diagrammo.app instead.
+#
+# To bring it back: add `anchor.tailb10eb2.ts.net` in Turnstile ->
+# diagrammo-signin -> Hostname Management FIRST, then put the unit back in
+# install.sh with 5190 in its `tailscale serve` loop, and add a SERVICES row in
+# hub.mjs. Its sign-in also needs SELF_ORIGIN work -- validateSelfOrigin
+# (online-console/src/server/security.ts) refuses any non-loopback origin
+# outside production, and the CSRF check answers 403 wrong-origin to a POST
+# from this host.
 [Unit]
 Description=Diagrammo online console (wrangler, :5190)
 After=network-online.target

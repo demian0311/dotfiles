@@ -115,8 +115,8 @@ const ICONS = {
 //
 // 🔴 `elsewhere` is not a project, and putting it here is deliberate. The first
 // question this page answers is "can I reach it, and is it up", and the honest
-// answer for the fourteen addresses off this box is that nothing here can say.
-// Filing them by owner instead put four unprobeable addresses in the middle of
+// answer for the addresses off this box is that nothing here can say.
+// Filing them by owner instead put the unprobeable addresses in the middle of
 // a column of pips that all mean something. OpenClaw has no production and no
 // vendor consoles, so the move costs that realm nothing.
 //
@@ -191,7 +191,7 @@ const GROUPS = [
     realm: 'diagrammo',
     name: 'Cloud',
     glyph: 'cloudUp',
-    blurb: 'The Worker the app talks to, and the console that watches it. Its database here is throwaway.',
+    blurb: 'The Worker the app talks to. Its database here is throwaway.',
     tint: 'purple',
     probed: true,
   },
@@ -277,16 +277,6 @@ const SERVICES = [
     // it does not give you. Chosen by the owner on #749, 2026-09-07.
     path: '/openapi.json',
     unit: 'anchor-api',
-  },
-  {
-    id: 'console',
-    group: 'cloud',
-    icon: 'pulse',
-    name: 'Online console',
-    blurb: 'Cloud health and the issue board.',
-    detail: 'Every data route needs a session.',
-    port: 5190,
-    unit: 'anchor-console',
   },
   {
     id: 'docs',
@@ -378,6 +368,22 @@ const LINKS = [
     // is the endpoint that says something true about the Worker.
     host: 'api.diagrammo.app/health',
     url: 'https://api.diagrammo.app/health',
+  },
+  {
+    id: 'prod-console',
+    group: 'production',
+    icon: 'pulse',
+    name: 'Online console',
+    // 🔴 This is the ONLY console anyone can sign in to, and that is why it is
+    // here rather than on this box. A local one ran on :5190 until 2026-09-16
+    // and no one could ever get past its sign-in: Cloudflare's bot check
+    // (Turnstile) issues a token only for a hostname on the widget's allow
+    // list, and `anchor.tailb10eb2.ts.net` is not on it and is not going to
+    // be -- Demian's call, 2026-09-09, on diagrammo/diagrammo#753. A row that
+    // renders a page nobody can use is worse than no row, so the row moved
+    // down here and the unit stopped.
+    host: 'console.diagrammo.app',
+    url: 'https://console.diagrammo.app',
   },
   {
     id: 'prod-docs',
@@ -699,8 +705,8 @@ function section(group, rows) {
 // rewrite that moves data rather than pixels. Production and the vendor
 // consoles used to hang under Diagrammo, because they are Diagrammo's. They now
 // hang under `elsewhere`, because the question this page answers first is "can I
-// reach it, and is it up" -- and the honest answer for those fourteen addresses
-// is that nothing here can say. Grouping by owner put four addresses this page
+// reach it, and is it up" -- and the honest answer for the addresses off this box
+// is that nothing here can say. Grouping by owner put the addresses this page
 // cannot probe in the middle of a column of pips that all mean something.
 // OpenClaw has no production and no consoles, so nothing is lost by the move.
 function band(r, sections, stat) {

@@ -37,14 +37,23 @@ fi
 # anchor-studio serves artifacts that `pnpm studio` produces. On a fresh box
 # run that once first, or the unit starts and serves an empty gallery:
 #   cd ~/code/diagrammo/dgmo-mcp && pnpm studio   # ctrl-c once it says ready
+# 🔴 anchor-console.service is deliberately NOT in this list, and its unit file
+# is kept only so the decision can be reversed in one commit. The console it
+# served on :5190 could never be signed into: Cloudflare's bot check
+# (Turnstile) issues a token only for a hostname on the `diagrammo-signin`
+# widget's allow list, `anchor.tailb10eb2.ts.net` is not on it, and Demian
+# declined to add it on 2026-09-09 (diagrammo/diagrammo#753) because every
+# device that can reach this box is already on the tailnet. The front page
+# links console.diagrammo.app instead. Re-adding it means adding that hostname
+# in the Cloudflare dashboard FIRST -- the sign-in is dead without it.
 systemctl --user enable --now anchor-hub.service anchor-docs.service \
-  anchor-site.service anchor-api.service anchor-console.service \
+  anchor-site.service anchor-api.service \
   anchor-studio.service anchor-editor.service
 loginctl enable-linger "$USER"
 
 echo
 echo "Units:"
-systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-console \
+systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api \
   anchor-studio anchor-editor
 
 # The proxy mappings persist by themselves once set: every line below uses
@@ -60,7 +69,7 @@ systemctl --user is-active anchor-hub anchor-docs anchor-site anchor-api anchor-
 # 18789 is OpenClaw, which is NOT a Diagrammo service and has no unit here --
 # it brings its own. The mapping still belongs in this loop, because the
 # listener on the other end of it is one of the hub's proxies.
-for pair in 4321 4330 5173 5190 8787 4347 18789; do
+for pair in 4321 4330 5173 8787 4347 18789; do
   tailscale serve --bg --https=$((pair + 10000)) "http://localhost:$((pair + 20000))"
 done
 
