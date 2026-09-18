@@ -28,19 +28,25 @@
 # re-linking, so the newer version wins; the displaced copy is kept as a
 # .bak-<timestamp> next to it.
 #
-# Usage: install.sh [--quiet] [--plugins]
+# Usage: install.sh [--quiet] [--plugins] [--pull]
 #   --quiet    report repairs only, for hook use
 #   --plugins  run the plugin install in the FOREGROUND and wait for it;
 #              what a fresh machine's bootstrap wants
+#   --pull     spawn pull-dotfiles.sh DETACHED to bring this repo current
+#              and re-run this script if the pull moved anything. Wired into
+#              settings.linux.json's SessionStart, because nothing else
+#              fetches on a machine nobody is sitting at (#859)
 
 set -euo pipefail
 
 quiet=false
 force_plugins=false
+do_pull=false
 for arg in "$@"; do
   case "$arg" in
     --quiet)   quiet=true ;;
     --plugins) force_plugins=true ;;
+    --pull)    do_pull=true ;;
   esac
 done
 
@@ -207,4 +213,17 @@ if [ -x "$plugin_script" ]; then
       say_ok 'ok     plugins\n'
     fi
   fi
+fi
+
+# Bring the repo current, detached. Last, so this run finishes with the tree it
+# started on; if the pull moves anything, pull-dotfiles.sh re-runs this script
+# against the new content a moment later.
+#
+# 🔴 Never pull in THIS process. Bash reads a script incrementally, so a pull
+# that rewrites install.sh mid-run can resume at the wrong byte offset. And the
+# SessionStart hook has a 10-second timeout, so a network call here would mean a
+# slow connection costs the repair rather than just the update.
+if $do_pull && [ -x "$repo_dir/pull-dotfiles.sh" ]; then
+  nohup "$repo_dir/pull-dotfiles.sh" >/dev/null 2>&1 &
+  say_ok 'pull   spawned (log: %s)\n' "$HOME/.claude/dotfiles-pull.log"
 fi
