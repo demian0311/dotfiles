@@ -18,13 +18,41 @@
 # machine, with nobody watching. A plugin needing one is reported and left for a
 # person; the github-sourced ones we use need no command at all.
 #
+# It also RECONCILES VERSIONS, because installing is not staying in sync. Each
+# machine gets whatever the marketplace was serving the day it installed, and
+# nothing reconciles them afterwards: on 2026-09-18, hours after both boxes were
+# set up, frontend-design was ea0a38e1d671 here and c447c3207a42 there, and
+# token-optimizer 5.11.23 against 5.13.16 (#860).
+#
+# 🔴 Converging on LATEST is the only convergence on offer — there is no way to
+# ask for a specific version. `claude plugin install` takes no --version flag,
+# and `claude plugin list --json --available` carries no version field and omits
+# anything already installed, so a version cannot even be COMPARED before
+# acting. The only question the CLI answers is "update it and see": `claude
+# plugin update <id> --json` reports `updateOutcome` as `updated` or
+# `up_to_date`, with oldVersion and newVersion. So the two machines are in sync
+# within one sync interval of each other rather than pinned to a reviewed
+# version.
+#
 # Usage:
-#   plugins-sync.sh            install anything missing
-#   plugins-sync.sh --check    report what is missing, exit 1 if any; install nothing
+#   plugins-sync.sh              install anything missing, then update to latest
+#   plugins-sync.sh --check      report what is MISSING, exit 1 if any; touches
+#                                nothing and reaches no network — it is what
+#                                install.sh calls on the hook path. 🔴 It cannot
+#                                see version drift: that needs a marketplace
+#                                refresh, which is a network call. The staleness
+#                                clock in install.sh is what catches it
+#   plugins-sync.sh --no-update  install what is missing and stop there
 set -uo pipefail
 
 check_only=false
-[ "${1:-}" = "--check" ] && check_only=true
+do_update=true
+for arg in "$@"; do
+  case "$arg" in
+    --check)     check_only=true ;;
+    --no-update) do_update=false ;;
+  esac
+done
 
 settings="$HOME/.claude/settings.json"
 plugins_dir="$HOME/.claude/plugins"
@@ -81,14 +109,13 @@ for name in wanted_plugins:
 PY
 )"
 
-if [ -z "$plan" ]; then
-  echo "plugins: all enabled plugins installed"
-  exit 0
-fi
-
-missing_count="$(printf '%s\n' "$plan" | grep -c .)"
+status=0
 
 if $check_only; then
+  if [ -z "$plan" ]; then
+    echo "plugins: all enabled plugins installed"
+    exit 0
+  fi
   printf '%s\n' "$plan" | while IFS=$'\t' read -r kind name _; do
     echo "plugins: missing $kind $name"
   done
@@ -99,27 +126,79 @@ if $check_only; then
   exit 1
 fi
 
-echo "plugins: $missing_count item(s) to install"
-status=0
+if [ -z "$plan" ]; then
+  echo "plugins: all enabled plugins installed"
+else
+  echo "plugins: $(printf '%s\n' "$plan" | grep -c .) item(s) to install"
+  while IFS=$'\t' read -r kind name source; do
+    case "$kind" in
+      market)
+        echo "plugins: adding marketplace $name ($source)"
+        "$claude_bin" plugin marketplace add "$source" || status=1
+        ;;
+      market-unknown)
+        echo "plugins: marketplace $name has no source in extraKnownMarketplaces; relying on the built-in catalog"
+        ;;
+      plugin)
+        echo "plugins: installing $name"
+        # No -y, deliberately — see the header.
+        "$claude_bin" plugin install "$name" </dev/null || {
+          echo "plugins: $name did not install unattended; run 'claude plugin install $name' and read what it asks"
+          status=1
+        }
+        ;;
+    esac
+  done <<< "$plan"
+fi
 
-while IFS=$'\t' read -r kind name source; do
-  case "$kind" in
-    market)
-      echo "plugins: adding marketplace $name ($source)"
-      "$claude_bin" plugin marketplace add "$source" || status=1
-      ;;
-    market-unknown)
-      echo "plugins: marketplace $name has no source in extraKnownMarketplaces; relying on the built-in catalog"
-      ;;
-    plugin)
-      echo "plugins: installing $name"
-      # No -y, deliberately — see the header.
-      "$claude_bin" plugin install "$name" </dev/null || {
-        echo "plugins: $name did not install unattended; run 'claude plugin install $name' and read what it asks"
-        status=1
-      }
-      ;;
-  esac
-done <<< "$plan"
+$do_update || exit $status
+
+# Versions. Refresh the catalogs first — `plugin update` resolves "latest" from
+# the local marketplace clone, so without this it would keep reporting
+# up_to_date against whatever was cloned on install day.
+echo "plugins: refreshing marketplaces"
+"$claude_bin" plugin marketplace update </dev/null || {
+  echo "plugins: marketplace refresh failed; skipping the version pass"
+  exit 1
+}
+
+wanted="$(python3 - "$settings" <<'PY2'
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        s = json.load(f)
+except (OSError, ValueError):
+    s = {}
+for name, on in s.get("enabledPlugins", {}).items():
+    # `@synced` plugins come from the claude.ai account and are not ours to move.
+    if on and not name.endswith("@synced"):
+        print(name)
+PY2
+)"
+
+while read -r id; do
+  [ -n "$id" ] || continue
+  out="$("$claude_bin" plugin update "$id" --json </dev/null 2>&1)" || {
+    echo "plugins: update $id failed: $(printf '%s' "$out" | tail -1)"
+    status=1
+    continue
+  }
+  printf '%s' "$out" | python3 -c '
+import json, sys
+raw = sys.stdin.read().strip().splitlines()
+line = raw[-1] if raw else ""
+try:
+    r = json.loads(line)
+except ValueError:
+    print("plugins: update returned no JSON: %s" % line[:120]); sys.exit(0)
+outcome = r.get("updateOutcome")
+if outcome == "updated":
+    print("plugins: %s %s -> %s" % (r.get("pluginId"), r.get("oldVersion"), r.get("newVersion")))
+elif outcome == "up_to_date":
+    print("plugins: %s at %s" % (r.get("pluginId"), r.get("newVersion")))
+else:
+    print("plugins: %s %s — %s" % (r.get("pluginId"), outcome, r.get("message", "")[:120]))
+'
+done <<< "$wanted"
 
 exit $status

@@ -16,10 +16,13 @@
 #                  and does the adopting.
 #   plugins        settings.json's `enabledPlugins` is a declaration; making it
 #                  true is `claude plugin install`, whose state is per-machine
-#                  and in no repo. plugins-sync.sh installs the difference. It
-#                  reaches the network, so this runs it DETACHED and at most
-#                  once every PLUGIN_SYNC_INTERVAL seconds — the SessionStart
-#                  hook that calls this script has a 10-second timeout.
+#                  and in no repo. plugins-sync.sh installs the difference AND
+#                  updates each plugin to the marketplace's latest, since two
+#                  machines that merely both have a plugin are not in sync — they
+#                  had already drifted hours after setup (#860). It reaches the
+#                  network, so this runs it DETACHED and at most once every
+#                  PLUGIN_SYNC_INTERVAL seconds — the SessionStart hook that
+#                  calls this script has a 10-second timeout.
 #   everything else  symlinked into ~/.claude.
 #
 # Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
@@ -205,10 +208,17 @@ if [ -x "$plugin_script" ]; then
     last=0
     [ -f "$plugin_stamp" ] && last="$(command cat "$plugin_stamp" 2>/dev/null || echo 0)"
     now="$(date +%s)"
-    if [ "$(( now - last ))" -ge "$PLUGIN_SYNC_INTERVAL" ] && ! "$plugin_script" --check >/dev/null 2>&1; then
+    # 🔴 `||`, not `&&`. --check is local and cheap and can only see a MISSING
+    # plugin; version drift needs a marketplace refresh, which is a network
+    # call and cannot go on the hook path. Gating the background run on --check
+    # alone deadlocked the version pass — a stale catalog reports everything
+    # present, so nothing ever refreshed the catalog (#860). The staleness
+    # clock fires it regardless; --check only makes a missing plugin arrive
+    # sooner than the next interval.
+    if [ "$(( now - last ))" -ge "$PLUGIN_SYNC_INTERVAL" ] || ! "$plugin_script" --check >/dev/null 2>&1; then
       date +%s > "$plugin_stamp"
       nohup "$plugin_script" >>"$plugin_log" 2>&1 &
-      printf 'plugins installing in the background -> %s\n' "$plugin_log"
+      printf 'plugins syncing in the background (install + versions) -> %s\n' "$plugin_log"
     else
       say_ok 'ok     plugins\n'
     fi
