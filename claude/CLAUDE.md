@@ -273,5 +273,3 @@ This exists because both stores were taking rules: of ~103 rules stated in both,
 **A lesson from a correction goes into memory**, with what went wrong and why it wasn't inferable — never into a scratch file, a task note, or a comment in the code it concerns. Scratch files stop being read; memory is loaded every session. If it also produces a rule, write the rule in the CLAUDE.md and link the note to it.
 
 When adding a rule, push it as far down as it applies. A rule in the wrong file is paid for on every unrelated turn, and drifts because it sits far from what it describes. Don't duplicate across levels — the lower file wins, so state it once.
-
-@/Users/demian/code/dotfiles/claude/CLAUDE.md

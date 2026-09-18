@@ -163,8 +163,29 @@ else
     # A plain pointer file with anything else in it is a global memory Claude
     # Code appended (the "#" shortcut writes here). Move it into the tracked
     # file rather than dropping it — it was written to be kept.
+    #
+    # Everything EXCEPT another checkout's pointer line. `$repo_dir` differs per
+    # checkout, so a run from a worktree reads the primary checkout's pointer as
+    # memory and appends it to the tracked CLAUDE.md, and the next run from the
+    # primary does the same with the worktree's. That ping-pong put a
+    # self-import AND an import of a since-deleted worktree into the global
+    # instructions, and committed one of them (#861, 2026-09-18). A line that
+    # imports a CLAUDE.md is a pointer, never memory, whoever wrote it — so it
+    # is dropped and reported rather than kept.
+    #
+    # Every grep here tolerates no matches: `set -o pipefail` plus `set -e`
+    # would otherwise abort the script on the very case this guard exists for,
+    # a pointer file holding one foreign pointer line and nothing else.
     if [ ! -L "$pointer" ]; then
-      extra="$(grep -vxF "$want" "$pointer" | sed -e '/^[[:space:]]*$/d')"
+      not_ours="$(grep -vxF "$want" "$pointer" || true)"
+      stale_ptr="$(printf '%s\n' "$not_ours" | grep -cE '^[[:space:]]*@.*/CLAUDE\.md[[:space:]]*$' || true)"
+      extra="$(printf '%s\n' "$not_ours" \
+        | grep -vE '^[[:space:]]*@.*/CLAUDE\.md[[:space:]]*$' \
+        | sed -e '/^[[:space:]]*$/d' || true)"
+      if [ "$stale_ptr" != "0" ]; then
+        printf 'drop   CLAUDE.md (%s import pointer(s) from another checkout, not adopted)\n' \
+          "$stale_ptr"
+      fi
       if [ -n "$extra" ]; then
         backup="$pointer.bak-$(date +%Y%m%d-%H%M%S)"
         cp "$pointer" "$backup"
