@@ -10,6 +10,16 @@
 #                  ~/.claude/skills/<name>. Iterated from the repo, so a NEW
 #                  skill needs no edit here. Vendor skills Claude Code installs
 #                  itself live in the same directory and are never touched.
+#   settings.json  GENERATED, not linked — settings.base.json plus a per-host
+#                  overlay, because twelve of the Mac's hooks are macOS-only and
+#                  would fire and fail on anchor. settings-sync.py has the detail
+#                  and does the adopting.
+#   plugins        settings.json's `enabledPlugins` is a declaration; making it
+#                  true is `claude plugin install`, whose state is per-machine
+#                  and in no repo. plugins-sync.sh installs the difference. It
+#                  reaches the network, so this runs it DETACHED and at most
+#                  once every PLUGIN_SYNC_INTERVAL seconds — the SessionStart
+#                  hook that calls this script has a 10-second timeout.
 #   everything else  symlinked into ~/.claude.
 #
 # Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
@@ -18,19 +28,27 @@
 # re-linking, so the newer version wins; the displaced copy is kept as a
 # .bak-<timestamp> next to it.
 #
-# Usage: install.sh [--quiet]   # --quiet reports repairs only, for hook use.
+# Usage: install.sh [--quiet] [--plugins]
+#   --quiet    report repairs only, for hook use
+#   --plugins  run the plugin install in the FOREGROUND and wait for it;
+#              what a fresh machine's bootstrap wants
 
 set -euo pipefail
 
 quiet=false
-[ "${1:-}" = "--quiet" ] && quiet=true
+force_plugins=false
+for arg in "$@"; do
+  case "$arg" in
+    --quiet)   quiet=true ;;
+    --plugins) force_plugins=true ;;
+  esac
+done
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 target_dir="$HOME/.claude"
 
 # Files symlinked from claude/<name> to ~/.claude/<name>.
 links=(
-  settings.json
   set-title.py
   statusline.py
   cmux-relabel-on-clear.sh
@@ -150,4 +168,43 @@ else
   fi
   printf '%s\n' "$want" > "$pointer"
   printf 'write  CLAUDE.md (import pointer -> %s)\n' "$repo_dir/CLAUDE.md"
+fi
+
+# settings.json: generated rather than linked, and the generator also adopts any
+# key Claude Code rewrote from inside a session back into settings.base.json.
+# That adoption is what carries a plugin enabled on one machine to the other.
+if [ -x "$repo_dir/settings-sync.py" ] || [ -f "$repo_dir/settings-sync.py" ]; then
+  if $quiet; then
+    python3 "$repo_dir/settings-sync.py" "$(dirname "$repo_dir")" --quiet || true
+  else
+    python3 "$repo_dir/settings-sync.py" "$(dirname "$repo_dir")" || true
+  fi
+fi
+
+# Plugins. Installing reaches the network, and the SessionStart hook that calls
+# this script has a 10-second timeout, so the common path is: ask the cheap
+# local question (is anything missing?), and if so hand the slow part to a
+# detached process. --plugins runs it in the foreground instead, which is what a
+# fresh machine wants.
+PLUGIN_SYNC_INTERVAL=21600   # 6h — a failed install should retry, not hammer
+plugin_script="$repo_dir/plugins-sync.sh"
+plugin_log="$HOME/.claude/plugins-sync.log"
+plugin_stamp="$HOME/.claude/.plugins-sync-stamp"
+
+if [ -x "$plugin_script" ]; then
+  if $force_plugins; then
+    "$plugin_script" || printf 'warn   plugins (see above)\n'
+    date +%s > "$plugin_stamp"
+  else
+    last=0
+    [ -f "$plugin_stamp" ] && last="$(command cat "$plugin_stamp" 2>/dev/null || echo 0)"
+    now="$(date +%s)"
+    if [ "$(( now - last ))" -ge "$PLUGIN_SYNC_INTERVAL" ] && ! "$plugin_script" --check >/dev/null 2>&1; then
+      date +%s > "$plugin_stamp"
+      nohup "$plugin_script" >>"$plugin_log" 2>&1 &
+      printf 'plugins installing in the background -> %s\n' "$plugin_log"
+    else
+      say_ok 'ok     plugins\n'
+    fi
+  fi
 fi

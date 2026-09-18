@@ -1,0 +1,146 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/set-title.py"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "afplay /System/Library/Sounds/Blow.aiff"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/cmux-throbber.py stop",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "{{HOME}}/.claude/caffeinate-session.sh --display",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '\\a'"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/cmux-throbber.py waiting",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/cmux-throbber.py start",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "{{HOME}}/.claude/caffeinate-session.sh --display",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{HOME}}/.claude/cmux-relabel-on-clear.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/cmux-session-start.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "{{REPO_ROOT}}/claude/install.sh --quiet",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "{{HOME}}/.claude/caffeinate-session.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "{{HOME}}/.claude/caffeinate-session.sh --display",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/cmux-session-end.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/cmux-throbber.py stop",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rm -f \"$TMPDIR/claude-cmux-needsinput-$CMUX_PANEL_ID.flag\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "python3 {{HOME}}/.claude/statusline.py"
+  }
+}
