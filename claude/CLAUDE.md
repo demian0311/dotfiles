@@ -68,11 +68,14 @@ Rules of thumb:
 The lettered 🟢/🟡/🔴 form, the structured-picker rule, and the ranked **Next Steps** list all
 live in one shared file, because Codex reads that same file as its only global instruction file
 (`~/.codex/AGENTS.md` is a symlink to it). Edit it there and both harnesses change together;
-never restate one of its rules here. **It carries the cmux workspace label too** — the file was
+never restate one of its rules here. 🔴 **The import is RELATIVE on purpose** — a
+relative `@path` resolves against the file containing it (documented, max four
+hops), so the same repo dresses `/Users/demian` and `/home/demian` alike. An
+absolute path here silently imported nothing on anchor. **It carries the cmux workspace label too** — the file was
 `agents/presenting-options.md` and became `agents/GLOBAL.md` on 2026-08-25, when it stopped
 being about one subject; anything both harnesses must obey goes there rather than here.
 
-@/Users/demian/code/dotfiles/agents/GLOBAL.md
+@../agents/GLOBAL.md
 
 ## Completion Summary
 
