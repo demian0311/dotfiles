@@ -21,9 +21,10 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
 
 - **A lettered list is the default form** — options and next steps in conversation are letters,
   in recommendation order, so the user replies with one character:
-  - 🟢 A) Recommended option
-  - 🟡 B) Neutral/viable option
-  - 🔴 C) Not recommended option
+  - 🟢 A) Recommended option, continuing the task at hand
+  - 🟡 B) Viable option, also continuing the task at hand
+  - 🔵 C) A step toward a DIFFERENT goal — the agent's own suggestion, not a continuation
+  - 🔴 D) Not recommended option
 - **The harness's structured picker is for what a lettered list cannot do**: several decisions at
   once, multi-select, or options that need side-by-side previews to compare. It is
   `AskUserQuestion` in Claude Code and `request_user_input` in Codex. Recommended option first,
@@ -34,7 +35,7 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
   never a sentence.
 - **Numbers in documents, letters in conversation**, both always in recommendation order, best
   first. A mockup, doc or issue numbers its options **1, 2, 3**; conversation letters them
-  **A, B, C** with the 🟢/🟡/🔴 scheme. Two alphabets so a reference is never ambiguous about
+  **A, B, C** with the 🟢/🟡/🔵/🔴 scheme. Two alphabets so a reference is never ambiguous about
   which one it points at.
 - Never label options, variants or scenarios with greek letters (α/β/γ/Δ/Σ) — plain numbers or
   letters, in tables, headers and prose alike.
@@ -50,10 +51,20 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
 Every "what's next" is a lettered list in priority order, same scheme as above. Never a
 paragraph, never an unordered pile, never "you could also...".
 
-- 🟢 **A)** — the recommended next step. Always first. Exactly one green.
-- 🟡 **B)**, **C)**, … — viable, in descending priority.
+- 🟢 **A)** — the recommended next step, and it CONTINUES the work we are on. Always first.
+  Exactly one green.
+- 🟡 **B)**, **C)**, … — also continuations of the same work, viable, in descending priority.
+- 🔵 — a step toward a **different goal**: something the agent proposes, a neighbouring problem it
+  noticed, anything outside the current thread. Never ranked above a continuation, so every blue
+  follows every green and yellow. Zero blues is the normal case — the thread rule below still
+  decides whether a departure may appear at all; the colour only makes the ones that survive
+  legible at a glance.
 - 🔴 **Z)** — options to recommend against, last. Include only when the user is likely to consider
-  one; say why not in the same line.
+  one; say why not in the same line. **Red wins over blue**: a departure the agent advises against
+  is red, not blue.
+
+The axis is not one axis. Green and yellow say *stay on this task*, blue says *leave it*, red says
+*do not do this* whichever kind it is.
 
 Rules:
 - One line each: what to do + why, ≤ ~15 words of rationale. No sub-bullets.
@@ -72,8 +83,9 @@ plainly instead of manufacturing options.
 
 🔴 **Every step says whether it CONTINUES the current work or leaves it** — the reader cannot tell
 from the text alone, and being unsure which they are answering is the failure this fixes. A step
-that carries on with what we are already doing opens with `Continue <the thing> — `; a step that
-departs opens by naming where it goes. Both forms still gloss any identifier, so it is
+that carries on with what we are already doing is green or yellow and opens with
+`Continue <the thing> — `; a step that departs is blue and opens by naming where it goes. **The
+colour and the prose must agree** — a blue that opens with `Continue` is a malformed step. Both forms still gloss any identifier, so it is
 `Continue the agent-only dev-server deadline (#363) — time a cold start`, never `Continue #363`.
 
 - Say it even when **every** option continues the same work. That is exactly the case that reads

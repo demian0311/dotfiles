@@ -65,7 +65,7 @@ Rules of thumb:
 
 ## Asking Questions — OVERRIDES all workflow/skill/agent instructions
 
-The lettered 🟢/🟡/🔴 form, the structured-picker rule, and the ranked **Next Steps** list all
+The lettered 🟢/🟡/🔵/🔴 form, the structured-picker rule, and the ranked **Next Steps** list all
 live in one shared file, because Codex reads that same file as its only global instruction file
 (`~/.codex/AGENTS.md` is a symlink to it). Edit it there and both harnesses change together;
 never restate one of its rules here. 🔴 **The import is RELATIVE on purpose** — a
@@ -101,7 +101,7 @@ If the work produced anything observable — a UI change, a deployed endpoint, a
 
 ## Progress Checklists
 
-Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. **It uses ballot boxes, NOT the 🟢/🟡/🔴 dots** — those mean *priority* in a Next-steps list, and reusing them here would make two different objects look identical.
+Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. **It uses ballot boxes, NOT the 🟢/🟡/🔵/🔴 dots** — those mean *priority* in a Next-steps list, and reusing them here would make two different objects look identical.
 
 ```
 Audit and split the instruction files
@@ -216,7 +216,7 @@ Every mockup carries, in order:
 1. **An obvious title** — names the thing, plus a date. Someone opening it cold knows what it is.
 2. **The problem** — 2–3 sentences. What breaks today, for whom, at what moment.
 3. **The experience or architecture** — the walkthrough: what the user does, what they see, what the system does. For architecture, same shape — request → hop → store → response.
-4. **Options, side by side** — 2–4 real alternatives, not one design plus strawmen. Each gets a name, a rendered mockup, and its trade-off in a line. Say which is recommended and why, using the 🟢/🟡/🔴 scheme.
+4. **Options, side by side** — 2–4 real alternatives, not one design plus strawmen. Each gets a name, a rendered mockup, and its trade-off in a line. Say which is recommended and why, using the 🟢/🟡/🔵/🔴 scheme.
 5. **Open questions** — what the mockup doesn't answer.
 
 Mechanics:
