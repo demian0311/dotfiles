@@ -101,26 +101,26 @@ If the work produced anything observable — a UI change, a deployed endpoint, a
 
 ## Progress Checklists
 
-Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. **It uses ballot boxes, NOT the 🟢/🟡/🔵/🟣/🔴 dots** — those mean *priority* in a Next-steps list, and reusing them here would make two different objects look identical.
+Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. **It uses coloured SQUARES; the 🟢/🟡/🔵/🟣/🔴 circles mean *priority* in a Next-steps list.** Shape is what separates the two systems, not colour — a square is always progress, a circle is always priority, and the two never appear in the same list.
 
 ```
 Audit and split the instruction files
 
-  ☑ Audit workspace CLAUDE.md
-  ☑ Migrate generic rules to global
-  ▸ Reconcile memory vs CLAUDE.md
-  ☒ Fold in the archived rules — the archive was deleted last month
-  ☐ Commit across three repos
-  ☐ Push main branches
+  🟩 Audit workspace CLAUDE.md
+  🟩 Migrate generic rules to global
+  🟨 Reconcile memory vs CLAUDE.md
+  🟥 Fold in the archived rules — the archive was deleted last month
+  ⬜ Commit across three repos
+  ⬜ Push main branches
 ```
 
-- ☑ done · ▸ in progress right now · ☐ not started · ☒ dropped or blocked
-- All four are single-width glyphs, so every line indents the same. Never substitute an emoji (✅, 🔄, ⬜) for one of them — emoji are double-width and one on a line knocks that row out of alignment with the rest
-- Exactly one ▸ at a time. Nothing is "in progress" while something else is
+- 🟩 done · 🟨 in progress right now · ⬜ not started · 🟥 dropped or blocked
+- 🔴 **All four must come from the SAME width class or the column stops lining up** — these four are all East Asian Width `W`, so every row indents identically. Mixing is the hazard, not width itself: never drop a text glyph (☑, ▸, ✔) into the column, and never swap one square for a differently-shaped emoji. The old ballot boxes ☑ ▸ ☐ ☒ were the previous set and are all `W`'s opposite, `N` — a single one left behind knocks its row out by a cell. Checked with `unicodedata.east_asian_width` 2026-09-20
+- Exactly one 🟨 at a time. Nothing is "in progress" while something else is
 - One line per step, phrased as the action. No sub-bullets, no status prose
 - Post it when the work starts and re-post it as states change — a stale checklist is worse than none
-- A step that gets dropped or blocked becomes ☒ and **stays on the list**, with the reason on the same line after an em dash. Silently vanishing steps read as completed. Don't use strikethrough as well — the box already says it, and struck text is harder to read for the one line that most needs reading
-- ☒ is the only state that carries a reason, and it always carries one. "☒ Push main branches" alone tells the user nothing about whether they now have to do it
+- A step that gets dropped or blocked becomes 🟥 and **stays on the list**, with the reason on the same line after an em dash. Silently vanishing steps read as completed. Don't use strikethrough as well — the square already says it, and struck text is harder to read for the one line that most needs reading
+- 🟥 is the only state that carries a reason, and it always carries one. "🟥 Push main branches" alone tells the user nothing about whether they now have to do it
 - This is display, separate from any task-tracking tool. If a harness task list is also in use, the checklist is what the user reads
 
 ## Workspace Label (cmux sidebar)
