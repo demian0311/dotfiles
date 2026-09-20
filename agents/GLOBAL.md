@@ -17,6 +17,12 @@ obey belongs here too, under its own heading rather than folded into a neighbour
 These rules WIN even when a workflow, skill, or BMAD step presents its questions as prose or
 inline "[1]/[2]" text. Reformat such questions to comply before asking.
 
+**A de-personalised extract of the circle and square schemes is published for sharing** —
+`agents/OPTION-GLYPHS.md`, mirrored at <https://gist.github.com/demian0311/3c139b3fb8fc79640f40f0458ba6e552>
+(created 2026-09-20). It is a COPY, so a change to the rules below does not reach it. Re-sync
+both with `gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f OPTION-GLYPHS.md agents/OPTION-GLYPHS.md`
+after updating the extract by hand.
+
 ## Asking questions
 
 - **A lettered list is the default form** — options and next steps in conversation are letters,
