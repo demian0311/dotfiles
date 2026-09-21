@@ -93,7 +93,7 @@
           },
           {
             "type": "command",
-            "command": "{{REPO_ROOT}}/claude/install.sh --quiet",
+            "command": "{{REPO_ROOT}}/claude/install.sh --quiet --pull",
             "timeout": 10
           },
           {
