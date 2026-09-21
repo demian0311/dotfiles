@@ -35,6 +35,14 @@
 
 - Default to parallel execution. Independent tool calls go in ONE message — multiple reads, greps and shell probes at once, never one-at-a-time.
 - Only go sequential when there's a true data dependency between steps.
+- 🔴 **Never read a whole file to get part of one.** Tool results are ~90% of a long session's
+  context and `Read` is three quarters of that — 49 KB a call against Bash's 1.5 KB, and every
+  oversized result in the history was a `Read` (the tool-output audit, #2). Grep for the line, then
+  take the range: `sed -n 'A,Bp'`, or `Read` with `offset`/`limit`. A file that genuinely must be
+  read whole goes to a subagent that returns the conclusion. The cost is residency, not the call —
+  a file read at turn 10 of a 40-turn session is re-sent thirty more times.
+  `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS` caps a read at 12,500 tokens and hands back a path
+  instead; that is the backstop, not the plan.
 - Drive tasks to completion autonomously. Don't stop to ask for confirmation or report intermediate progress — keep working until the task is done. Only pause to ask the user a question when it's essential to completing the task and can't be reasonably inferred. **This starts the moment a task is agreed and not one word before** — Working With Me says what agreeing looks like.
 
 ### Subagents — standing request
@@ -53,6 +61,10 @@ Rules of thumb:
 
 - Multiple agents go in ONE message so they run concurrently. Sequential spawning wastes the mechanism.
 - One task per agent, scoped tightly, with the return format stated.
+- **Name the model.** A locate-or-search agent — "where is X defined", "what calls Y", reading a
+  file too big to hold here — runs on `haiku`. An audit, a review, or anything turning on judgement
+  keeps the default. To date 52 of 32,871 recorded messages have run on anything but Opus, greps
+  included.
 - Don't delegate what you already know how to do in one or two tool calls — the overhead exceeds the work.
 - Never run a search yourself that you've already delegated; wait for the result.
 - Report what the agent concluded, not its transcript.
