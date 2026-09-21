@@ -99,5 +99,8 @@
   "crossSessionInbound": "accept",
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
-  "skillListingMaxDescChars": 400
+  "skillListingMaxDescChars": 400,
+  "skillOverrides": {
+    "dataviz": "user-invocable-only"
+  }
 }
