@@ -1,0 +1,16 @@
+# Pools allowed into this repo. THE REPO IS PUBLIC.
+#
+# One pool name per line; "#" comments and blank lines are ignored. A pool that
+# is not listed here is left exactly where it is -- link-memory.sh will not move
+# a single note into this repo for it. Adding a name publishes every note that
+# pool holds now and every note written into it afterwards, permanently: a
+# public git history cannot be un-published.
+#
+# The test is not "is there a credential in it". It is "would I post this
+# directory to my GitHub profile". Machine and tooling notes pass. A product's
+# infrastructure, its private repo layout, its tracker, its billing state and
+# its security findings do not, however unglamorous each line looks alone.
+
+home
+openclaw-workspace
+dotfiles

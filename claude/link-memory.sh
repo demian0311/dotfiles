@@ -26,6 +26,14 @@ quiet=false
 
 say() { $quiet || printf "$@"; }
 
+# Pools allowed into this repo, one per line, in claude/memory/PUBLIC. THIS REPO
+# IS PUBLIC (#3), and the mechanism below reaches whatever project the session
+# happens to be in -- so the default has to be "leave it alone", not "publish
+# it". An unlisted pool is never written to and never linked; its notes stay in
+# ~/.claude/projects/<slug>/memory exactly as Claude Code left them.
+public_list="$pool_root/PUBLIC"
+is_public() { [ -f "$public_list" ] && grep -qxF "$1" "$public_list"; }
+
 # A directory's pool: the main checkout's name for anything in a git repo (so a
 # worktree resolves to its parent), else the directory's own name. $HOME is
 # "home" rather than the username, so the two machines agree.
@@ -65,6 +73,18 @@ link_one() {
   slug="$(slug_for "$dir")"
   mem="$projects/$slug/memory"
 
+  if ! is_public "$pool"; then
+    # Already linked in means this pool IS publishing, whatever the list says --
+    # the other machine may have linked it before the list existed. Say so every
+    # run, loudly and even under --quiet, rather than leaving it to be noticed.
+    if [ -L "$mem" ] && [ "$(readlink "$mem")" = "$pool_root/$pool" ]; then
+      printf 'WARN   memory/%s is linked into the PUBLIC repo and is not in memory/PUBLIC\n' "$pool"
+      return 0
+    fi
+    say 'skip   %s (pool "%s" not in memory/PUBLIC; notes stay private)\n' "$slug" "$pool"
+    return 0
+  fi
+
   mkdir -p "$pool_root/$pool" "$projects/$slug"
 
   if [ -L "$mem" ] && [ "$(readlink "$mem")" = "$pool_root/$pool" ]; then
@@ -79,9 +99,12 @@ link_one() {
     for f in "$mem"/*; do
       [ -e "$f" ] || continue
       if [ -e "$pool_root/$pool/$(basename "$f")" ]; then
+        # Keep both, but move BOTH in: a leftover here makes the rmdir below
+        # fail, and the directory is then left with neither a link nor the
+        # notes -- Claude reads nothing at all. Measured 2026-09-21.
         printf 'keep   memory/%s/%s (pool copy wins; local kept as %s.local)\n' \
-          "$pool" "$(basename "$f")" "$f"
-        mv "$f" "$f.local"
+          "$pool" "$(basename "$f")" "$(basename "$f")"
+        mv "$f" "$pool_root/$pool/$(basename "$f").local"
       else
         mv "$f" "$pool_root/$pool/" && moved=$((moved+1))
       fi

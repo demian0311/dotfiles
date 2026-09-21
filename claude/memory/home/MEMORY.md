@@ -17,4 +17,4 @@
 - [dotfiles self-update](dotfiles-self-update-mechanism.md) — why --pull and plugins-sync are shaped as they are; the disarm, the `||` deadlock, the version reconciliation.
 - [Rules vs history drift](rules-vs-history-drift.md) — the 41-of-103 duplication incident behind the rules-in-CLAUDE.md / history-in-memory split.
 - [Reply length ceiling](reply-length-ceiling.md) — a page and a half, hard; the real reason is output billing at 5×, not context, which is 0.4%.
-- [Memory is in a public repo](memory-is-in-a-public-repo.md) — every note is written for a public audience now; what gitleaks catches and what it cannot.
+- [Memory is in a public repo](memory-is-in-a-public-repo.md) — pooling is OPT-IN via memory/PUBLIC; every note is written for a public audience; what gitleaks cannot catch.
