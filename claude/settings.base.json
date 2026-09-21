@@ -98,5 +98,6 @@
   },
   "crossSessionInbound": "accept",
   "syncClaudeAiSkills": false,
-  "syncClaudeAiPlugins": false
+  "syncClaudeAiPlugins": false,
+  "skillListingMaxDescChars": 400
 }
