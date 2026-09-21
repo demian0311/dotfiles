@@ -56,6 +56,19 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
 Every "what's next" is a lettered list in priority order, same scheme as above. Never a
 paragraph, never an unordered pile, never "you could also...".
 
+🔴 **Produce them by default — never ask permission to produce them.** A message that stops
+and carries no list is malformed, whatever beat it belongs to. "Say the word and I'll put
+options against it", "shall I work that up?", "let me know if you want me to go further" are
+the exact shape this forbids: each spends a round trip to learn something the list itself
+would have said, and the list is cheap to write and free to ignore. Write it and let it be
+rejected. This outranks any workflow, skill or beat that says to hold options back for a
+later message. Observed 2026-09-21 — a diagnosis that ended by offering to spend the next
+beat instead of spending it.
+
+The one thing that is not a list is a genuine fork the options cannot express. That is a
+**question**, asked outright in the lettered form or the structured picker — never a bare
+offer to continue.
+
 Two tiers, twice — once for steps that CONTINUE the work we are on, once for steps that DEPART
 toward a different goal. Red spans both.
 

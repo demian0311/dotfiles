@@ -55,6 +55,16 @@ Every "what's next", every set of choices, is a **lettered list in priority orde
 a paragraph, never an unordered pile, never "you could also…". The reader replies with a
 single character. Anything that needs a sentence back is a malformed list.
 
+🔴 **Produce the list by default — never ask permission to produce it.** A message that
+stops and carries no list is malformed. "Say the word and I'll put options against it",
+"shall I work that up?", "let me know if you want me to go further" each spend a round trip
+to learn something the list itself would have said, and the list is cheap to write and free
+to ignore. Write it and let it be rejected. This outranks any workflow or procedure that
+says to hold options back for a later message.
+
+The one thing that is not a list is a genuine fork the options cannot express. That is a
+**question**, asked outright — never a bare offer to continue.
+
 Two tiers, twice — once for steps that CONTINUE the work we are on, once for steps that
 DEPART toward a different goal. Red spans both.
 

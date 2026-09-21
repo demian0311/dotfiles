@@ -28,9 +28,16 @@ Loaded because a message described something rather than instructing a build.
   autonomous because reading is reversible. After it: autonomous because the
   decision is made. An unplanned stop needs a decision that genuinely cannot be
   inferred, and takes `pick`'s shape.
-- **`diagnose` lands as its own message**, before anything is spent on
-  `options`. Cheapest exit: "that's not what's happening" costs one sentence
-  there, four discarded options and a rendered mockup anywhere later.
+- **`diagnose` carries `options` in the SAME message.** It used to land alone,
+  so a wrong diagnosis would not drag four options down with it. That saved one
+  sentence and cost a round trip on every problem, because the answer to "is this
+  right?" is nearly always yes. The cheap exit survives either way - "that's not
+  what's happening" discards options exactly as easily as it discarded a message
+  that had none. 🔴 **Never end a diagnosis by offering to produce options**;
+  produce them. Changed 2026-09-21, on the user's instruction.
+- **What still lands alone** is a diagnosis whose options depend on an answer only
+  the user has. That is `pick` in different clothes: ask the question outright, in
+  the lettered form, rather than offering to continue.
 - **`pick` may return "neither".** All options can be wrong. Not a failed beat -
   go back to `diagnose` or `options` with the corrected premise and iterate.
 - **A second problem found during `build` restarts at `describe`.** Name it in
