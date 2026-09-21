@@ -66,6 +66,7 @@ target_dir="$HOME/.claude"
 # Files symlinked from claude/<name> to ~/.claude/<name>.
 links=(
   set-title.py
+  shrink-image-read.py
   statusline.py
   cmux-relabel-on-clear.sh
   caffeinate-session.sh

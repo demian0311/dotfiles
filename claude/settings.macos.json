@@ -137,6 +137,18 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/shrink-image-read.py",
+            "timeout": 25
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
