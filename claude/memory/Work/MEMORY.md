@@ -1,0 +1,1 @@
+- [Anchor Omarchy branding](anchor-omarchy-branding.md) — host `anchor` is rebranded from OMARCHY across screensaver/login/boot; regenerate with `~/.config/omarchy/branding/tools/mkwordmark`

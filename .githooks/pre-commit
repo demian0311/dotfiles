@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+# This repo is PUBLIC and now carries agent memory notes (#3). A note is written
+# for an audience of one agent, which is exactly the frame of mind that leaks a
+# credential -- so the scan is mechanical rather than remembered.
+#
+# Installed by claude/install.sh via core.hooksPath. Skip with --no-verify only
+# if you have read what you are committing.
+command -v gitleaks >/dev/null 2>&1 || {
+  printf 'pre-commit: gitleaks not on PATH — commit allowed, NOTHING SCANNED\n' >&2
+  exit 0
+}
+gitleaks protect --staged --redact -v || {
+  printf '\npre-commit: gitleaks found something in the staged changes. This repo is public.\n' >&2
+  exit 1
+}

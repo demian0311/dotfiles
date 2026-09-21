@@ -1,0 +1,19 @@
+- [Mac mini HDMI pixel-clock cap](mac-mini-hdmi-pixel-clock-cap.md) — why the LG ultrawide can't do 2560x1080 over HDMI, and the Limine/UKI cmdline workaround.
+- [Omarchy privilege escalation](omarchy-privilege-escalation.md) — sudo needs a password and pkexec has no polkit agent; hand root work back as a script he runs in a real terminal, never via `!`.
+- [Overriding omarchy-* commands](omarchy-command-override-path.md) — why ~/.local/bin loses to the packaged binaries, and the hyprland.lua PATH hook that wins.
+- [Unknown Pleasures screensaver](unknown-pleasures-screensaver.md) — the custom braille screensaver, where its files live, and how to revert or retune it.
+- [Omarchy idle timing needs a shell restart](omarchy-idle-timing-needs-shell-restart.md) — hot-reload reports new idle values but never re-arms the monitor; display-off is hardcoded to lock+5s.
+- [anchor's HDD is the bottleneck](anchor-mac-mini-hdd-bottleneck.md) — 2012 Mac mini on a 5400 RPM disk; why dev-server cold starts are 35–82s and socket activation doesn't pay.
+- [OpenClaw update leaves gateway stopped](openclaw-update-leaves-gateway-stopped.md) — update.run can stop the gateway without restarting it; the port never changed.
+- [OpenClaw claude-cli owner check](openclaw-claude-cli-owner-check.md) — 9.3 rejects a script `claude` on the gateway PATH; why the 9.1→9.3 update "failed" and the symlink fix.
+- [OpenClaw MCP OAuth crash loop](openclaw-mcp-oauth-crash-loop.md) — an mcp-remote server stuck on dead OAuth crash-loops the 9.3 gateway; UI looks up but unresponsive.
+- [Apple Display iSight bandwidth](apple-display-isight-bandwidth.md) — why the monitor camera dies above 320x240, and the uvcvideo quirks=128 fix.
+- [Magic Mouse Bluetooth dropouts](magic-mouse-bluetooth-dropouts.md) — the BT Magic Mouse 2 drops hourly on HIDP GET_REPORT timeouts; two mice exist, do not blame USB.
+- [Auto mode blocks passphrase-less gpg](auto-mode-denies-passphraseless-gpg.md) — the Security Weaken denial on `--passphrase ''`, and why to hand it back rather than route around it.
+- [anchor HDD head parking is already fixed](anchor-hdd-head-parking-fixed.md) — Load_Cycle_Count/Power_On_Hours is a lifetime average, not the current rate; fixed 2026-09-05.
+- anchor home backups — **held back from the public repo**; kept at `~/.claude/memory-local/anchor-home-backups.md` because it maps where the restic passphrase lives. Machine-local, not synced.
+- [Session context budget](claude-code-context-budget.md) — where the 46.7k baseline goes, what was cut on 2026-09-21, and the skill settings keys verified against the binary.
+- [cmux rules are Mac-only](cmux-rules-are-mac-only.md) — why they moved to a macOS-only import, and the install.sh grep that had to widen with them.
+- [dotfiles self-update](dotfiles-self-update-mechanism.md) — why --pull and plugins-sync are shaped as they are; the disarm, the `||` deadlock, the version reconciliation.
+- [Rules vs history drift](rules-vs-history-drift.md) — the 41-of-103 duplication incident behind the rules-in-CLAUDE.md / history-in-memory split.
+- [Reply length ceiling](reply-length-ceiling.md) — a page and a half, hard; the real reason is output billing at 5×, not context, which is 0.4%.

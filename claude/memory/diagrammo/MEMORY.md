@@ -1,0 +1,4 @@
+- [Installed launchers drift from main](anchor-installed-launchers-drift.md) — diff ~/.diagrammo/*.sh before re-running a nightly installer
+- [Truncated brief recovery](truncated-brief-recovery.md) — full text of a cut-off resumed brief lives in the prior transcript JSONL
+- [Nightly retro job](nightly-retro-job.md) — 04:30 retro automation, dry-run recipe, agent exec cannot read cron history
+- [Magic Mouse drops on anchor](anchor-magic-mouse-bluetooth-drops.md) — BCM20702 USB autosuspend; udev fix written but never installed

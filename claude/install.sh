@@ -216,6 +216,32 @@ else
   printf 'write  CLAUDE.md (import pointer -> %s)\n' "$repo_dir/CLAUDE.md"
 fi
 
+# core.hooksPath is LOCAL git config, so it does not travel with a clone -- the
+# other machine would carry the notes and none of the scanning. Set it here.
+hooks_dir="$(dirname "$repo_dir")/.githooks"
+if [ -d "$hooks_dir" ]; then
+  want_hooks=".githooks"
+  if [ "$(git -C "$(dirname "$repo_dir")" config --get core.hooksPath 2>/dev/null)" = "$want_hooks" ]; then
+    say_ok 'ok     git hooksPath\n'
+  else
+    git -C "$(dirname "$repo_dir")" config core.hooksPath "$want_hooks" \
+      && printf 'set    git hooksPath -> %s (gitleaks pre-commit; this repo is public)\n' "$want_hooks"
+  fi
+fi
+
+# Memory pools. Each ~/.claude/projects/<slug>/memory becomes a symlink into
+# claude/memory/<pool>, so a worktree inherits its project's notes instead of
+# starting blind, and --pull carries them to the other machine (#3). Runs with
+# the SESSION's directory, which is what makes a new worktree work on its first
+# session rather than its second.
+if [ -x "$repo_dir/link-memory.sh" ]; then
+  if $quiet; then
+    "$repo_dir/link-memory.sh" --quiet || true
+  else
+    "$repo_dir/link-memory.sh" || true
+  fi
+fi
+
 # settings.json: generated rather than linked, and the generator also adopts any
 # key Claude Code rewrote from inside a session back into settings.base.json.
 # That adoption is what carries a plugin enabled on one machine to the other.
