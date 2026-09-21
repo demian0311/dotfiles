@@ -1,0 +1,13 @@
+[Unit]
+Description=Sweep OpenClaw sessions for compaction, daily
+
+[Timer]
+# 05:30, after the nightly automations have finished (last is 04:00) and before
+# the working day, so a compaction never lands mid-conversation.
+OnCalendar=*-*-* 05:30:00
+RandomizedDelaySec=15m
+# Catch up if the machine was off; a skipped day means a session keeps growing.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -12,6 +12,7 @@ units="$HOME/.config/systemd/user"
 mkdir -p "$HOME/anchor-hub" "$units"
 install -m 0644 "$here/hub.mjs" "$HOME/anchor-hub/hub.mjs"
 install -m 0644 "$here"/systemd/*.service "$units/"
+install -m 0644 "$here"/systemd/*.timer "$units/"
 
 systemctl --user daemon-reload
 
@@ -46,6 +47,11 @@ fi
 # device that can reach this box is already on the tailnet. The front page
 # links console.diagrammo.app instead. Re-adding it means adding that hostname
 # in the Cloudflare dashboard FIRST -- the sign-in is dead without it.
+# Session compaction, daily. OpenClaw's own maintenance evicts on age, count and
+# disk budget but has no concept of context LENGTH, so nothing else shrinks a
+# session that is merely long (#878).
+systemctl --user enable --now openclaw-compact-sweep.timer
+
 systemctl --user enable --now anchor-hub.service anchor-docs.service \
   anchor-site.service anchor-api.service \
   anchor-studio.service anchor-editor.service

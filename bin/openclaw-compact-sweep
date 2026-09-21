@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Compact OpenClaw sessions that are big AND still in use.
+#
+# OpenClaw's own session maintenance runs in `enforce` mode and evicts on age,
+# count and disk budget -- it has no concept of context LENGTH, so a single
+# session growing 63k -> 339k over three days is invisible to it and nothing
+# ever shrinks it (diagrammo#878). Every turn on such a session re-sends the
+# whole accumulated prefix: agent:main:main was costing ~13 M tokens a day on
+# its own.
+#
+# 🔴 SIZE IS NOT ENOUGH -- a dormant session costs nothing. Ten dashboard
+# sessions here were over 200k and 6-13 days idle; compacting those would spend
+# ten summarisation turns to save nothing until something resumes them. So this
+# sweeps on size AND recency, and leaves the dormant ones for `sessions archive`.
+#
+# Usage: openclaw-compact-sweep [--dry-run] [--min-tokens N] [--max-age-days N]
+set -euo pipefail
+
+MIN_TOKENS=${MIN_TOKENS:-200000}
+MAX_AGE_DAYS=${MAX_AGE_DAYS:-3}
+dry=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run)        dry=true; shift ;;
+    --min-tokens)     MIN_TOKENS="$2"; shift 2 ;;
+    --max-age-days)   MAX_AGE_DAYS="$2"; shift 2 ;;
+    *) printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
+  esac
+done
+
+command -v openclaw >/dev/null 2>&1 || { echo "openclaw not on PATH"; exit 0; }
+
+# Agents come from the gateway rather than a hardcoded list, so a new one is
+# swept without editing this.
+agents="$(openclaw agents list 2>/dev/null | sed -n 's/^- \([a-zA-Z0-9_-]*\)$/\1/p')"
+[ -n "$agents" ] || { echo "no agents reported; gateway down?"; exit 0; }
+
+for agent in $agents; do
+  json="$(openclaw sessions list --agent "$agent" --json 2>/dev/null || true)"
+  [ -n "$json" ] || continue
+
+  # One line per candidate: "<tokens> <age_days> <key>"
+  printf '%s' "$json" | MIN_TOKENS="$MIN_TOKENS" MAX_AGE_DAYS="$MAX_AGE_DAYS" python3 -c '
+import json, os, sys
+rows = json.load(sys.stdin)
+rows = rows if isinstance(rows, list) else rows.get("sessions", rows.get("entries", []))
+lo, maxage = int(os.environ["MIN_TOKENS"]), float(os.environ["MAX_AGE_DAYS"])
+for r in rows:
+    n = r.get("totalTokens")
+    if not isinstance(n, int) or n < lo:
+        continue
+    age = (r.get("ageMs") or 0) / 86_400_000
+    if age > maxage:                      # dormant: compacting buys nothing yet
+        continue
+    print(n, f"{age:.2f}", r["key"])
+' | while read -r tokens age key; do
+      if $dry; then
+        printf 'would compact  %7dk  %5sd  %s  [%s]\n' "$((tokens/1000))" "$age" "$key" "$agent"
+      else
+        printf 'compacting     %7dk  %5sd  %s  [%s]\n' "$((tokens/1000))" "$age" "$key" "$agent"
+        openclaw sessions compact "$key" --agent "$agent" >/dev/null 2>&1 \
+          && printf '  ok\n' || printf '  FAILED (left as it was)\n'
+      fi
+    done
+done

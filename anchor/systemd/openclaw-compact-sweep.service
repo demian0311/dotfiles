@@ -1,0 +1,11 @@
+[Unit]
+Description=Compact OpenClaw sessions that are large and still in use
+Documentation=https://github.com/diagrammo/diagrammo/issues/878
+
+[Service]
+Type=oneshot
+# bin/ is not on the PATH systemd gives a user unit, so call it by path.
+ExecStart=%h/code/dotfiles/bin/openclaw-compact-sweep
+# The gateway is loopback-only and the sweep summarises with an LLM, so a run
+# can take minutes on a big session. Never let it overlap the next firing.
+TimeoutStartSec=30m
