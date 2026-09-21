@@ -22,6 +22,19 @@
   - The gloss is what the thing IS, not what it says about itself. "(#218)" after "the tracked issue" adds nothing; "the npm token expiry (#218)" is the rule satisfied.
   - 🔴 **Leading with the number and explaining after a dash does NOT satisfy this.** "**#257** — the visual baselines no longer match their source" is still a violation, and it is the form written by someone who believes they are complying, because the reader *does* get told what it is. **Order is the rule**: the thing first, the number in parentheses behind it. The tell is a bullet, heading, or sentence whose **first token is an identifier** — if the eye lands on "#257" before it lands on any words, rewrite it, however good the clause after the dash is.
 - The test for the three above: **could someone who owns the product, but has never opened that vendor's console or that tracker, act on this sentence?** Jargon or an identifier they would have to look up is a defect in the answer, not a gap in the reader. This applies hardest in summaries and recommendations, where the user is deciding rather than reading along.
+- 🔴 **A page and a half is the ceiling, and it is a hard one.** The user does not read past it, so
+  everything after is waste whatever it cost to write. **Every** reply takes the `report` shape in
+  *Completion Summary* — replay, one paragraph, at most five bullets, next steps — and nothing else.
+  No second paragraph restating the finding in other words, no evidence table when an artifact or an
+  issue already holds it, no "how to see it" growing past a line or two.
+  - This is about the user's reading time and about **cost**, never about context: replies are 0.4%
+    of a long session's context, but output bills at 5× input while input is ~96.5% cache-served at
+    0.1×, which puts output at roughly a sixth of the effective spend. A shorter reply is worth about
+    forty times more per token than a shorter context. Measured 2026-09-21; see the memory note on
+    the context budget.
+  - The ceiling binds hardest where the temptation is worst — `diagnose` and `report`, where the
+    evidence is fresh and all of it feels load-bearing. Put the evidence in the artifact or the issue
+    and link it; the reply carries the conclusion.
 - No preambles ("Here's what I found", "Let me explain").
 - No restating the question or summarizing what was asked.
 - No step-by-step narration of tool use.
@@ -93,7 +106,7 @@ This is beat 9, `report`. Provide, in order:
 
 1. **The replay** — every beat, one line each. It goes FIRST, above everything, per Working With Me.
 2. A short paragraph — 2-4 sentences — saying what was actually done and why it took the shape it did. Prose, not a bullet restatement. This is the part read first after the replay; it should stand alone if the bullets are skipped.
-3. 1-5 bullet points on the specifics.
+3. At most five bullet points on the specifics — the ceiling in *Communication Style* governs.
 4. **How to see it** — see below. Skip only when there is genuinely nothing to look at.
 5. Next steps — the ranked lettered list under **Asking Questions** above.
 

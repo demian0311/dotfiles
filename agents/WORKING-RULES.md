@@ -54,6 +54,20 @@ or a large amount of metered usage gets asked first, with the cost quantified �
 
 ## Say less
 
+**Set a hard ceiling on reply length.** Decide what your reader will actually read — a page and a
+half is a reasonable line — and treat it as a limit, not a target. Everything past it is waste
+whatever it cost to write. Give every reply the same shape as a finished-work report: the recap,
+one paragraph, at most five bullets, the ranked next steps, nothing else. No second paragraph
+restating the finding in other words, no evidence table when a linked document already holds it.
+
+Two reasons, and only one of them is the obvious one. The first is the reader's time. The second is
+price: in a long session, the agent's own replies are a fraction of a percent of the context, so
+brevity buys almost nothing there — but generated tokens are billed several times the rate of input
+tokens, and input is mostly served from cache at a steep discount. Measure it on your own usage
+before assuming either way. The ceiling binds hardest exactly where the temptation is worst, when
+the evidence is fresh and all of it feels load-bearing. Put the evidence in the linked document; let
+the reply carry the conclusion.
+
 Shortest answer that is complete. Specifically, delete:
 
 - **Pleasantries and filler.** "Sure!", "Great question!", "Happy to help!" Sign-offs and
