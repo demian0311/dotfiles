@@ -12,16 +12,34 @@ because Codex never reads that file and the project one is truncated at 32 KB �
 where a rule buried in a 70 KB `CLAUDE.md` would sit. Anything else that both harnesses must
 obey belongs here too, under its own heading rather than folded into a neighbour's.
 
+## Published extracts — TWO de-personalised files, ONE public gist
+
+Both live in `agents/` and are mirrored at
+<https://gist.github.com/demian0311/3c139b3fb8fc79640f40f0458ba6e552> (created 2026-09-20;
+second file added the same day). A gist is multi-file, so both render on that one URL,
+alphabetically — which is why the names put the glyphs first.
+
+| File | What it extracts | Sourced from |
+|---|---|---|
+| `agents/OPTION-GLYPHS.md` | the 🟢/🟡/🔵/🟣/🔴 circles and the 🟩/🟨/🟥/⬜ squares, with worked examples of a departure vs a continuation | **this file**, *Presenting options* below |
+| `agents/WORKING-RULES.md` | build-only-when-told · say less · make claims that stand up · how to report finished work | 🔴 **`claude/CLAUDE.md`**, which Codex never reads — so an edit there is the one that silently strands this copy |
+
+🔴 **They are COPIES, so no edit anywhere reaches them.** Update the extract by hand, then
+push it — one command per file, and the gist rewrites only the file named:
+
+```bash
+gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f OPTION-GLYPHS.md  agents/OPTION-GLYPHS.md
+gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f WORKING-RULES.md  agents/WORKING-RULES.md
+```
+
+⚠️ **De-personalise on the way out.** No names, repos, hosts, issue numbers, product names
+or tool names that exist in one harness only. The gist is public and anything specific in it
+is both a leak and a rule a stranger cannot act on.
+
 # Presenting options — how Demian wants to be asked and told
 
 These rules WIN even when a workflow, skill, or BMAD step presents its questions as prose or
 inline "[1]/[2]" text. Reformat such questions to comply before asking.
-
-**A de-personalised extract of the circle and square schemes is published for sharing** —
-`agents/OPTION-GLYPHS.md`, mirrored at <https://gist.github.com/demian0311/3c139b3fb8fc79640f40f0458ba6e552>
-(created 2026-09-20). It is a COPY, so a change to the rules below does not reach it. Re-sync
-both with `gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f OPTION-GLYPHS.md agents/OPTION-GLYPHS.md`
-after updating the extract by hand.
 
 ## Asking questions
 

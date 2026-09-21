@@ -121,6 +121,63 @@ it against staging`, never `Continue #218`, and never `#218 — the token expiry
 eye lands on a number before it lands on any words, rewrite it. A bare number inside a link
 is the same mistake wearing a link, so the link text is the description too.
 
+### What actually counts as a departure
+
+One test, and it is about the reader rather than the code: **would this step get the
+thing they asked for finished?** If yes it continues, whatever file it touches. If no it
+departs, however closely related it looks.
+
+The boundary is drawn by the request, not by what the code has in common. Fixing one
+flaky test and fixing the four siblings that share its bad pattern are the same *kind* of
+work and two different *pieces* of work — so if the ask named one test, the siblings are
+a departure. A good one, worth offering. But the reader gets to decline it without
+feeling they have refused the repair they actually asked for.
+
+**Departures — these leave the thread, however tempting:**
+
+- A defect noticed in neighbouring code while working on this one.
+- The same defect elsewhere, when the request named one place.
+- A refactor the fix makes tempting. "While we're in here" is the sound of a departure.
+- Missing tooling the work exposed — no fixture, no local runner, no way to reproduce.
+- A naming or design problem you hit on the way through.
+- Documenting or announcing what was just built, when nobody asked for docs.
+- Something the reader raised earlier in the session and has since moved past.
+
+**Continuations — these look like departures and aren't:**
+
+- Writing the test for the code just written.
+- Updating the document that describes the behaviour just changed.
+- Committing, merging, deleting the branch, deploying. Landing is part of the task, not a
+  follow-up to offer back.
+- Re-running the thing under the conditions that produced the original failure.
+- Clearing up debris this work itself created.
+
+All five colours, on one flaky test in a checkout flow:
+
+> - 🟢 **A)** Continue the flaky checkout test — swap the two-second sleep for a wait on the button becoming enabled.
+> - 🟡 **B)** Continue the flaky checkout test — run it two hundred times under load to confirm the flake is gone.
+> - 🔵 **C)** The same sleep pattern in four sibling tests — they will flake next.
+> - 🟣 **D)** The two-core CI runner — it is what makes these tests marginal in the first place.
+> - 🔴 **E)** Move the suite onto a different test runner — weeks of work, and the runner isn't at fault.
+
+That is a fuller list than most. Two continuations and nothing else is the common shape.
+
+### The two lists that open with blue
+
+**The thread is finished.** Say so on the line above, rather than dressing a departure up
+as progress:
+
+> That is the whole of the import bug; nothing is left in it.
+>
+> - 🔵 **A)** The duplicate-detection pass the importer skips — noticed while reading it.
+> - 🟣 **B)** The importer's errors quote internal table names — small, separate cleanup.
+
+**The work is blocked on a departure.** That blue leads, ahead of every continuation, and
+says what it unblocks — it is the only thing that can actually be done next:
+
+> - 🔵 **A)** Seed data for the staging database — nothing in the refund flow can be tested until it exists.
+> - 🟡 **B)** Continue the refund flow — the last two branches can be written blind, then tested once A lands.
+
 ## Progress checklists
 
 Any multi-step process — three or more steps, or anything spanning more than one turn —
