@@ -101,6 +101,20 @@
   "syncClaudeAiPlugins": false,
   "skillListingMaxDescChars": 400,
   "skillOverrides": {
-    "dataviz": "user-invocable-only"
+    "dataviz": "user-invocable-only",
+    "agents-sdk": "user-invocable-only",
+    "cloudflare": "user-invocable-only",
+    "cloudflare-email-service": "user-invocable-only",
+    "cloudflare-one": "user-invocable-only",
+    "cloudflare-one-migrations": "user-invocable-only",
+    "durable-objects": "user-invocable-only",
+    "nextjs-on-cloudflare": "user-invocable-only",
+    "sandbox-migrate-to-next": "user-invocable-only",
+    "sandbox-next": "user-invocable-only",
+    "sandbox-stable": "user-invocable-only",
+    "turnstile-spin": "user-invocable-only",
+    "web-perf": "user-invocable-only",
+    "workers-best-practices": "user-invocable-only",
+    "wrangler": "user-invocable-only"
   }
 }

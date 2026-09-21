@@ -248,6 +248,11 @@ overlays write paths as `{{HOME}}` and `{{REPO_ROOT}}`, substituted at install t
   drifted top-level key back into `settings.base.json` — that is how a plugin installed on one
   machine reaches the other. A key *deleted* from the live file is deliberately NOT adopted; remove
   it from the base by hand.
+- 🔴 **Adoption runs BEFORE regeneration, so on a contested key the LIVE file wins.** Editing
+  `settings.base.json` for a key `~/.claude/settings.json` already holds is silently reverted by the
+  next `install.sh` — the sync adopts the live value over the edit and reports it as an `adopt` line
+  that reads like success. Change such a key in the live file, then run `install.sh` to carry it into
+  the base. Only a key the live file LACKS can be added from the base alone.
 - **`enabledPlugins` is a declaration; `claude plugin install` is what makes it true.** That install
   state is per-machine and in no repo. `claude/plugins-sync.sh` closes the gap and also updates each
   plugin, since two machines that merely both have a plugin are not in sync. 🔴 It never passes `-y`
