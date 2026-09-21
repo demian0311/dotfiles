@@ -5,6 +5,14 @@
 #
 # Installed by claude/install.sh via core.hooksPath. Skip with --no-verify only
 # if you have read what you are committing.
+#
+# WHAT IT DOES NOT CATCH, measured 2026-09-21: gitleaks matches credential
+# FORMATS, not disclosure. A synthetic GitHub PAT is refused; a synthetic AWS
+# access-key id alone is not (the rule wants the secret key with it), and AWS's
+# documented AKIAIOSFODNN7EXAMPLE is allowlisted outright. Crucially, prose --
+# "the restic passphrase lives in ~/.config/restic/password and nowhere else" --
+# is invisible to it. That note was held back by reading it, not by this hook.
+# Treat the scan as a floor, never as the review.
 command -v gitleaks >/dev/null 2>&1 || {
   printf 'pre-commit: gitleaks not on PATH — commit allowed, NOTHING SCANNED\n' >&2
   exit 0
