@@ -48,8 +48,11 @@ source ~/.zsh.aliases.sh
 #export _ZO_DOCTOR=0
 #eval "$(zoxide init zsh)"
 
-# Always run Claude Code with permission prompts disabled
-alias claude='claude --dangerously-skip-permissions'
+# No `claude` alias here on purpose. Prompts are disabled by
+# permissions.defaultMode in claude/settings.json, which applies to every
+# launch path. An alias only ever covered shells the user typed in — cmux
+# execs its own cmux-claude-wrapper via a PATH shim and never expanded it,
+# so the alias that lived here looked load-bearing and was not.
 #alias ddev='cd ~/code/diagrammo && pnpm run dev:app'
 
 # Added by Diagrammo Terminal Opener
@@ -112,6 +115,13 @@ diagrammo-run-studio() {
 diagrammo-run-console() {
   cd "$DIAGRAMMO_ROOT/console" || return
   _diagrammo_open 5179 "http://localhost:5179"
+  pnpm dev
+}
+
+# ---- Online health console (Cloudflare Worker + React) -----
+diagrammo-run-online-console() {
+  cd "$DIAGRAMMO_ROOT/online-console" || return
+  _diagrammo_open 5190 "http://localhost:5190"
   pnpm dev
 }
 
