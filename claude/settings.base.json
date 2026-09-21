@@ -28,12 +28,11 @@
       "Read(**/credentials.json)",
       "Read(**/.env.signing)"
     ],
-    "defaultMode": "bypassPermissions"
+    "defaultMode": "auto"
   },
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true,
-    "token-optimizer@alexgreensh-token-optimizer": true,
-    "mattpocock-skills@claude-plugins-official": true
+    "token-optimizer@alexgreensh-token-optimizer": true
   },
   "extraKnownMarketplaces": {
     "alexgreensh-token-optimizer": {
@@ -97,5 +96,7 @@
       "**Org-specific CLIs**: gh (requires `--repo diagrammo/diagrammo` \u2014 infers from cwd otherwise), pnpm, wrangler, dgmo CLI, scripts/release.sh"
     ]
   },
-  "crossSessionInbound": "accept"
+  "crossSessionInbound": "accept",
+  "syncClaudeAiSkills": false,
+  "syncClaudeAiPlugins": false
 }

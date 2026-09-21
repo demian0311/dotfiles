@@ -5,36 +5,16 @@
 global instruction file it gets. So never name a tool that exists in one harness and not the
 other without saying which — a rule the reader cannot act on is worse than no rule.
 
-**This file is the only place a rule can reach BOTH harnesses**, which is why it holds more
-than its original subject. It was `presenting-options.md` until 2026-08-25 and held only the
-question-asking rules; the workspace label moved in the same day, from `claude/CLAUDE.md`,
-because Codex never reads that file and the project one is truncated at 32 KB — far short of
-where a rule buried in a 70 KB `CLAUDE.md` would sit. Anything else that both harnesses must
-obey belongs here too, under its own heading rather than folded into a neighbour's.
+**This file is the only place a rule can reach BOTH harnesses.** Anything both must obey goes
+here, under its own heading. Anything Claude-only belongs in `claude/CLAUDE.md`; anything
+Mac-only belongs in `claude/CLAUDE.macos.md`, which is imported only on macOS.
 
-## Published extracts — TWO de-personalised files, ONE public gist
+## Published extracts
 
-Both live in `agents/` and are mirrored at
-<https://gist.github.com/demian0311/3c139b3fb8fc79640f40f0458ba6e552> (created 2026-09-20;
-second file added the same day). A gist is multi-file, so both render on that one URL,
-alphabetically — which is why the names put the glyphs first.
-
-| File | What it extracts | Sourced from |
-|---|---|---|
-| `agents/OPTION-GLYPHS.md` | the 🟢/🟡/🔵/🟣/🔴 circles and the 🟩/🟨/🟥/⬜ squares, with worked examples of a departure vs a continuation | **this file**, *Presenting options* below |
-| `agents/WORKING-RULES.md` | build-only-when-told · say less · make claims that stand up · how to report finished work | 🔴 **`claude/CLAUDE.md`**, which Codex never reads — so an edit there is the one that silently strands this copy |
-
-🔴 **They are COPIES, so no edit anywhere reaches them.** Update the extract by hand, then
-push it — one command per file, and the gist rewrites only the file named:
-
-```bash
-gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f OPTION-GLYPHS.md  agents/OPTION-GLYPHS.md
-gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f WORKING-RULES.md  agents/WORKING-RULES.md
-```
-
-⚠️ **De-personalise on the way out.** No names, repos, hosts, issue numbers, product names
-or tool names that exist in one harness only. The gist is public and anything specific in it
-is both a leak and a rule a stranger cannot act on.
+Two de-personalised files in `agents/` are mirrored to a public gist. They are COPIES, so no
+edit reaches them automatically, and four sections of `claude/CLAUDE.md` are among their
+sources. `agents/PUBLISHING.md` has the mapping, the push commands and the de-personalising
+rules — read it before editing either extract or any section that feeds one.
 
 # Presenting options — how Demian wants to be asked and told
 
@@ -151,31 +131,26 @@ link text is the description too.
 
 Several sessions run side by side and the sidebar label is how the user finds the
 right one. **The session owns its own label** — cmux ships AI auto-naming and it is
-deliberately off (decided 2026-08-05, and its machinery is Claude-only in the binary
-regardless), so a label nobody sets stays whatever stale string was there.
+deliberately off, so a label nobody sets stays whatever stale string was there.
 
 ```bash
 cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
 ```
 
-**The handle is required.** `cmux workspace rename` does NOT default to the calling
-session's workspace the way `env`/`reconnect`/`disconnect` do — bare, it fails with
-`could not resolve workspace handle`. `$CMUX_WORKSPACE_ID` is in the environment of
-every process cmux launched, agent included, and is the authoritative answer to "which
-workspace am I"; the sidebar's visible selection is not, and neither is the pane
-header. Verified 2026-08-05.
+🔴 **The handle is required.** `cmux workspace rename` does NOT default to the
+calling session's workspace the way `env`/`reconnect`/`disconnect` do — bare, it
+fails with `could not resolve workspace handle`. `$CMUX_WORKSPACE_ID` is in the
+environment of every process cmux launched and is the authoritative answer to
+"which workspace am I"; the sidebar's visible selection is not, and neither is the
+pane header.
 
 - Set it **as soon as the subject is clear** — usually right after the first
   substantive prompt, before the work starts. Not at the end.
-- **Re-set it when the thread changes, and CHECK IT AT EVERY STOP.** A workspace that
-  started on release notes and is now debugging a Worker gets renamed; a label
-  describing finished work is worse than a generic one. 🔴 The check belongs to the
-  beats that already interrupt the user — reporting, and asking them to pick — because
-  "when the thread changes" is a condition nobody notices while following the thread.
-  Observed 2026-08-16: a session set `cross space search` at its first prompt and kept
-  it through three further subjects, finishing on folder copying, while the user was
-  reading that sidebar to work out which of eight sessions was which. Free to fix, and
-  half a session of confusion not to.
+- 🔴 **Re-set it when the thread changes, and CHECK IT AT EVERY STOP.** A workspace
+  that started on release notes and is now debugging a Worker gets renamed; a label
+  describing finished work is worse than a generic one. The check belongs to the
+  beats that already interrupt the user — `report` and `pick` — because "when the
+  thread changes" is a condition nobody notices while following the thread.
 - **2–4 words, lowercase, what the work is about** — `cloud limits`,
   `obsidian live links`, `event-line dates`. Never a verb phrase (`fixing the parser`),
   never a tool or slash-command name, never `new`/`clear`/`codex`/a bare repo name that
@@ -187,10 +162,9 @@ header. Verified 2026-08-05.
   Codex — precisely because at that moment the subject is known to be unknown.
   Seeing one means naming this thread is the FIRST job of the turn.
 - Skip silently if `cmux` isn't on PATH or the call fails; it is never worth a retry or
-  a mention.
-- **Codex's sandbox permits this, and a read-only session does not** — measured
-  2026-08-25. Reaching cmux means reaching a unix socket, which rides on the same
-  switch as network access: under `workspace-write` with `network_access = true` the
-  rename works, and under `read-only`, or with network off, it fails with
-  `Operation not permitted`. Nothing extra has to be granted for it.
+  a mention. On anchor it never is.
+- **Codex's sandbox permits this, and a read-only session does not.** Reaching cmux
+  means reaching a unix socket, which rides on the same switch as network access:
+  under `workspace-write` with `network_access = true` the rename works; under
+  `read-only`, or with network off, it fails with `Operation not permitted`.
 - Rename only your own workspace. Another session's label belongs to that session.

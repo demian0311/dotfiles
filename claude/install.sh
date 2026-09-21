@@ -3,9 +3,13 @@
 #
 # Two mechanisms, because the two files differ:
 #
-#   CLAUDE.md      ~/.claude/CLAUDE.md is a one-line "@<path>" import pointing
-#                  here. That is Claude Code's own documented memory-import
-#                  syntax, so there is no link for anything to replace.
+#   CLAUDE.md      ~/.claude/CLAUDE.md is an "@<path>" import pointer, not a
+#                  link. That is Claude Code's own documented memory-import
+#                  syntax, so there is nothing for anything to replace. On macOS
+#                  it carries a SECOND line importing CLAUDE.macos.md, which
+#                  holds the cmux hook rules; anchor has no cmux, and loading
+#                  them there cost 2k tokens a session for rules it could not
+#                  act on (#1).
 #   skills/<name>  each directory under claude/skills/ symlinked to
 #                  ~/.claude/skills/<name>. Iterated from the repo, so a NEW
 #                  skill needs no edit here. Vendor skills Claude Code installs
@@ -23,6 +27,9 @@
 #                  network, so this runs it DETACHED and at most once every
 #                  PLUGIN_SYNC_INTERVAL seconds — the SessionStart hook that
 #                  calls this script has a 10-second timeout.
+#   AGENTS.md      ~/.codex/AGENTS.md symlinked to agents/GLOBAL.md, which is the
+#                  only file both harnesses read. Codex takes exactly one global
+#                  instruction file and nothing was creating the link.
 #   everything else  symlinked into ~/.claude.
 #
 # Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
@@ -156,6 +163,14 @@ fi
 pointer="$target_dir/CLAUDE.md"
 want="@$repo_dir/CLAUDE.md"
 
+# The cmux hook-and-pill rules only mean anything where cmux exists, so macOS
+# imports a second file and anchor does not. Same uname split settings-sync.py
+# uses to pick the settings overlay.
+if [ "$(uname -s)" = "Darwin" ] && [ -f "$repo_dir/CLAUDE.macos.md" ]; then
+  want="$want
+@$repo_dir/CLAUDE.macos.md"
+fi
+
 if [ -f "$pointer" ] && [ ! -L "$pointer" ] && [ "$(command cat "$pointer")" = "$want" ]; then
   say_ok 'ok     CLAUDE.md (import pointer)\n'
 else
@@ -178,9 +193,9 @@ else
     # a pointer file holding one foreign pointer line and nothing else.
     if [ ! -L "$pointer" ]; then
       not_ours="$(grep -vxF "$want" "$pointer" || true)"
-      stale_ptr="$(printf '%s\n' "$not_ours" | grep -cE '^[[:space:]]*@.*/CLAUDE\.md[[:space:]]*$' || true)"
+      stale_ptr="$(printf '%s\n' "$not_ours" | grep -cE '^[[:space:]]*@.*/CLAUDE(\.[a-z]+)?\.md[[:space:]]*$' || true)"
       extra="$(printf '%s\n' "$not_ours" \
-        | grep -vE '^[[:space:]]*@.*/CLAUDE\.md[[:space:]]*$' \
+        | grep -vE '^[[:space:]]*@.*/CLAUDE(\.[a-z]+)?\.md[[:space:]]*$' \
         | sed -e '/^[[:space:]]*$/d' || true)"
       if [ "$stale_ptr" != "0" ]; then
         printf 'drop   CLAUDE.md (%s import pointer(s) from another checkout, not adopted)\n' \
@@ -208,6 +223,29 @@ if [ -x "$repo_dir/settings-sync.py" ] || [ -f "$repo_dir/settings-sync.py" ]; t
     python3 "$repo_dir/settings-sync.py" "$(dirname "$repo_dir")" --quiet || true
   else
     python3 "$repo_dir/settings-sync.py" "$(dirname "$repo_dir")" || true
+  fi
+fi
+
+# Codex reads ONE global instruction file, ~/.codex/AGENTS.md, and claude/CLAUDE.md
+# has claimed for weeks that it is a symlink to agents/GLOBAL.md. Nothing created
+# it, so on anchor Codex had no global instructions at all (#1). Only linked where
+# ~/.codex already exists — that directory is Codex's own, and its absence means
+# Codex is not installed here.
+codex_dir="$HOME/.codex"
+codex_link="$codex_dir/AGENTS.md"
+codex_want="$(dirname "$repo_dir")/agents/GLOBAL.md"
+
+if [ -d "$codex_dir" ]; then
+  if [ -L "$codex_link" ] && [ "$(readlink "$codex_link")" = "$codex_want" ]; then
+    say_ok 'ok     codex AGENTS.md\n'
+  else
+    if [ -f "$codex_link" ] && [ ! -L "$codex_link" ]; then
+      backup="$codex_link.bak-$(date +%Y%m%d-%H%M%S)"
+      mv "$codex_link" "$backup"
+      printf 'backup codex AGENTS.md -> %s\n' "$(basename "$backup")"
+    fi
+    ln -sfn "$codex_want" "$codex_link"
+    printf 'link   codex AGENTS.md -> agents/GLOBAL.md\n'
   fi
 fi
 

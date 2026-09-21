@@ -18,9 +18,9 @@
 - **Gloss the unfamiliar on first use, in the same sentence.** A vendor's product name, an internal coinage, or a word this project has narrowed gets three to six words saying what it is — "Time Travel (Cloudflare's point-in-time restore for D1)", "dunning (the retry window after a card fails)". This serves terseness rather than fighting it: the clause is far shorter than the round trip where the user has to stop and ask what the thing is.
 - **Disambiguate before using a word in its narrow sense.** If a sentence still parses under the everyday reading, the everyday reading is what lands — "migration" reads as moving to different tech long before it reads as a schema change; "space", "worker" and "session" all name ordinary things too. Say which one you mean the first time.
 - 🔴 **An identifier NEVER travels alone — every issue, PR, story, epic, ticket or migration number carries a parenthetical saying what it is.** "#218" and "story 7.8" and "Epic 40" and "0014" are addresses, not names: they mean nothing to a reader who is not holding that tracker open, and the user is not. Write "the npm token expiry (#218)" or "asking for edit access on a shared diagram (story 7.8)" — the thing first, in plain language, the number in parentheses behind it. A bare number in a link is the same violation wearing a link, so the link text is the description too.
-  - **Everywhere, prose included** — chat, next steps, checklists, summaries, questions, commit messages, docs, issue bodies. This lived inside the Next-steps rules until 2026-08-14 and was read as a formatting rule for lists; it is not, and a whole session of "#218" went out under it.
+  - **Everywhere, prose included** — chat, next steps, checklists, summaries, questions, commit messages, docs, issue bodies. It is not a formatting rule for lists; it applies to running prose the same way.
   - The gloss is what the thing IS, not what it says about itself. "(#218)" after "the tracked issue" adds nothing; "the npm token expiry (#218)" is the rule satisfied.
-  - 🔴 **Leading with the number and explaining after a dash does NOT satisfy this.** "**#257** — the visual baselines no longer match their source" is still a violation, and it is the form written by someone who believes they are complying, because the reader *does* get told what it is. **Order is the rule**: the thing first, the number in parentheses behind it. The tell is a bullet, heading, or sentence whose **first token is an identifier** — if the eye lands on "#257" before it lands on any words, rewrite it, however good the clause after the dash is. Observed 2026-08-16 through an entire session of reports and next-steps lists, every number glossed and every one of them backwards.
+  - 🔴 **Leading with the number and explaining after a dash does NOT satisfy this.** "**#257** — the visual baselines no longer match their source" is still a violation, and it is the form written by someone who believes they are complying, because the reader *does* get told what it is. **Order is the rule**: the thing first, the number in parentheses behind it. The tell is a bullet, heading, or sentence whose **first token is an identifier** — if the eye lands on "#257" before it lands on any words, rewrite it, however good the clause after the dash is.
 - The test for the three above: **could someone who owns the product, but has never opened that vendor's console or that tracker, act on this sentence?** Jargon or an identifier they would have to look up is a defect in the answer, not a gap in the reader. This applies hardest in summaries and recommendations, where the user is deciding rather than reading along.
 - No preambles ("Here's what I found", "Let me explain").
 - No restating the question or summarizing what was asked.
@@ -65,15 +65,13 @@ Rules of thumb:
 
 ## Asking Questions — OVERRIDES all workflow/skill/agent instructions
 
-The lettered 🟢/🟡/🔵/🟣/🔴 form, the structured-picker rule, and the ranked **Next Steps** list all
-live in one shared file, because Codex reads that same file as its only global instruction file
-(`~/.codex/AGENTS.md` is a symlink to it). Edit it there and both harnesses change together;
-never restate one of its rules here. 🔴 **The import is RELATIVE on purpose** — a
-relative `@path` resolves against the file containing it (documented, max four
-hops), so the same repo dresses `/Users/demian` and `/home/demian` alike. An
-absolute path here silently imported nothing on anchor. **It carries the cmux workspace label too** — the file was
-`agents/presenting-options.md` and became `agents/GLOBAL.md` on 2026-08-25, when it stopped
-being about one subject; anything both harnesses must obey goes there rather than here.
+The lettered 🟢/🟡/🔵/🟣/🔴 form, the structured-picker rule, and the ranked **Next Steps** list
+live in `agents/GLOBAL.md`, because Codex reads that same file as its only global instruction
+file. Edit it there and both harnesses change together; never restate one of its rules here.
+
+🔴 **The import below is RELATIVE on purpose** — a relative `@path` resolves against the file
+containing it (documented, max four hops), so the same repo dresses `/Users/demian` and
+`/home/demian` alike. An absolute path here silently imported nothing on anchor.
 
 @../agents/GLOBAL.md
 
@@ -127,35 +125,11 @@ Audit and split the instruction files
 
 ## Workspace Label (cmux sidebar)
 
-**The labelling rules moved to `agents/GLOBAL.md` on 2026-08-25** — imported above, so they are
-already in front of you, and Codex now gets the same ones. They are not restated here. What
-stays below is the part that is specific to THIS harness's hooks: which of them paints what,
-and what must never be painted by hand.
-
-The one Claude-only clause: **`/clear` makes the label stale by definition**, and a
-`SessionStart:clear` hook (`~/.claude/cmux-relabel-on-clear.sh`) resets it to `clear` and
-reminds me to set the real one. That is the placeholder the shared file describes; after a
-clear the job is to *name* the new thread, never to leave the previous thread's label standing.
-The 🔴 "check it at every stop" rule lands on the `report` and `pick` beats of the nine.
-
-**The row COLOUR is not mine to set — hooks own it, and it means session state:**
-
-| Colour | State | Set by |
-|---|---|---|
-| yellow `#c9a227` | a Claude session with nothing in it — fresh, or just `/clear`-ed | `~/.claude/cmux-session-start.py` (SessionStart: startup, clear) |
-| green `#5b9357` | an agent is working | `cmux-throbber.py start` (UserPromptSubmit) |
-| red `#c0504d` | stopped: waiting on you | `cmux-throbber.py stop` (Stop) |
-| blue `#3b6ea5` | no Claude in this workspace, just a terminal | `cmux-session-end.py`, and `.zshrc`'s `_cmux_row_idle` precmd |
-
-The status **pill** beside the row is hook-owned too — `cmux-throbber.py` and `cmux-session-start.py` share the `claude_code` key, and a bare cmux install leaves it reading `Running` on a session that has nothing in it. Never run `workspace-action --action set-color` by hand — a manual colour is a state claim that the next hook overwrites, and while it stands it lies. Change the meaning by editing the hook (all four live in `~/code/dotfiles/claude/`, symlinked into `~/.claude/`), never the row.
-
-**Three other pills are tool-owned, and setting or clearing one by hand is the same mistake as a manual row colour** — the next pass overwrites it, and until then it lies. `mem` is `bin/cmux-mem` (each workspace's size, plus a warning before the machine runs out of headroom); `tidy` is `bin/cmux-tidy` (dev servers listening with nobody connected); `agents` is `bin/cmux-agents` (which agent — Claude, Codex — is running in that workspace, added 2026-08-25, and since later that day **how full a Codex session's context is**, as the same ■□ bar Claude rows carry). 🔴 A Codex row's bar lives on the `agents` key, NOT on cmux's own `codex` key, and that asymmetry with Claude is deliberate: cmux rewrites its own agent keys on a lifecycle change, which a hook repainting every 0.4s barely survives and a daemon on a 3s tick does not — so the bar it can hold is the one on a key nothing else writes. The number comes from the `token_count` event Codex writes per turn into its own rollout file, so nothing of ours sits in any Codex config. `cmux-agents` also puts the placeholder LABEL `codex` on a workspace the moment a new Codex session appears in it (2026-08-25) — the counterpart of Claude's `SessionStart:clear` hook. 🔴 It is done from the daemon rather than from a Codex hook because **a Codex hook only runs once a person has TRUSTED it** in that agent's own interface (`/hooks`, or the review prompt at startup) — and cmux launches Codex with `--dangerously-bypass-hook-trust`, so ours would run inside cmux and silently not run outside it. Hooks themselves are fine: Codex 0.149 takes them in `~/.codex/hooks.json` or a `[hooks]` table, they are additive across config layers, and cmux's injected ones do not displace yours. It fires once per session id, only within two minutes of that session starting, and never on a workspace where a Claude session is also live. All three stay read-only about SESSIONS — none ever closes anything, because choosing which session dies is the user's call and a tool that guessed would eventually take the one holding an hour of unread output.
-
-🔴 **cmux writes `claude_code` ITSELF, so a pill on that key never has the last word.** Its Claude integration replaces the value on a lifecycle change — `Needs input` with a bell — or clears the pill outright, wiping the context bar and the agent mark the hooks just painted. Observed on live rows 2026-08-25, minutes after a correct paint, and it reads as a bug in the paint when it is nothing of the kind. `bin/cmux-agents` repairs it on a 20s pass by redrawing any Claude row whose value carries none of the bar's own glyphs; anything else built on that key needs the same treatment, or its own key.
-
-**The `agents` badge is the only thing that says WHICH agent a row is**, and it exists because cmux's own per-agent pills do not: `claude_code` and `codex` both render `Running` in a blue `bolt.fill`, so two working sessions of different agents are identical in the sidebar (observed 2026-08-25, side by side). It reads `~/.cmuxterm/<agent>-hook-sessions.json` — the records cmux already keeps for every agent it tracks — so nothing of ours sits in any agent's own config and `cmux hooks setup` cannot clobber it. A record counts only when its pid is alive AND still that agent's binary; those files keep dead sessions, and a reused pid would otherwise badge a row for a session that ended hours ago.
-
-🔴 **A cmux automation can never be a LaunchAgent.** The socket is `cmuxOnly` and answers `Access denied - only processes started inside cmux can connect` to anything launchd starts, so such an agent runs on schedule and silently achieves nothing — `cmux-tidy` had one of those and its pills had never once appeared on their own (found 2026-08-06). Access is inherited at spawn, not checked live, so a loop started from a shell survives being orphaned to PID 1: that is why `cmux-mem --daemon` is launched from `.zshrc` behind a pidfile and drives `cmux-tidy` itself. If you need something scheduled against cmux, extend that daemon — do not write a plist.
+The labelling rules are in `agents/GLOBAL.md`, imported below, so Codex gets the
+same ones. The hook-and-pill ownership rules that go with them are Mac-only and
+live in `claude/CLAUDE.macos.md`, which `~/.claude/CLAUDE.md` imports only on
+macOS — cmux exists nowhere else, and loading them on a machine without it cost
+2k tokens a session for rules that could not be acted on.
 
 ## Working Rules
 
@@ -237,7 +211,7 @@ Mechanics:
 - **Reach a new action through an existing surface** — context menu, native menus, settings drawer — before adding any persistent button, icon or rail entry. Discoverability rarely justifies permanent chrome.
 - **Never design a dialog that asks a question.** Act on the context-derived default and put the alternative in the confirmation toast; persistent settings are ambient state behind an anchored menu, and an inapplicable option is omitted rather than disabled. A dialog whose every row is an action is fine.
 - **Direct manipulation means zero affordance.** When the ask is "edit it and see it update", the thing shown IS the editable thing and saving is silent — no pencil button, no edit mode, no explicit commit, no confirmation notice. Add a mode or a confirm step only when data loss is at stake.
-- **A hover surface explains; a click surface acts.** A surface doing both is the tell that something is bolted on, and the fix is to move the action to a surface that is already clicked rather than to grow a footer on the explainer. The corollary is a rule about closing: a surface holding an action must survive the pointer crossing the gap to reach it, while one holding none closes immediately. Learned 2026-08-17 from a status card that had grown a *Check now* button and read as two components stapled together.
+- **A hover surface explains; a click surface acts.** A surface doing both is the tell that something is bolted on, and the fix is to move the action to a surface that is already clicked rather than to grow a footer on the explainer. The corollary is a rule about closing: a surface holding an action must survive the pointer crossing the gap to reach it, while one holding none closes immediately. The tell is a status card that has grown a *Check now* button and reads as two components stapled together.
 
 **Operator tools** — dashboards, harnesses, anything built to be *used* rather than demoed — have their own failure mode, which is naming things after the mechanism instead of the operator's question:
 
@@ -249,31 +223,65 @@ Mechanics:
 
 ## Where Rules Live
 
-- 🔴 **Four sections of THIS file are mirrored in a PUBLIC gist and no edit reaches them.** *Communication Style*, *Working With Me*, the claim-verification half of *Working Rules* and *Completion Summary* are extracted, de-personalised, into `agents/WORKING-RULES.md`. Changing one of those sections leaves the public copy saying the old thing, with nothing to say so. The gist, the second extract and the two push commands are in `agents/GLOBAL.md` → *Published extracts*.
+- **`~/.claude/CLAUDE.md`** — how I work, everywhere. **The real file is
+  `~/code/dotfiles/claude/CLAUDE.md`**; `~/.claude/CLAUDE.md` is an `@import` pointer written by
+  `install.sh`. Edit the `dotfiles` path (the harness refuses to write through a symlink) and
+  commit there; an uncommitted change is a change to the live config. `install.sh` runs on every
+  SessionStart, so drift repairs itself.
+- **`~/code/dotfiles/claude/CLAUDE.macos.md`** — imported by that pointer only on macOS. Anything
+  that names cmux belongs here; it is dead weight anywhere else.
+- **`~/code/dotfiles/agents/GLOBAL.md`** — the only file that reaches BOTH harnesses, imported
+  above and read directly by Codex as `~/.codex/AGENTS.md`.
+- **`<project>/CLAUDE.md`** — the map of that project: layout, workflows, release paths,
+  project-wide conventions.
+- **`<repo>/CLAUDE.md`** in a subdirectory — rules that only apply inside it. These load only when
+  the work enters that subtree, so repo-specific detail belongs here, NOT in the project root file.
+- **Memory** (`memory/` + `MEMORY.md`) — durable facts and decisions with a history. Not rules.
 
-- **`~/.claude/CLAUDE.md`** (this file) — how I work, everywhere. Communication, questions, execution, the rules above. **The real file is `~/code/dotfiles/claude/CLAUDE.md`** — `~/.claude/CLAUDE.md` is a one-line `@import` pointing at it. Edit the `dotfiles` path (the harness refuses to write through a symlink) and commit there; an uncommitted change is a change to the live config. `claude/install.sh` restores it and runs on every SessionStart, so drift repairs itself.
-  - 🔴 **`~/.claude/settings.json` is GENERATED, not a symlink — changed 2026-09-18 (#857).** It is `claude/settings.base.json` (portable: permissions, `enabledPlugins`, `autoMode`, theme) merged with `claude/settings.macos.json` or `claude/settings.linux.json` (hooks and `statusLine`, which are not the same on two machines — twelve of the Mac's hooks are `afplay`, `caffeinate` and cmux, none of which exist on anchor). Edit the **base** or the **overlay**, never `~/.claude/settings.json`: the next `install.sh` regenerates it. The overlays write paths as `{{HOME}}` and `{{REPO_ROOT}}`, substituted at install time.
-  - **A setting changed from inside a session is adopted, not lost.** Claude Code rewrites the live file when the theme, the model or an installed plugin changes; `settings-sync.py` reads it first and writes any drifted top-level key back into `settings.base.json`. That is the mechanism by which a plugin installed on one machine reaches the other — the repo learns it, `git pull` carries it, `plugins-sync.sh` installs it. A key *deleted* from the live file is deliberately NOT adopted; remove it from the base by hand.
-  - 🔴 **Nothing else FETCHES this repo on a machine nobody is sitting at, so `install.sh --pull` does — added 2026-09-18 (#859).** It spawns `claude/pull-dotfiles.sh` detached; that script refuses a dirty tree, pulls `--ff-only`, and re-runs `install.sh --quiet` itself if the pull moved anything, so a change applies seconds into the session rather than at the next one. Throttled to once every 15 minutes, logged to `~/.claude/dotfiles-pull.log`. **Wired into BOTH overlays since 2026-09-20.** It was `settings.linux.json` only, on the reasoning that the Mac is where edits originate and its tree is routinely dirty so the guard would skip it anyway — true, but that makes it *useless* on a dirty tree rather than harmful, and it still earns its place on the occasions the tree is clean. Nothing blocked it technically: `pull-dotfiles.sh` uses no bash-4 constructs, so it is safe on macOS's bash 3.2, and `settings-sync.py` already picks the overlay from `uname`. 🔴 **A Mac has to pull ONCE BY HAND to receive the change that makes it pull** — `cd ~/code/dotfiles && git pull --ff-only && ./claude/install.sh` — because the fix cannot arrive by the mechanism it installs. Until that command runs on a given Mac, that machine is still not fetching and nothing says so.
-    - 🔴 **The pull must never run inside `install.sh` itself.** Bash reads a script incrementally, so a pull that rewrites the file mid-run can resume at the wrong byte offset — which is also why every line of `pull-dotfiles.sh` sits inside a `main()` called on its last line, a function body being parsed as one unit before any of it executes. Do not hoist code out of it for tidiness.
-    - The spawn is measured at **127 ms** against the SessionStart hook's 10-second timeout. Blocking on the network here would mean a slow connection costs the re-link and the settings repair, not just the update.
-    - ⚠️ **It cannot recover from a state that predates itself, and a `git reset --hard` below that commit DISARMS it.** The hook's command line comes out of the repo, so rolling the checkout back past 2026-09-18 both deletes `pull-dotfiles.sh` and regenerates `settings.json` without `--pull` — after which nothing fetches and nothing says so. Observed on anchor the day it was added, testing exactly that. Recovery is one manual `git -C ~/code/dotfiles pull --ff-only`.
-  - **`enabledPlugins` is a declaration, and `claude plugin install` is what makes it true.** That install state (`~/.claude/plugins/`) is per-machine and in no repo, which is how anchor reached 2026-09-18 with the official marketplace known and zero plugins installed. `claude/plugins-sync.sh` closes the gap; `install.sh` runs it detached and at most once every six hours, because the SessionStart hook that calls it has a 10-second timeout. 🔴 It never passes `-y` — that flag accepts a *marketplace-declared command*, and an unattended `-y` would run whatever a catalog asked for, on every machine, with nobody watching.
-    - 🔴 **It reconciles VERSIONS too, and converging on LATEST is the only convergence on offer — added 2026-09-18 (#860).** Having a plugin is not being in sync: each machine gets whatever the marketplace served on install day, and hours after both were set up frontend-design was `ea0a38e1d671` here and `c447c3207a42` there. There is no way to ask for a specific version — `claude plugin install` has no `--version`, and `claude plugin list --json --available` carries no version field and omits anything already installed, so a version cannot even be COMPARED before acting. The one question the CLI answers is "update it and see": `claude plugin update <id> --json` returns `updateOutcome` as `updated` or `up_to_date` with `oldVersion`/`newVersion`. So the machines match within one sync interval, not at a reviewed pin.
-    - 🔴 **The catalog must be refreshed first.** `plugin update` resolves "latest" from the local marketplace clone, so without `claude plugin marketplace update` it reports `up_to_date` forever against whatever was cloned on install day.
-    - 🔴 **install.sh spawns the background sync on the STALENESS CLOCK or a missing plugin — `||`, never `&&`.** `--check` is local and cheap and can only see absence; gating on it deadlocked the version pass, because a stale catalog reports everything present and so nothing ever refreshed the catalog. Proved both ways on 2026-09-18: the new condition spawns with nothing missing, the old one did not.
-- **`<project>/CLAUDE.md`** — the map of that project: layout, workflows, release paths, project-wide conventions.
-- **`<repo>/CLAUDE.md`** in a subdirectory — rules that only apply inside it. Commands, architecture notes, local landmines. These load only when the work enters that subtree, so repo-specific detail belongs here, NOT in the project root file.
-- **Memory** (`memory/` + `MEMORY.md`) — durable facts and decisions with a history: what was decided, when, and why. Not rules.
+🔴 **`~/.claude/settings.json` is GENERATED, not a symlink.** It is `claude/settings.base.json`
+(portable: permissions, `enabledPlugins`, `autoMode`, theme) merged with `claude/settings.macos.json`
+or `claude/settings.linux.json` (hooks and `statusLine`, which differ per machine). Edit the **base**
+or the **overlay**, never `~/.claude/settings.json`: the next `install.sh` regenerates it. The
+overlays write paths as `{{HOME}}` and `{{REPO_ROOT}}`, substituted at install time.
 
-**Which store owns a durable fact — decided 2026-07-31.** Ask one question: *does this tell a future session what to DO?*
+- **A setting changed from inside a session is adopted, not lost.** `settings-sync.py` writes any
+  drifted top-level key back into `settings.base.json` — that is how a plugin installed on one
+  machine reaches the other. A key *deleted* from the live file is deliberately NOT adopted; remove
+  it from the base by hand.
+- **`enabledPlugins` is a declaration; `claude plugin install` is what makes it true.** That install
+  state is per-machine and in no repo. `claude/plugins-sync.sh` closes the gap and also updates each
+  plugin, since two machines that merely both have a plugin are not in sync. 🔴 It never passes `-y`
+  — that flag accepts a *marketplace-declared command*, and an unattended `-y` would run whatever a
+  catalog asked for, on every machine, with nobody watching.
+- 🔴 **`install.sh --pull` is the only thing that fetches this repo on an unattended machine.** It
+  spawns `claude/pull-dotfiles.sh` detached; that script refuses a dirty tree, pulls `--ff-only`, and
+  re-runs `install.sh` itself if the pull moved anything. **The pull must never run inside
+  `install.sh`** — bash reads a script incrementally, so a pull that rewrites the file mid-run can
+  resume at the wrong byte offset. That is also why every line of `pull-dotfiles.sh` sits inside a
+  `main()` called on its last line; do not hoist code out of it for tidiness.
+- ⚠️ **A `git reset --hard` below the commit that added it DISARMS the pull**, after which nothing
+  fetches and nothing says so. Recovery is one manual `git -C ~/code/dotfiles pull --ff-only`, then
+  `./claude/install.sh`. The same command is what a machine needs once by hand to receive the change
+  that makes it pull at all. See the memory note on the dotfiles self-update for the incidents.
 
-- **Yes → it is a rule, and it goes in a CLAUDE.md.** Global if it holds everywhere, the repo's own file if it doesn't. Rules have to be in front of you before you act, which is what always-loaded buys.
-- **No, it records what happened → it is history, and it stays a memory note.** What shipped, what was decided and why, what something cost. A CLAUDE.md must never hold this: it goes stale in days and nothing there carries a date.
-- **A note that caused a rule keeps the incident and links to the file.** The rule is the instruction; the note is the case file. "Why is this here" is what stops the next session deleting a rule it doesn't understand.
+**Which store owns a durable fact.** Ask one question: *does this tell a future session what to DO?*
 
-This exists because both stores were taking rules: of ~103 rules stated in both, **41 had drifted apart**, in both directions — memory claiming `dgmo --json` was safe while the file said it writes a PNG, the file trusting a build hook the note said never to trust. A periodic de-duplication sweep repairs the copies and not the cause, which is why the split is by *kind* rather than by discipline.
+- **Yes → it is a rule, and it goes in a CLAUDE.md.** Global if it holds everywhere, the repo's own
+  file if it doesn't. Rules have to be in front of you before you act.
+- **No, it records what happened → it is history, and it stays a memory note.** What shipped, what
+  was decided and why, what something cost. A CLAUDE.md must never hold this: it goes stale in days
+  and nothing there carries a date.
+- **A note that caused a rule keeps the incident and links to the file.** The rule is the
+  instruction; the note is the case file. "Why is this here" is what stops the next session deleting
+  a rule it doesn't understand.
+- **A lesson from a correction goes into memory** — never into a scratch file, a task note, or a
+  comment in the code it concerns. Scratch files stop being read; memory is loaded every session.
 
-**A lesson from a correction goes into memory**, with what went wrong and why it wasn't inferable — never into a scratch file, a task note, or a comment in the code it concerns. Scratch files stop being read; memory is loaded every session. If it also produces a rule, write the rule in the CLAUDE.md and link the note to it.
+When adding a rule, push it as far down as it applies. A rule in the wrong file is paid for on every
+unrelated turn, and drifts because it sits far from what it describes. Don't duplicate across levels
+— the lower file wins, so state it once.
 
-When adding a rule, push it as far down as it applies. A rule in the wrong file is paid for on every unrelated turn, and drifts because it sits far from what it describes. Don't duplicate across levels — the lower file wins, so state it once.
+🔴 **Four sections of this file are extracted into a PUBLIC gist and no edit reaches them** —
+*Communication Style*, *Working With Me*, the claim-verification half of *Working Rules*, and
+*Completion Summary*. `agents/PUBLISHING.md` has the mapping and the push commands; read it before
+editing any of the four.
