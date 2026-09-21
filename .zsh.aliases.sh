@@ -1,19 +1,19 @@
-alias l='eza -lha --color-scale=size --group-directories-first --git --git-repos'
-alias ls='eza -lha --color-scale=size --group-directories-first --git --git-repos'
-alias tree='eza --tree'
-alias bat='bat --paging never --color always -p --theme Coldark-Dark'
-alias cat='bat'
+#alias l='eza -lha --color-scale=size --group-directories-first --git --git-repos'
+#alias ls='eza -lha --color-scale=size --group-directories-first --git --git-repos'
+#alias tree='eza --tree'
+#alias bat='bat --paging never --color auto -p --theme Coldark-Dark'
+#alias cat='bat'
 alias v='vim'
 alias vi='vim'
-alias cd='z'
+#alias cd='z'
 
 alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 
-export FZF_DEFAULT_OPTS="--height=30% --layout reverse --style full --preview 'bat --color always -p --theme Coldark-Dark {}'"
+#export FZF_DEFAULT_OPTS="--height=30% --layout reverse --style full --preview 'bat --color always -p --theme Coldark-Dark {}'"
 # this gets you vim ** and cd **
-source <(fzf --zsh)
+#source <(fzf --zsh)
 
 #alias g='git'
 #alias gd='git diff --color-words'
