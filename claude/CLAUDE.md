@@ -124,29 +124,9 @@ If the work produced anything observable — a UI change, a deployed endpoint, a
 
 ## Progress Checklists
 
-Any multi-step process — 3+ steps, or anything spanning more than one turn — shows a checklist, so what's done and what's left is visible without asking. **It uses coloured SQUARES; the 🟢/🟡/🔵/🟣/🔴 circles mean *priority* in a Next-steps list.** Shape is what separates the two systems, not colour — a square is always progress, a circle is always priority, and the two never appear in the same list.
+Any multi-step process — 3+ steps, or anything spanning more than one turn — **shows a checklist** of coloured SQUARES (🟩 done · 🟨 doing now · 🟥 still to do · ⬜ dropped or blocked, always with a reason). Exactly one 🟨. Re-post it as states change; a stale checklist is worse than none. Squares are progress, the 🟢/🟡/🔵/🟣/🔴 circles are priority, and the two never appear in the same list.
 
-```
-Audit and split the instruction files
-
-  🟩 Audit workspace CLAUDE.md
-  🟩 Migrate generic rules to global
-  🟨 Reconcile memory vs CLAUDE.md
-  ⬜ Fold in the archived rules — the archive was deleted last month
-  🟥 Commit across three repos
-  🟥 Push main branches
-```
-
-- 🟩 done · 🟨 doing it right now · 🟥 still to do · ⬜ dropped or blocked
-- **The colours track completeness, not severity.** A checklist starts all 🟥 and ends all 🟩 — red means outstanding, never *wrong*, so a freshly posted list full of red is the normal opening state and reads as work ahead rather than failure. ⬜ is the one state outside that progression, which is why it is the recessive glyph: a dropped or blocked step is not work in flight and should not compete for the eye with the 🟥s that still need doing
-- 🔴 **All four must come from the SAME width class or the column stops lining up** — these four are all East Asian Width `W`, so every row indents identically. Mixing is the hazard, not width itself: never drop a text glyph (☑, ▸, ✔) into the column, and never swap one square for a differently-shaped emoji. The old ballot boxes ☑ ▸ ☐ ☒ were the previous set and are all `W`'s opposite, `N` — a single one left behind knocks its row out by a cell. Checked with `unicodedata.east_asian_width` 2026-09-20
-- Exactly one 🟨 at a time. Nothing is "in progress" while something else is
-- One line per step, phrased as the action. No sub-bullets, no status prose
-- Post it when the work starts and re-post it as states change — a stale checklist is worse than none
-- A step that gets dropped or blocked becomes ⬜ and **stays on the list**, with the reason on the same line after an em dash. Silently vanishing steps read as completed. Don't use strikethrough as well — the square already says it, and struck text is harder to read for the one line that most needs reading
-- ⬜ is the only state that carries a reason, and it always carries one. "⬜ Push main branches" alone tells the user nothing about whether they now have to do it
-- **Every line is a step.** ⬜ is not a slot for a note, a heading or an aside — a checklist that carries information which is not a piece of work stops being scannable as progress, and the prose around it is where that belongs
-- This is display, separate from any task-tracking tool. If a harness task list is also in use, the checklist is what the user reads
+**The format, the glyph width rule that keeps the column aligned, and what each state means: load the `progress-checklists` skill.**
 
 ## Workspace Label (cmux sidebar)
 
@@ -180,138 +160,44 @@ macOS — cmux exists nowhere else, and loading them on a machine without it cos
 
 ## Git — I drive it, the user never tracks a branch
 
-The user is not a git specialist and does not want to be. They want work that doesn't collide with other work, and when it's finished they want it on main and ready for the next release — without holding any branch in their head. **Never ask them a branching, merging, or cleanup question.** Decide, do it, report in one line.
+The user is not a git specialist and does not want to be. **Never ask them a branching, merging, or cleanup question** — decide, do it, report in one line. Repo free (clean, on main) → work on main; repo occupied → work in a `<repo>-wt-<slug>` worktree. **Landing is part of the task**: commit, merge, push, delete the branch and remove the worktree in the same breath. A finished task leaves nothing behind.
 
-**Choosing where to work — check first, every time:**
+**The full procedure — the free-vs-occupied check, landing, leftover branches at session start, and what another session owns: load the `git-workflow` skill.**
 
-1. `git status --short` and `git branch --show-current` in the target repo.
-2. **Repo is free** (clean tree, on main): work directly on main. No branch, no worktree.
-3. **Repo is occupied** (dirty tree, or checked out on someone else's branch): create a worktree — `git worktree add ../<repo>-wt-<slug> -b <slug>` — and do all edits and commits through that path. Tell the user the path and branch in one line, then carry on.
-
-**Landing is part of the task, not a follow-up.** The moment work is verified:
-
-- commit (explicit paths), then merge to main if it was on a branch, then push
-- delete the branch and remove the worktree in the same breath — `git worktree remove <path>` then `git branch -d <slug>`
-- **A finished task leaves nothing behind:** no branch, no worktree, no dirty tree, nothing unpushed
-
-If the work genuinely must not ship yet, that is the ONE case where a branch survives a task — and it comes with an explicit sentence saying so, why, and what would unblock it. Silence plus a lingering branch is the failure mode.
-
-**At session start, in a repo you're about to touch:** if there are leftover branches or worktrees, say so in one line and offer to land or delete them as a lettered choice. Don't launch an audit; don't ask them to decide anything they'd need git knowledge to answer.
-
-**Commit promptly.** A long-lived dirty tree is what another session's `git add -A` or `git commit -a` sweeps up. Finish, commit, push — don't leave work sitting uncommitted across turns.
-
-**Several sessions run at once.** Work owned by another session — its branch, its worktree, its uncommitted files — is not yours to advance, deploy, or offer as a next step unless asked. Editing files it has not touched is fine; staging its files is not.
+Two prohibitions stay here, because each one already cost something and a skill that is never loaded cannot prevent them:
 
 **Never `git commit --amend`.** A follow-up fix to your own commit is always a NEW commit, because HEAD may have moved to someone else's since yours landed. An amend once rewrote another session's commit, folding an unrelated edit into their work under their message. If you believe an amend is warranted, run `git log -1 --format='%h %an %s'` first; if something already landed on top, recover with `git reflog` then `git reset --soft <their-hash>` — never `--hard`, which takes their uncommitted work with it.
 
 **Never `git checkout --` a tracked file while any uncommitted work is in the tree.** Reverting goes through `git stash push <file>` or a scratchpad copy. A checkout looks local and silently discards whatever a collaborator or another session had in that file.
 
+**Commit promptly.** A long-lived dirty tree is what another session's `git add -A` sweeps up. And work owned by another session — its branch, its worktree, its uncommitted files — is not yours to advance, deploy, or offer as a next step unless asked.
+
 - **Don't fabricate status.** Read the tracker/backlog rather than recalling it; anything about "what's current" is stale by default.
 
 ## Mockup First
 
-Any time we're ideating, shaping a flow, designing UX, or working through non-trivial architecture — **build an HTML mockup early**, before writing prose about it. Don't ask permission, don't wait for the design to settle; the mockup is how it settles. Paragraphs describing an interface are the failure mode this replaces.
+Any time we're ideating, shaping a flow, designing UX, or working through non-trivial architecture — **build a mockup early**, before writing prose about it. Don't ask permission, don't wait for the design to settle; the mockup is how it settles. Paragraphs describing an interface are the failure mode this replaces. **Open it before handing it over**, and tell the user the exact path to view it.
 
-Every mockup carries, in order:
-
-1. **An obvious title** — names the thing, plus a date. Someone opening it cold knows what it is.
-2. **The problem** — 2–3 sentences. What breaks today, for whom, at what moment.
-3. **The experience or architecture** — the walkthrough: what the user does, what they see, what the system does. For architecture, same shape — request → hop → store → response.
-4. **Options, side by side** — 2–4 real alternatives, not one design plus strawmen. Each gets a name, a rendered mockup, and its trade-off in a line. Say which is recommended and why, using the 🟢/🟡/🔵/🟣/🔴 scheme.
-5. **Open questions** — what the mockup doesn't answer.
-
-Mechanics:
-
-- Write to the session scratchpad, publish with the **Artifact** tool (load the `artifact-design` skill first). Self-contained, no external assets, theme-aware.
-- **Ephemeral by default** — nothing committed. If one earns permanence, link its URL from wherever the work is tracked. A project may override both the medium and this commit rule in its own `CLAUDE.md`; where it does, follow it — Diagrammo, for one, commits mockups as dated pages in a local-only docs site instead of publishing Artifacts.
-- Interactive beats static when the point is a flow — clickable steps, toggled states, real before/after. A picture of an idea is worth less than a thing you can poke.
-- Real content and real product copy, never lorem ipsum. Verify any domain syntax against that project's spec.
-- **Every label passes the cold-read test.** A tired stranger reading it alone must know what the thing is, what clicking it does, and what it costs. If it needs an explainer sentence underneath, rewrite the label instead of adding the note. Use the user's own words — ask, prompt, diagram, draw, review — never coined nouns like phrase, corpus, harness, pipeline, judge, baseline. This governs UI, mockups and docs alike.
-- Iterate in place: same file path, republish, same URL.
-- **Open it before handing it over.** A mockup nobody rendered is prose with extra steps — view it yourself, then tell the user the exact path to view it too.
-- **Disposable by default.** Delete it once the decision lands somewhere real; version control keeps the history. A pile of surviving mockups means something needed deleting.
+**What it must contain and how to build one: load the `mockup-first` skill.** A project may override the medium in its own `CLAUDE.md` — Diagrammo commits dated pages to its docs site rather than publishing Artifacts.
 
 ## UI Preferences
 
-- **Reach a new action through an existing surface** — context menu, native menus, settings drawer — before adding any persistent button, icon or rail entry. Discoverability rarely justifies permanent chrome.
-- **Never design a dialog that asks a question.** Act on the context-derived default and put the alternative in the confirmation toast; persistent settings are ambient state behind an anchored menu, and an inapplicable option is omitted rather than disabled. A dialog whose every row is an action is fine.
-- **Direct manipulation means zero affordance.** When the ask is "edit it and see it update", the thing shown IS the editable thing and saving is silent — no pencil button, no edit mode, no explicit commit, no confirmation notice. Add a mode or a confirm step only when data loss is at stake.
-- **A hover surface explains; a click surface acts.** A surface doing both is the tell that something is bolted on, and the fix is to move the action to a surface that is already clicked rather than to grow a footer on the explainer. The corollary is a rule about closing: a surface holding an action must survive the pointer crossing the gap to reach it, while one holding none closes immediately. The tell is a status card that has grown a *Check now* button and reads as two components stapled together.
+Before adding any persistent button, icon or rail entry, **reach the action through an existing surface** instead. **Never design a dialog that asks a question.** Where the ask is "edit it and see it update", the thing shown IS the editable thing and saving is silent.
 
-**Operator tools** — dashboards, harnesses, anything built to be *used* rather than demoed — have their own failure mode, which is naming things after the mechanism instead of the operator's question:
-
-- **Label with the question, not the machinery.** "Picks the right chart?" beats "Selection · deterministic scorer". Every label passes the cold-read test above.
-- **Every action button sits on the thing it acts on**, scoped per item or per type. No global toolbars far from the data they operate on.
-- **A button implies cost.** Free, instant checks re-run automatically on edit; anything that costs is labelled verb plus cost — "Redraw all 6 · ~10¢ · 1 min".
-- **The artifact under improvement is visible, front and center**, at full size — not summarized in a table with the real thing buried in a detail view.
-- **Two screens, maximum**, usable after weeks away with zero relearning.
+**Those rules in full, plus the separate failure mode of operator tools: load the `ui-preferences` skill.**
 
 ## Where Rules Live
 
-- **`~/.claude/CLAUDE.md`** — how I work, everywhere. **The real file is
-  `~/code/dotfiles/claude/CLAUDE.md`**; `~/.claude/CLAUDE.md` is an `@import` pointer written by
-  `install.sh`. Edit the `dotfiles` path (the harness refuses to write through a symlink) and
-  commit there; an uncommitted change is a change to the live config. `install.sh` runs on every
-  SessionStart, so drift repairs itself.
-- **`~/code/dotfiles/claude/CLAUDE.macos.md`** — imported by that pointer only on macOS. Anything
-  that names cmux belongs here; it is dead weight anywhere else.
-- **`~/code/dotfiles/agents/GLOBAL.md`** — the only file that reaches BOTH harnesses, imported
-  above and read directly by Codex as `~/.codex/AGENTS.md`.
-- **`<project>/CLAUDE.md`** — the map of that project: layout, workflows, release paths,
-  project-wide conventions.
-- **`<repo>/CLAUDE.md`** in a subdirectory — rules that only apply inside it. These load only when
-  the work enters that subtree, so repo-specific detail belongs here, NOT in the project root file.
-- **Memory** (`memory/` + `MEMORY.md`) — durable facts and decisions with a history. Not rules.
+**Which store owns a durable fact — decided 2026-07-31.** Ask one question: *does this tell a future session what to DO?*
 
-🔴 **`~/.claude/settings.json` is GENERATED, not a symlink.** It is `claude/settings.base.json`
-(portable: permissions, `enabledPlugins`, `autoMode`, theme) merged with `claude/settings.macos.json`
-or `claude/settings.linux.json` (hooks and `statusLine`, which differ per machine). Edit the **base**
-or the **overlay**, never `~/.claude/settings.json`: the next `install.sh` regenerates it. The
-overlays write paths as `{{HOME}}` and `{{REPO_ROOT}}`, substituted at install time.
+- **Yes → it is a rule, and it goes in a CLAUDE.md.** Global if it holds everywhere, the repo's own file if it doesn't. Rules have to be in front of you before you act, which is what always-loaded buys.
+- **No, it records what happened → it is history, and it stays a memory note.** What shipped, what was decided and why, what something cost. A CLAUDE.md must never hold this: it goes stale in days and nothing there carries a date.
 
-- **A setting changed from inside a session is adopted, not lost.** `settings-sync.py` writes any
-  drifted top-level key back into `settings.base.json` — that is how a plugin installed on one
-  machine reaches the other. A key *deleted* from the live file is deliberately NOT adopted; remove
-  it from the base by hand.
-- 🔴 **Adoption runs BEFORE regeneration, so on a contested key the LIVE file wins.** Editing
-  `settings.base.json` for a key `~/.claude/settings.json` already holds is silently reverted by the
-  next `install.sh` — the sync adopts the live value over the edit and reports it as an `adopt` line
-  that reads like success. Change such a key in the live file, then run `install.sh` to carry it into
-  the base. Only a key the live file LACKS can be added from the base alone.
-- **`enabledPlugins` is a declaration; `claude plugin install` is what makes it true.** That install
-  state is per-machine and in no repo. `claude/plugins-sync.sh` closes the gap and also updates each
-  plugin, since two machines that merely both have a plugin are not in sync. 🔴 It never passes `-y`
-  — that flag accepts a *marketplace-declared command*, and an unattended `-y` would run whatever a
-  catalog asked for, on every machine, with nobody watching.
-- 🔴 **`install.sh --pull` is the only thing that fetches this repo on an unattended machine.** It
-  spawns `claude/pull-dotfiles.sh` detached; that script refuses a dirty tree, pulls `--ff-only`, and
-  re-runs `install.sh` itself if the pull moved anything. **The pull must never run inside
-  `install.sh`** — bash reads a script incrementally, so a pull that rewrites the file mid-run can
-  resume at the wrong byte offset. That is also why every line of `pull-dotfiles.sh` sits inside a
-  `main()` called on its last line; do not hoist code out of it for tidiness.
-- ⚠️ **A `git reset --hard` below the commit that added it DISARMS the pull**, after which nothing
-  fetches and nothing says so. Recovery is one manual `git -C ~/code/dotfiles pull --ff-only`, then
-  `./claude/install.sh`. The same command is what a machine needs once by hand to receive the change
-  that makes it pull at all. See the memory note on the dotfiles self-update for the incidents.
+**A lesson from a correction goes into memory**, with what went wrong and why it wasn't inferable — never into a scratch file, a task note, or a comment in the code it concerns. If it also produces a rule, write the rule in the CLAUDE.md and link the note to it.
 
-**Which store owns a durable fact.** Ask one question: *does this tell a future session what to DO?*
+**Push a rule as far down as it applies**, and state it once — the lower file wins.
 
-- **Yes → it is a rule, and it goes in a CLAUDE.md.** Global if it holds everywhere, the repo's own
-  file if it doesn't. Rules have to be in front of you before you act.
-- **No, it records what happened → it is history, and it stays a memory note.** What shipped, what
-  was decided and why, what something cost. A CLAUDE.md must never hold this: it goes stale in days
-  and nothing there carries a date.
-- **A note that caused a rule keeps the incident and links to the file.** The rule is the
-  instruction; the note is the case file. "Why is this here" is what stops the next session deleting
-  a rule it doesn't understand.
-- **A lesson from a correction goes into memory** — never into a scratch file, a task note, or a
-  comment in the code it concerns. Scratch files stop being read; memory is loaded every session.
+🔴 **Four sections of THIS file are mirrored in a PUBLIC gist and no edit reaches them**: *Communication Style*, *Working With Me*, the claim-verification half of *Working Rules*, and *Completion Summary*. Changing one leaves the public copy saying the old thing.
 
-When adding a rule, push it as far down as it applies. A rule in the wrong file is paid for on every
-unrelated turn, and drifts because it sits far from what it describes. Don't duplicate across levels
-— the lower file wins, so state it once.
+**The file hierarchy, the generated `settings.json` and its overlays, the self-pull, the plugin version sync and the gist push commands: load the `dotfiles-layout` skill.**
 
-🔴 **Four sections of this file are extracted into a PUBLIC gist and no edit reaches them** —
-*Communication Style*, *Working With Me*, the claim-verification half of *Working Rules*, and
-*Completion Summary*. `agents/PUBLISHING.md` has the mapping and the push commands; read it before
-editing any of the four.
