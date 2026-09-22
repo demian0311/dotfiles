@@ -128,14 +128,6 @@ Any multi-step process — 3+ steps, or anything spanning more than one turn —
 
 **The format, the glyph width rule that keeps the column aligned, and what each state means: load the `progress-checklists` skill.**
 
-## Workspace Label (cmux sidebar)
-
-The labelling rules are in `agents/GLOBAL.md`, imported below, so Codex gets the
-same ones. The hook-and-pill ownership rules that go with them are Mac-only and
-live in `claude/CLAUDE.macos.md`, which `~/.claude/CLAUDE.md` imports only on
-macOS — cmux exists nowhere else, and loading them on a machine without it cost
-2k tokens a session for rules that could not be acted on.
-
 ## Working Rules
 
 - **Act, don't ask.** This is about *how* to execute an agreed task, never *whether* to start one — that is Working With Me's call, and it wins. Run builds, tests, lint, typecheck without confirmation. Pause only when the answer can't be inferred AND changes what gets built. The carve-out is **spend**: anything that costs metered tokens or money — subprocess `claude -p` runs, a large agent fan-out over a corpus — gets asked first with the cost quantified ("~150 LLM calls"), and defaults to a 1–5 case probe over a full sweep.
