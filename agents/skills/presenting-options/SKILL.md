@@ -1,20 +1,11 @@
-# Global rules — every coding agent, every session
+---
+name: presenting-options
+description: The full reasoning behind the lettered option format — what counts as a departure, the two lists that open with blue, why the continue-or-depart prefix exists, the two-alphabet rule, and the incidents that produced each. Load when unsure whether a step is a continuation or a departure, when a list has no green, or when writing guidance about how options are presented. The rules that fire on every message are in the global instructions; this is the copy of record.
+---
 
-🔴 **Shared by every coding agent, not just one.** Claude Code imports this file from
-`claude/CLAUDE.md`; Codex reads it directly as `~/.codex/AGENTS.md`, where it is the *only*
-global instruction file it gets. So never name a tool that exists in one harness and not the
-other without saying which — a rule the reader cannot act on is worse than no rule.
-
-**This file is the only place a rule can reach BOTH harnesses.** Anything both must obey goes
-here, under its own heading. Anything Claude-only belongs in `claude/CLAUDE.md`; anything
-Mac-only belongs in `claude/CLAUDE.macos.md`, which is imported only on macOS.
-
-## Published extracts
-
-Two de-personalised files in `agents/` are mirrored to a public gist. They are COPIES, so no
-edit reaches them automatically, and four sections of `claude/CLAUDE.md` are among their
-sources. `agents/PUBLISHING.md` has the mapping, the push commands and the de-personalising
-rules — read it before editing either extract or any section that feeds one.
+The global instruction file carries the rules that fire on every message. This is the whole
+section as written, kept here so the reasoning and the incidents behind each rule survive the
+trim — nothing below was edited.
 
 # Presenting options — how Demian wants to be asked and told
 
@@ -42,11 +33,14 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
   first. A mockup, doc or issue numbers its options **1, 2, 3**; conversation letters them
   **A, B, C** with the 🟢/🟡/🔵/🟣/🔴 scheme. Two alphabets so a reference is never ambiguous about
   which one it points at.
-- Never greek letters (α/β/γ/Δ/Σ) for options, variants or scenarios — plain numbers or letters.
+- Never label options, variants or scenarios with greek letters (α/β/γ/Δ/Σ) — plain numbers or
+  letters, in tables, headers and prose alike.
 - One decision per question. Don't bundle multiple asks into one paragraph.
 - Minimize required typing. "Other" is always available for freeform, so don't pre-solicit prose.
-- A confirmation prompt for a command that will recur offers *"Yes, and add to permissions"* as a
-  listed option upfront, and persisting it is in the `presenting-options` skill.
+- Any confirmation prompt for a command that will recur offers *"Yes, and add to permissions"* as
+  a listed option upfront. If chosen, persist it: in Claude Code use the `update-config` skill to
+  add a wildcard pattern (`Bash(git diff*)`) under `permissions.allow`; in Codex append a
+  `prefix_rule(pattern=[...], decision="allow")` line to `~/.codex/rules/default.rules`.
 
 ## Next steps — always ranked, never prose
 
@@ -85,12 +79,16 @@ toward a different goal. Red spans both.
   one only when the user is likely to consider it. **Red wins**: a departure the agent advises
   against is red, not purple.
 
-**Order is 🟢 · 🟡 · 🔵 · 🟣 · 🔴**, and priority order is still letter order. Green and yellow say
-*stay on this task*, blue and purple say *leave it*, red says *do not do this* whichever direction
-it points. Two exceptions, both the case where no continuation can be recommended: **the thread is
-finished** (no green — the blue leads, with one line above saying the thread is done rather than
-dressing a departure up as progress), and **the work is BLOCKED on a departure** (that blue leads,
-ahead of every continuation, and says what it unblocks).
+**Order is 🟢 · 🟡 · 🔵 · 🟣 · 🔴**, and priority order is still letter order. Two exceptions, both
+being the case where no continuation can be recommended:
+
+- **The thread is finished.** There is no green; the list opens with the blue, and one line above
+  it says the thread is done rather than dressing a departure up as progress.
+- **The work is BLOCKED on a departure.** That blue leads, ahead of every continuation, and says
+  what it unblocks — it is the only thing that can actually be done next.
+
+The colours are not one axis. Green and yellow say *stay on this task*, blue and purple say *leave
+it*, red says *do not do this* whichever direction it points.
 
 Rules:
 - One line each: what to do + why, ≤ ~15 words of rationale. No sub-bullets.
@@ -117,9 +115,14 @@ glance, and the words still have to name the thing and gloss any identifier: it 
 `Continue the agent-only dev-server deadline (#363) — time a cold start`, never `Continue #363`.
 A step whose colour and opening disagree is malformed.
 
-Say it even when **every** option continues the same work — that is exactly the case that reads as
-a menu of departures. **What counts as a departure, the two blue-leading lists, and why this rule
-exists: the `presenting-options` skill.**
+- Say it even when **every** option continues the same work. That is exactly the case that reads
+  as a menu of departures, because a four-option list looks like four directions whatever the
+  options say.
+- The prefix is not a substitute for the thread rule above. Departures still only appear when
+  asked for or genuinely blocking; this makes the ones that survive legible.
+- Observed 2026-08-19: four next-steps options, all four of them moves on the same issue, and the
+  user asked whether to pick a letter or to say "let's do 363" — the list had given no way to tell
+  those were the same answer.
 
 🔴 **An identifier never travels alone, here or anywhere else.** Every issue, PR, story, epic,
 ticket or migration number carries a parenthetical saying what it is, and **the thing comes
@@ -127,33 +130,3 @@ first**: `the npm token expiry (#218)`, never `#218 — the npm token expiry`. T
 or sentence whose first token is an identifier; if the eye lands on the number before it lands on
 any words, rewrite it. A bare number inside a link is the same violation wearing a link, so the
 link text is the description too.
-
-# Workspace label (cmux sidebar)
-
-Several sessions run side by side and the sidebar label is how the user finds the right one,
-and nothing sets it but the session itself — cmux's AI auto-naming is deliberately off, so a
-label nobody sets stays whatever stale string was there.
-
-```bash
-cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
-```
-
-- **The handle is required** — bare, the command fails with `could not resolve workspace
-  handle`. `$CMUX_WORKSPACE_ID` is the authoritative answer to "which workspace am I"; the
-  sidebar's visible selection is not, and neither is the pane header.
-- **2–4 words, lowercase, what the work is about.** Never a verb phrase, never a tool or
-  slash-command name, never `new`/`clear`/`codex`/a bare repo name. The label names the
-  *work*, not the state.
-- **Set it as soon as the subject is clear** — right after the first substantive prompt, not
-  at the end.
-- 🔴 **Re-set it when the thread changes, and CHECK IT AT EVERY STOP** — at reporting, and
-  when asking the user to pick. "When the thread changes" is a condition nobody notices while
-  following the thread, so it has to ride on the beats that already interrupt.
-- **A placeholder label is an instruction, not a name.** A fresh or just-cleared session is
-  renamed to one automatically — `clear` in Claude Code, `codex` in Codex — because at that
-  moment the subject is known to be unknown. Seeing one means naming this thread is the FIRST
-  job of the turn.
-- Skip silently if `cmux` isn't on PATH or the call fails. Rename only your own workspace.
-
-**Why the handle behaves that way, what Codex's sandbox permits, and the incident behind the
-check-at-every-stop rule: the `workspace-label` skill.**

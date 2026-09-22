@@ -158,6 +158,38 @@ if [ -d "$skills_src" ]; then
   done
 fi
 
+# Shared skills: agents/skills/<name> is real, and BOTH harnesses get a symlink --
+# ~/.claude/skills for Claude Code, ~/.agents/skills for Codex, which never looks
+# inside ~/.claude. Same shape the diagrammo project already uses one level down.
+# Only created where the harness's own directory already exists, so a machine
+# without Codex grows no empty tree.
+shared_src="$(dirname "$repo_dir")/agents/skills"
+if [ -d "$shared_src" ]; then
+  for src in "$shared_src"/*/; do
+    [ -d "$src" ] || continue
+    src="${src%/}"
+    name="$(basename "$src")"
+    for dest_root in "$target_dir/skills" "$HOME/.agents/skills"; do
+      # ~/.claude/skills is ours to create; ~/.agents/skills is Codex's and is
+      # only populated if that harness is actually installed here.
+      [ "$dest_root" = "$target_dir/skills" ] || [ -d "$dest_root" ] || continue
+      mkdir -p "$dest_root"
+      dest="$dest_root/$name"
+      if [ -L "$dest" ] && [ "$(readlink "$dest")" = "$src" ]; then
+        say_ok 'ok     shared/%s -> %s\n' "$name" "$(basename "$(dirname "$dest_root")")"
+        continue
+      fi
+      # A real directory here is not ours to move; say so rather than clobber it.
+      if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+        printf 'skip   shared/%s (%s holds a real directory, not replacing it)\n' "$name" "$dest"
+        continue
+      fi
+      ln -sfn "$src" "$dest"
+      printf 'link   shared/%s -> %s\n' "$name" "$dest_root"
+    done
+  done
+fi
+
 # CLAUDE.md: a pointer file, not a link. Anything Claude Code appends to the
 # global memory lands in the pointer and shows up here as an unexpected extra
 # line, which is louder than a silently replaced symlink.
