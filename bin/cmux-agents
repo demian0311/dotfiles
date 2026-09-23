@@ -8,19 +8,20 @@ reporter that owns one pill key and never closes, kills or edits anything.
   cmux-tidy    is a dev server listening, unused    pill key `tidy`
   cmux-agents  which agent lives here               pill key `agents`
 
-The question it answers is "is this one Claude or Codex" — with several sessions
-of each running side by side, the sidebar could not say. cmux does set a pill per
-agent already (`claude_code`, `codex`), but those carry LIFECYCLE text in cmux's
-own styling — a running Claude and a running Codex are both a blue `bolt.fill`
-reading `Running`, which is the state, not the identity. This adds the identity
-as its own chip, in the agent's own colour, and leaves the lifecycle pills alone.
+The question it answers is "WHICH agent is this" — with several sessions running
+side by side, the sidebar could not say. cmux does set a pill per agent already,
+but those carry LIFECYCLE text in cmux's own styling: every running agent is a
+blue `bolt.fill` reading `Running`, which is the state, not the identity. This
+adds the identity as its own chip, in the agent's own colour, and leaves the
+lifecycle pills alone.
 
 WHERE THE ANSWER COMES FROM — and why nothing has to be installed per agent:
 cmux's agent integrations already write `~/.cmuxterm/<agent>-hook-sessions.json`,
 one record per session, carrying `workspaceId`, `pid` and lifecycle. Reading that
-covers every agent cmux knows how to track — codex today, grok/opencode/amp the
-day one of them is used — with no hook of ours in any agent's config, so an agent
-update or a `cmux hooks setup` cannot clobber it. It also means a session cmux
+covers every agent cmux knows how to track — none but Claude is installed here
+today, and grok/opencode/amp would appear the day one of them is used — with no
+hook of ours in any agent's config, so an agent update or a `cmux hooks setup`
+cannot clobber it. It also means a session cmux
 cannot see does not get badged, which is the honest failure: no chip rather than
 a wrong one.
 
@@ -30,17 +31,17 @@ or a reused pid would keep a badge alive for a session that ended hours ago.
 
 AND HOW FULL ITS CONTEXT IS: an agent whose fullness can be read gets a ten-cell
 bar instead of its name, the icon carrying the identity the word used to. Claude
-already had one, drawn per-pane by its own hook into cmux's `claude_code` pill;
-Codex had nothing, because that bar is fed by Claude's status line. This draws it
-from what Codex itself writes to disk — see `codex_context` for where — and puts
-it in the `agents` pill, the key this tool OWNS, rather than in cmux's own `codex`
-pill. That is the whole reason for the asymmetry: cmux rewrites its own agent keys
-on a lifecycle change, and a hook repainting every 0.4s barely loses that race
-where a daemon on a 3s tick would show cmux's word for seconds at a time.
+has one already, drawn per-pane by its own hook into cmux's `claude_code` pill.
+No other agent is installed here, so `CONTEXT_READERS` is empty and this tool
+draws no bar of its own. When one arrives, add a reader there and the bar lands
+in the `agents` pill, the key this tool OWNS, never in cmux's own key for that
+agent: cmux rewrites its own agent keys on a lifecycle change, and a hook
+repainting every 0.4s barely loses that race where a daemon on a 3s tick would
+show cmux's word for seconds at a time.
 
 MEMORY is NOT here and must not be added: `cmux-mem` counts every process in a
-workspace, so it already sizes Codex rows (verified 2026-08-25 — two of them, 113M
-and 89M, in its own `--report`). One fact, one pill.
+workspace, so it already sizes every agent's rows (verified 2026-08-25 on two
+non-Claude rows, 113M and 89M, in its own `--report`). One fact, one pill.
 
   cmux-agents             one pass — badge every workspace, clear the ones with none
   cmux-agents --report    also print what it found
@@ -84,17 +85,10 @@ PIDFILE = os.path.expanduser('~/Library/Caches/cmux-agents.pid')
 AGENTS = {
     'claude': {'label': 'claude', 'binary': 'claude',
                'icon': 'sparkle', 'color': '#d97757'},
-    # Steel, from the Diagrammo slate palette — and blue is what cmux's own
-    # agent branding already uses for Codex (`#8FDBFF` on its Codex quick-launch
-    # button), so the two agree rather than teaching two different colours. It is
-    # NOT the row's blue (#3b6ea5, "no agent here, just a terminal"): a badge only
-    # exists where an agent does, so the two can never appear on the same row.
-    'codex':  {'label': 'codex',  'binary': 'codex',
-               'icon': 'chevron.left.forwardslash.chevron.right', 'color': '#4f96c4'},
 }
 # A workspace running two different agents at once gets one chip naming both, in
-# a colour belonging to neither — the point of the chip is the answer, and
-# "claude · codex" IS the answer for that row.
+# a colour belonging to neither — the point of the chip is the answer, and naming
+# both IS the answer for that row.
 # Claude is deliberately NOT badged here: its mark rides in front of the context
 # bar that cmux-throbber.py already draws on every Claude row (the `sparkle` in
 # that pill's icon slot), so a chip as well would be the same answer twice and a
@@ -103,32 +97,21 @@ AGENTS = {
 # it, and it keeps one. Changed 2026-08-25; before this every row carried a chip.
 SKIP = {'claude'}
 
-# Enough of the rollout's tail to be certain the last `token_count` is in it —
-# they are the biggest events in the file and one is written per turn.
-TAIL_BYTES = 262144
-
 # A workspace's sidebar label is how the user tells ten sessions apart, and a brand
 # new session inherits the PREVIOUS thread's label — which is worse than a generic
 # one, because it is confidently wrong. Claude Code closes this with its own
-# SessionStart hook, and Codex 0.149 has an equivalent — hooks from every config
-# layer are ADDITIVE, so the `-c hooks.SessionStart=…` cmux injects on the command
-# line would not have displaced one in `~/.codex/hooks.json`.
+# SessionStart hook. An agent with no such hook — or one whose hook a person must
+# TRUST before it runs, which is a safety net that works only where you would
+# notice it failing — gets its placeholder stamped from this daemon instead: add
+# it here as `'<agent>': '<label>'`. None is installed today, so nothing is
+# stamped, and the pass below returns immediately.
 #
-# 🔴 It is not used, because a Codex hook only runs once TRUSTED — per hook, granted
-# by a person in the TUI (`/hooks`, or the startup review prompt) — and cmux launches
-# Codex with `--dangerously-bypass-hook-trust`. So the same hook would run inside cmux
-# and silently not run outside it, which is the worst shape a safety net can have: it
-# works everywhere you would notice it failing. Doing it from this daemon needs no
-# Codex config, no trust, and behaves the same either way — the same reason the badge
-# is read from cmux's session files rather than from a hook.
-#
-# The agent renames it properly once it knows the subject — that rule lives in
-# `agents/GLOBAL.md`, which Codex reads as ~/.codex/AGENTS.md. This only guarantees
-# that what stands until then is honest.
-PLACEHOLDERS = {'codex': 'codex'}
+# The agent renames it properly once it knows the subject — that rule is in the
+# `workspace-label` skill. This only guarantees that what stands until then is honest.
+PLACEHOLDERS = {}
 # Only a session BORN in the last two minutes gets one. Without this, restarting the
-# daemon would see every running session as new and stamp `codex` over labels their
-# sessions had already chosen — the exact damage this is meant to prevent.
+# daemon would see every running session as new and stamp a placeholder over labels
+# their sessions had already chosen — the exact damage this is meant to prevent.
 BIRTH_WINDOW = 120.0
 # How long a session id is remembered after it stops appearing. Anything longer than
 # a session's own lifetime would do; this is just a bound on the file's size.
@@ -181,59 +164,17 @@ def alive(pid, binary):
         return False
     if not binary:
         return True
-    # `codex` launched from ~/.local/bin resolves to a standalone binary of the
-    # same name; `claude` likewise. A mismatch means the pid was reused.
+    # `claude` launched from ~/.local/bin resolves to a standalone binary of the
+    # same name. A mismatch means the pid was reused.
     return comm(pid) == binary
 
 
-def codex_context(record):
-    """Percent of its context window this Codex session is holding, or None.
-
-    Codex writes a `token_count` event per turn into the session's rollout JSONL
-    — `transcriptPath` in the record cmux already keeps — and the LAST one
-    describes the request just made. `last_token_usage.total_tokens` is
-    everything that went up, which IS the conversation, and
-    `model_context_window` is already the EFFECTIVE window rather than the
-    model's raw one (258400 = 272000 x 0.95, read off a live session
-    2026-08-25). A compacted session reports its smaller total here, so the bar
-    drops on a compaction without anything having to notice one happened.
-
-    ⚠️ Codex's TUI subtracts a fixed baseline for the system prompt and tool
-    definitions before dividing, so this reads a few points fuller than its own
-    `context-remaining` figure — about 3 points at a third full. That is inside
-    one cell of a ten-cell bar, so the constant is not guessed at here; `--report`
-    prints the percent for anyone who wants to compare the two by eye.
-    """
-    path = record.get('transcriptPath')
-    if not path:
-        return None
-    try:
-        size = os.path.getsize(path)
-        with open(path, 'rb') as handle:
-            if size > TAIL_BYTES:
-                handle.seek(size - TAIL_BYTES)
-                handle.readline()      # the seek lands mid-line; drop the rest
-            lines = handle.read().splitlines()
-    except Exception:
-        return None
-    for line in reversed(lines):
-        if b'"token_count"' not in line:
-            continue
-        try:
-            info = json.loads(line)['payload']['info']
-            used = float(info['last_token_usage']['total_tokens'])
-            window = float(info['model_context_window'])
-        except Exception:
-            continue                   # a truncated or unexpected line, not the end of the search
-        if window > 0:
-            return max(0.0, min(100.0, used / window * 100.0))
-    return None
-
-
-# An agent appears here only once something can actually read its fullness. One
-# that cannot keeps its name chip, which is what this tool did for everyone
-# before 2026-08-25 — the honest failure is the older, smaller answer.
-CONTEXT_READERS = {'codex': codex_context}
+# An agent appears here only once something can actually read its fullness, as
+# `'<agent>': <function taking a session record, returning a percent or None>`.
+# One that cannot keeps its name chip, which is what this tool did for everyone
+# before 2026-08-25 — the honest failure is the older, smaller answer. Claude is
+# not here: its bar is drawn per-pane by cmux-throbber.py.
+CONTEXT_READERS = {}
 
 
 def live_records():
@@ -289,7 +230,7 @@ def chip(agents, pct=None):
 
     A workspace running two DIFFERENT agents keeps the names and gets no bar: the
     chip would have to say whose bar it was, which costs exactly the width the bar
-    was meant to buy, and "claude · codex" is still the answer for that row.
+    was meant to buy, and naming both is still the answer for that row.
     """
     if len(agents) == 1:
         spec = AGENTS.get(agents[0], {})
@@ -323,9 +264,10 @@ def chip(agents, pct=None):
 # and this is a machine-wide daemon with neither. The constants that must agree
 # are the bar's two glyphs, its width, and the colours.
 #
-# The bar constants, `bar()` and `ramp()` are shared with the Codex bar this tool
-# DRAWS (`chip()`), added 2026-08-25 — the two must not drift apart, or one agent's
-# row would be reporting fullness on a different scale from its neighbour's.
+# The bar constants, `bar()` and `ramp()` are shared with the bar this tool DRAWS
+# in `chip()` for any agent with a `CONTEXT_READERS` entry, added 2026-08-25 — the
+# two must not drift apart, or one agent's row would be reporting fullness on a
+# different scale from its neighbour's.
 CLAUDE_KEY = 'claude_code'
 CLAUDE_ICON = 'sparkle'
 BAR_CELLS = 10
@@ -472,8 +414,12 @@ def name_new_sessions(records):
     Fires once per session id, ever — a session that has already been counted keeps
     whatever label it or the user has since chosen, so this can never fight a rename.
     A workspace that also holds a live Claude session is left alone: Claude names its
-    own row, and stamping `codex` over a name it had already earned would be a loss.
+    own row, and stamping a placeholder over a name it had already earned would be a
+    loss. With no agent in PLACEHOLDERS there is nothing to stamp, and this returns
+    before touching the disk.
     """
+    if not PLACEHOLDERS:
+        return
     seen = load_seen()
     live = set()
     now = time.time()

@@ -37,8 +37,8 @@ WAIT_COLOR = '#c0504d'     # same red as the row, so pill and row agree
 # The icon in front of the bar says WHICH AGENT this row is — changed 2026-08-25.
 # It used to say whose turn it was (a person, a bell), which the pill's own
 # colour and the row's colour were already both saying; identity was the thing
-# nothing said. Claude and Codex are otherwise indistinguishable in the sidebar,
-# because cmux renders a running session of either as a blue `bolt.fill` reading
+# nothing said. Two agents are otherwise indistinguishable in the sidebar,
+# because cmux renders any running session as a blue `bolt.fill` reading
 # `Running`. Passed on EVERY paint: cmux keeps the previous icon when the flag is
 # omitted, so one call without it leaves whatever was there before.
 #
