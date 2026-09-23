@@ -33,6 +33,16 @@
             "timeout": 25
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 {{HOME}}/.claude/agent-model-gate.py",
+            "timeout": 5
+          }
+        ]
       }
     ]
   },
