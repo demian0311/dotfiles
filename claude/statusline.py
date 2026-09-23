@@ -4,6 +4,7 @@ import sys
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 
@@ -179,6 +180,9 @@ if transcript_path and os.path.exists(transcript_path):
 # The two budgets lead because they are what runs out; the model sits after them
 # and before the project, close enough to read in the same glance.
 project_part = f"{CYAN}{BOLD}{project_label}{RESET}" if project_label else ''
+# Several machines run sessions (this Mac, anchor); the short hostname says which one.
+host_label = socket.gethostname().split('.')[0]
+host_part = f"{BR_MAGENTA}{host_label}{RESET}" if host_label else ''
 
 ANSI = re.compile(r'\033\[[0-9;]*m')
 
@@ -192,6 +196,8 @@ def render(model_variant, with_effort, slug_max):
     if with_effort and effort_part:
         model_group += ' ' + effort_part
     left_parts.append(model_group)
+    if host_part:
+        left_parts.append(host_part)
     if project_part:
         left_parts.append(project_part)
 
