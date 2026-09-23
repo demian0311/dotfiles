@@ -19,16 +19,22 @@ refuses anything launchd starts, so such an agent runs on schedule and silently
 achieves nothing. Extend `cmux-mem --daemon`, which `.zshrc` starts behind a
 pidfile; never write a plist.
 
-🔴 **The Mac is not for automation — anything scheduled runs on `anchor`.** The
-Mac sleeps, closes and restarts, so a job there fails silently. That covers
-anything that has to happen later without the user: a follow-up check, a
-reminder, a recurring sweep. It goes on anchor as an openclaw automation
-(`ssh anchor 'openclaw automations add …'`, with `--at` for one-shots and
-`--announce --channel telegram --to <chat>` so the result reaches the user),
-or into bob's nightly pipeline. Never use a Claude Code `CronCreate` or
-`ScheduleWakeup` for this: both live in one session's memory and die with it.
-The cmux daemon above is the one exception, because it exists to drive this
-Mac's own UI. Decided 2026-09-23.
+🔴 **Never schedule follow-up work from a Mac session. Leave it to bob's workflow
+on `anchor`.** The Mac sleeps, closes and restarts, so a job scheduled there fails
+silently. Claude Code's `CronCreate` and `ScheduleWakeup` die with the session.
+Adding an ad-hoc openclaw automation is also out of band: it duplicates a pipeline
+that already exists.
+- **Put the "check back later" in the tracker instead.** Give the row the right
+  board status, and comment what to check and what counts as done. Bob's nightly
+  jobs already surface every Needs your check / Your turn row in the 03:55
+  Telegram message (`docs/agents/nightly-pipeline.md` in `~/code/diagrammo`).
+- **If bob's workflow should do something new, change bob:** edit the pipeline, or
+  raise it with bob on anchor. Don't bolt a job on beside it.
+- A new standalone or recurring automation needs a stated reason the pipeline
+  can't cover, and the user's agreement.
+- The cmux daemon above is the one exception, because it drives this Mac's own UI.
+
+Decided 2026-09-23.
 
 **Which writer owns which colour and which pill, why a `claude_code` pill needs
 repairing after cmux overwrites it, where a non-Claude context bar has to live,
