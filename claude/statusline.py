@@ -184,9 +184,31 @@ project_part = f"{CYAN}{BOLD}{project_label}{RESET}" if project_label else ''
 host_label = socket.gethostname().split('.')[0]
 host_part = f"{BR_MAGENTA}{host_label}{RESET}" if host_label else ''
 
+# Git: branch only when it is not the default, plus a dot for uncommitted work.
+# One porcelain call gives both; --no-optional-locks keeps it from taking the
+# index lock another session's git may want.
+branch_part = ''
+if cwd:
+    try:
+        out = subprocess.run(
+            ['git', '--no-optional-locks', '-C', cwd, 'status', '--porcelain', '--branch'],
+            capture_output=True, text=True, timeout=1,
+        ).stdout.splitlines()
+        if out and out[0].startswith('## '):
+            head = out[0][3:].split('...')[0]
+            if head.startswith('No commits yet on '):
+                head = head[len('No commits yet on '):]
+            dirty = len(out) > 1
+            branch = '' if head in ('main', 'master') else head
+            if branch or dirty:
+                dot = f"{YELLOW}●{RESET}" if dirty else ''
+                branch_part = (f"{GREEN}{branch}{RESET}" if branch else '') + dot
+    except Exception:
+        pass
+
 ANSI = re.compile(r'\033\[[0-9;]*m')
 
-def render(model_variant, with_effort, slug_max):
+def render(model_variant, with_effort, slug_max, with_branch=True):
     left_parts = [ctx_part]
     if five_part:
         left_parts.append(five_part)
@@ -200,6 +222,8 @@ def render(model_variant, with_effort, slug_max):
         left_parts.append(host_part)
     if project_part:
         left_parts.append(project_part)
+    if with_branch and branch_part:
+        left_parts.append(branch_part)
 
     line = ' ' + '  '.join(left_parts)
     if slug and slug_max > 0:
@@ -208,22 +232,23 @@ def render(model_variant, with_effort, slug_max):
     return line
 
 # Widest form that fits the pane wins, giving up the least-missed thing first:
-# the trailing message, then the effort word, then the model down to its family
+# the trailing message, then the branch, then the effort word, then the model down to its family
 # name. The last rung prints even if it still overflows.
 LADDER = [
     (0, True,  42),
     (0, True,  28),
     (0, True,  16),
     (0, True,   0),
-    (0, False,  0),
-    (1, False,  0),
-    (2, False,  0),
+    (0, True,   0, False),
+    (0, False,  0, False),
+    (1, False,  0, False),
+    (2, False,  0, False),
 ]
 
 width = shutil.get_terminal_size((120, 24)).columns
 line = ''
-for model_idx, with_effort, slug_max in LADDER:
-    line = render(MODEL_VARIANTS[model_idx], with_effort, slug_max)
+for model_idx, with_effort, slug_max, *rest in LADDER:
+    line = render(MODEL_VARIANTS[model_idx], with_effort, slug_max, *rest)
     if len(ANSI.sub('', line)) <= width:
         break
 
