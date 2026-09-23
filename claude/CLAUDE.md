@@ -74,8 +74,9 @@ Rules of thumb:
 
 - Multiple agents go in ONE message so they run concurrently. Sequential spawning wastes the mechanism.
 - One task per agent, scoped tightly, with the return format stated.
-- **Name the model.** A locate-or-search agent — "where is X defined", "what calls Y", reading a
-  file too big to hold here — runs on `haiku`. An audit, a review, or anything turning on judgement
+- **Name the model.** A task whose answer is facts found — "where is X defined", "what calls Y",
+  reading a file too big to hold here, fetching a page — goes to the `locate` agent, which is
+  Haiku by definition; the user-level `Explore` override is Haiku too. Otherwise pass `haiku`. An audit, a review, or anything turning on judgement
   keeps the default. To date 52 of 32,871 recorded messages have run on anything but Opus, greps
   included.
 - Don't delegate what you already know how to do in one or two tool calls — the overhead exceeds the work.

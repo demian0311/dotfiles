@@ -27,6 +27,8 @@
 #                  network, so this runs it DETACHED and at most once every
 #                  PLUGIN_SYNC_INTERVAL seconds — the SessionStart hook that
 #                  calls this script has a 10-second timeout.
+#   agents/        the whole directory symlinked to ~/.claude/agents; user-level
+#                  subagent definitions (locate + an Explore override, both Haiku).
 #   everything else  symlinked into ~/.claude.
 #
 # Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
@@ -70,6 +72,7 @@ links=(
   cmux-session-start.py
   cmux-session-end.py
   cmux-throbber.py
+  agents
 )
 
 # Reported only when not --quiet: the run changed nothing.
