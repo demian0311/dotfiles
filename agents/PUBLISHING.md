@@ -9,7 +9,7 @@ out of the extracts themselves because they are public.
 | File | What it extracts | Sourced from |
 |---|---|---|
 | `agents/OPTION-GLYPHS.md` | the 🟢/🟡/🔵/🟣/🔴 circles and the 🟩/🟨/🟥/⬜ squares, with worked examples of a departure vs a continuation | `agents/GLOBAL.md` → *Presenting options* |
-| `agents/WORKING-RULES.md` | build-only-when-told · say less · make claims that stand up · how to report finished work | 🔴 `claude/CLAUDE.md`, which Codex never reads — so an edit there is the one that silently strands this copy |
+| `agents/WORKING-RULES.md` | build-only-when-told · say less · make claims that stand up · how to report finished work | 🔴 `claude/CLAUDE.md` — a different file from the one above, so an edit there is the one that silently strands this copy |
 
 Four sections of `claude/CLAUDE.md` feed the second file: *Communication Style*,
 *Working With Me*, the claim-verification half of *Working Rules*, and
@@ -31,6 +31,6 @@ gh gist edit 3c139b3fb8fc79640f40f0458ba6e552 -f WORKING-RULES.md  agents/WORKIN
 ```
 
 ⚠️ **De-personalise on the way out.** No names, repos, hosts, issue numbers, product
-names or tool names that exist in one harness only. The gist is public and anything
+names or tool names specific to one harness. The gist is public and anything
 specific in it is both a leak and a rule a stranger cannot act on. That is also why
 this file exists separately rather than as a comment at the top of each extract.

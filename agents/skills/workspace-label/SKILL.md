@@ -1,6 +1,6 @@
 ---
 name: workspace-label
-description: The cmux sidebar row in full — the workspace label (why the handle is required and how it was verified, what makes a good label, placeholder labels that mean "name this thread", the incident behind checking it at every stop, what Codex's sandbox permits) and who paints the rest of the row (which hook owns which colour, which tool owns which pill, why a `claude_code` pill gets overwritten, why a cmux automation can never be a LaunchAgent). Load when renaming a workspace, when a rename fails, when deciding what to call the current thread, or before writing anything that sets a row colour, a status pill, or a scheduled cmux job.
+description: The cmux sidebar row in full — the workspace label (why the handle is required and how it was verified, what makes a good label, placeholder labels that mean "name this thread", the incident behind checking it at every stop) and who paints the rest of the row (which hook owns which colour, which tool owns which pill, why a `claude_code` pill gets overwritten, why a cmux automation can never be a LaunchAgent). Load when renaming a workspace, when a rename fails, when deciding what to call the current thread, or before writing anything that sets a row colour, a status pill, or a scheduled cmux job.
 ---
 
 Two sections, both moved out of the always-loaded instructions so the verification detail and
@@ -34,20 +34,16 @@ pane header.
   thread changes" is a condition nobody notices while following the thread.
 - **2–4 words, lowercase, what the work is about** — `cloud limits`,
   `obsidian live links`, `event-line dates`. Never a verb phrase (`fixing the parser`),
-  never a tool or slash-command name, never `new`/`clear`/`codex`/a bare repo name that
+  never a tool or slash-command name, never `new`/`clear`/a bare repo name that
   doesn't distinguish it from the other sessions in the same repo.
 - The label names the *work*, not the state — status is what the sidebar's own
   indicators are for.
 - **A placeholder label is an instruction, not a name.** A fresh or just-cleared
-  session gets renamed to one automatically — `clear` in Claude Code, `codex` in
-  Codex — precisely because at that moment the subject is known to be unknown.
-  Seeing one means naming this thread is the FIRST job of the turn.
+  session gets renamed to `clear` automatically, precisely because at that moment
+  the subject is known to be unknown. Seeing one means naming this thread is the
+  FIRST job of the turn.
 - Skip silently if `cmux` isn't on PATH or the call fails; it is never worth a retry or
   a mention. On anchor it never is.
-- **Codex's sandbox permits this, and a read-only session does not.** Reaching cmux
-  means reaching a unix socket, which rides on the same switch as network access:
-  under `workspace-write` with `network_access = true` the rename works; under
-  `read-only`, or with network off, it fails with `Operation not permitted`.
 - Rename only your own workspace. Another session's label belongs to that session.
 
 # The rest of the sidebar row — who paints what
@@ -83,16 +79,16 @@ hand is the same mistake as a manual row colour.
 | `claude_code` | `cmux-throbber.py`, `cmux-session-start.py` — **and cmux itself** | the context bar |
 | `mem` | `bin/cmux-mem` | each workspace's size, plus a headroom warning |
 | `tidy` | `bin/cmux-tidy` | dev servers listening with nobody connected |
-| `agents` | `bin/cmux-agents` | which agent is running, and a Codex session's context bar |
+| `agents` | `bin/cmux-agents` | which agent is running, and a non-Claude session's context bar |
 
 🔴 **cmux writes `claude_code` ITSELF, so a pill on that key never has the last
 word** — it replaces the value on a lifecycle change or clears the pill outright,
 wiping whatever the hooks just painted. `bin/cmux-agents` repairs it on a 20s pass.
 Anything else built on that key needs the same treatment, or its own key.
 
-🔴 **A Codex row's context bar lives on the `agents` key, NOT on cmux's own `codex`
-key** — cmux rewrites its own agent keys on a lifecycle change, so the only bar that
-survives is one on a key nothing else writes.
+🔴 **A non-Claude row's context bar lives on the `agents` key, NOT on cmux's own
+per-agent key** — cmux rewrites its own agent keys on a lifecycle change, so the only
+bar that survives is one on a key nothing else writes.
 
 🔴 **A cmux automation can never be a LaunchAgent.** The socket is `cmuxOnly` and
 refuses anything launchd starts, so such an agent runs on schedule and silently
@@ -100,11 +96,6 @@ achieves nothing. Access is inherited at spawn, not checked live, so a loop star
 from a shell survives being orphaned to PID 1 — which is why `cmux-mem --daemon` is
 launched from `.zshrc` behind a pidfile and drives `cmux-tidy` itself. To schedule
 something against cmux, extend that daemon; never write a plist.
-
-🔴 **`bin/cmux-agents` places the `codex` placeholder label from the DAEMON, not from
-a Codex hook** — a Codex hook only runs once a person has TRUSTED it in that agent's
-own interface, and cmux launches Codex with `--dangerously-bypass-hook-trust`, so
-ours would run inside cmux and silently not run outside it.
 
 All four tools stay read-only about SESSIONS — none ever closes one, because choosing
 which session dies is the user's call.

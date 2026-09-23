@@ -12,8 +12,8 @@ description: Which file owns a durable fact and how the dotfiles machinery deliv
   SessionStart, so drift repairs itself.
 - **`~/code/dotfiles/claude/CLAUDE.macos.md`** — imported by that pointer only on macOS. Anything
   that names cmux belongs here; it is dead weight anywhere else.
-- **`~/code/dotfiles/agents/GLOBAL.md`** — the only file that reaches BOTH harnesses, imported
-  above and read directly by Codex as `~/.codex/AGENTS.md`.
+- **`~/code/dotfiles/agents/GLOBAL.md`** — imported above. Holds the option, next-step and
+  workspace-label rules, kept there because the public extract is cut from it.
 - **`<project>/CLAUDE.md`** — the map of that project: layout, workflows, release paths,
   project-wide conventions.
 - **`<repo>/CLAUDE.md`** in a subdirectory — rules that only apply inside it. These load only when

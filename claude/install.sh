@@ -27,9 +27,6 @@
 #                  network, so this runs it DETACHED and at most once every
 #                  PLUGIN_SYNC_INTERVAL seconds — the SessionStart hook that
 #                  calls this script has a 10-second timeout.
-#   AGENTS.md      ~/.codex/AGENTS.md symlinked to agents/GLOBAL.md, which is the
-#                  only file both harnesses read. Codex takes exactly one global
-#                  instruction file and nothing was creating the link.
 #   everything else  symlinked into ~/.claude.
 #
 # Idempotent, and re-running it is the repair: Claude Code rewrites settings.json
@@ -158,11 +155,11 @@ if [ -d "$skills_src" ]; then
   done
 fi
 
-# Shared skills: agents/skills/<name> is real, and BOTH harnesses get a symlink --
-# ~/.claude/skills for Claude Code, ~/.agents/skills for Codex, which never looks
-# inside ~/.claude. Same shape the diagrammo project already uses one level down.
-# Only created where the harness's own directory already exists, so a machine
-# without Codex grows no empty tree.
+# Shared skills: agents/skills/<name> is real, and both ~/.claude/skills and the
+# harness-neutral ~/.agents/skills get a symlink to it -- an agent that never looks
+# inside ~/.claude still finds them. Same shape the diagrammo project already uses
+# one level down. ~/.agents/skills is only populated where it already exists, so a
+# machine with nothing reading it grows no empty tree.
 shared_src="$(dirname "$repo_dir")/agents/skills"
 if [ -d "$shared_src" ]; then
   for src in "$shared_src"/*/; do
@@ -170,8 +167,8 @@ if [ -d "$shared_src" ]; then
     src="${src%/}"
     name="$(basename "$src")"
     for dest_root in "$target_dir/skills" "$HOME/.agents/skills"; do
-      # ~/.claude/skills is ours to create; ~/.agents/skills is Codex's and is
-      # only populated if that harness is actually installed here.
+      # ~/.claude/skills is ours to create; ~/.agents/skills belongs to whatever
+      # else reads it, so it is populated only when it already exists.
       [ "$dest_root" = "$target_dir/skills" ] || [ -d "$dest_root" ] || continue
       mkdir -p "$dest_root"
       dest="$dest_root/$name"
@@ -282,29 +279,6 @@ if [ -x "$repo_dir/settings-sync.py" ] || [ -f "$repo_dir/settings-sync.py" ]; t
     python3 "$repo_dir/settings-sync.py" "$(dirname "$repo_dir")" --quiet || true
   else
     python3 "$repo_dir/settings-sync.py" "$(dirname "$repo_dir")" || true
-  fi
-fi
-
-# Codex reads ONE global instruction file, ~/.codex/AGENTS.md, and claude/CLAUDE.md
-# has claimed for weeks that it is a symlink to agents/GLOBAL.md. Nothing created
-# it, so on anchor Codex had no global instructions at all (#1). Only linked where
-# ~/.codex already exists — that directory is Codex's own, and its absence means
-# Codex is not installed here.
-codex_dir="$HOME/.codex"
-codex_link="$codex_dir/AGENTS.md"
-codex_want="$(dirname "$repo_dir")/agents/GLOBAL.md"
-
-if [ -d "$codex_dir" ]; then
-  if [ -L "$codex_link" ] && [ "$(readlink "$codex_link")" = "$codex_want" ]; then
-    say_ok 'ok     codex AGENTS.md\n'
-  else
-    if [ -f "$codex_link" ] && [ ! -L "$codex_link" ]; then
-      backup="$codex_link.bak-$(date +%Y%m%d-%H%M%S)"
-      mv "$codex_link" "$backup"
-      printf 'backup codex AGENTS.md -> %s\n' "$(basename "$backup")"
-    fi
-    ln -sfn "$codex_want" "$codex_link"
-    printf 'link   codex AGENTS.md -> agents/GLOBAL.md\n'
   fi
 fi
 

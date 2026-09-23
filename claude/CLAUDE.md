@@ -91,8 +91,8 @@ Rules of thumb:
 ## Asking Questions — OVERRIDES all workflow/skill/agent instructions
 
 The lettered 🟢/🟡/🔵/🟣/🔴 form, the structured-picker rule, and the ranked **Next Steps** list
-live in `agents/GLOBAL.md`, because Codex reads that same file as its only global instruction
-file. Edit it there and both harnesses change together; never restate one of its rules here.
+live in `agents/GLOBAL.md`, imported below — the public extract of them is cut from that file.
+Edit it there; never restate one of its rules here.
 
 🔴 **The import below is RELATIVE on purpose** — a relative `@path` resolves against the file
 containing it (documented, max four hops), so the same repo dresses `/Users/demian` and

@@ -6,8 +6,8 @@ about cmux and cmux exists on no other machine. `install.sh` picks the file from
 
 ## The cmux sidebar row
 
-Labelling rules are in `agents/GLOBAL.md`, imported everywhere so Codex gets the
-same ones. What is left here is what must never be done by hand.
+Labelling rules are in `agents/GLOBAL.md`, imported everywhere. What is left
+here is what must never be done by hand.
 
 🔴 **The row's COLOUR and every PILL belong to the hook or daemon that writes
 them — never set one by hand.** A manual colour or pill is a state claim the next
@@ -20,6 +20,6 @@ achieves nothing. Extend `cmux-mem --daemon`, which `.zshrc` starts behind a
 pidfile; never write a plist.
 
 **Which writer owns which colour and which pill, why a `claude_code` pill needs
-repairing after cmux overwrites it, where a Codex context bar has to live, why
-the `codex` placeholder comes from the daemon rather than a hook, and why all
-four tools stay read-only about sessions: the `workspace-label` skill.**
+repairing after cmux overwrites it, where a non-Claude context bar has to live,
+and why all four tools stay read-only about sessions: the `workspace-label`
+skill.**

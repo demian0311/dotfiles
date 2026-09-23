@@ -22,10 +22,10 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
   - 🟣 D) Viable, also a departure
   - 🔴 E) Not recommended, whichever kind it is
 - **The harness's structured picker is for what a lettered list cannot do**: several decisions at
-  once, multi-select, or options that need side-by-side previews to compare. It is
-  `AskUserQuestion` in Claude Code and `request_user_input` in Codex. Recommended option first,
-  "(Recommended)" appended to its label. Do NOT reach for it when presenting a decision at the
-  end of a piece of work — that is a lettered list.
+  once, multi-select, or options that need side-by-side previews to compare. It is the
+  `AskUserQuestion` tool, recommended option first, with "(Recommended)" appended to its label.
+  Do NOT reach for it when presenting a decision at the end of a piece of work — that is a
+  lettered list.
 - NEVER ask prose "A or B?" / "X, or would you rather Y?" questions. Every multi-option choice
   becomes a lettered list or the structured picker — the user answers with one letter or a click,
   never a sentence.
@@ -38,9 +38,8 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
 - One decision per question. Don't bundle multiple asks into one paragraph.
 - Minimize required typing. "Other" is always available for freeform, so don't pre-solicit prose.
 - Any confirmation prompt for a command that will recur offers *"Yes, and add to permissions"* as
-  a listed option upfront. If chosen, persist it: in Claude Code use the `update-config` skill to
-  add a wildcard pattern (`Bash(git diff*)`) under `permissions.allow`; in Codex append a
-  `prefix_rule(pattern=[...], decision="allow")` line to `~/.codex/rules/default.rules`.
+  a listed option upfront. If chosen, persist it with the `update-config` skill: a wildcard
+  pattern (`Bash(git diff*)`) under `permissions.allow`.
 
 ## Next steps — always ranked, never prose
 

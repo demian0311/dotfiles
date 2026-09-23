@@ -1,13 +1,9 @@
-# Global rules — every coding agent, every session
+# Global rules — every session
 
-🔴 **Shared by every coding agent, not just one.** Claude Code imports this file from
-`claude/CLAUDE.md`; Codex reads it directly as `~/.codex/AGENTS.md`, where it is the *only*
-global instruction file it gets. So never name a tool that exists in one harness and not the
-other without saying which — a rule the reader cannot act on is worse than no rule.
-
-**This file is the only place a rule can reach BOTH harnesses.** Anything both must obey goes
-here, under its own heading. Anything Claude-only belongs in `claude/CLAUDE.md`; anything
-Mac-only belongs in `claude/CLAUDE.macos.md`, which is imported only on macOS.
+Imported by `claude/CLAUDE.md`. What belongs here is what the public extract
+`agents/OPTION-GLYPHS.md` is cut from: how options, next steps and the workspace label are
+presented. Every other global rule goes in `claude/CLAUDE.md`; anything Mac-only belongs in
+`claude/CLAUDE.macos.md`, which is imported only on macOS.
 
 ## Published extracts
 
@@ -31,10 +27,10 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
   - 🟣 D) Viable, also a departure
   - 🔴 E) Not recommended, whichever kind it is
 - **The harness's structured picker is for what a lettered list cannot do**: several decisions at
-  once, multi-select, or options that need side-by-side previews to compare. It is
-  `AskUserQuestion` in Claude Code and `request_user_input` in Codex. Recommended option first,
-  "(Recommended)" appended to its label. Do NOT reach for it when presenting a decision at the
-  end of a piece of work — that is a lettered list.
+  once, multi-select, or options that need side-by-side previews to compare. It is the
+  `AskUserQuestion` tool, recommended option first, with "(Recommended)" appended to its label.
+  Do NOT reach for it when presenting a decision at the end of a piece of work — that is a
+  lettered list.
 - NEVER ask prose "A or B?" / "X, or would you rather Y?" questions. Every multi-option choice
   becomes a lettered list or the structured picker — the user answers with one letter or a click,
   never a sentence.
@@ -142,7 +138,7 @@ cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
   handle`. `$CMUX_WORKSPACE_ID` is the authoritative answer to "which workspace am I"; the
   sidebar's visible selection is not, and neither is the pane header.
 - **2–4 words, lowercase, what the work is about.** Never a verb phrase, never a tool or
-  slash-command name, never `new`/`clear`/`codex`/a bare repo name. The label names the
+  slash-command name, never `new`/`clear`/a bare repo name. The label names the
   *work*, not the state.
 - **Set it as soon as the subject is clear** — right after the first substantive prompt, not
   at the end.
@@ -150,10 +146,10 @@ cmux workspace rename "$CMUX_WORKSPACE_ID" --title "cloud limits"
   when asking the user to pick. "When the thread changes" is a condition nobody notices while
   following the thread, so it has to ride on the beats that already interrupt.
 - **A placeholder label is an instruction, not a name.** A fresh or just-cleared session is
-  renamed to one automatically — `clear` in Claude Code, `codex` in Codex — because at that
+  renamed to `clear` automatically, because at that
   moment the subject is known to be unknown. Seeing one means naming this thread is the FIRST
   job of the turn.
 - Skip silently if `cmux` isn't on PATH or the call fails. Rename only your own workspace.
 
-**Why the handle behaves that way, what Codex's sandbox permits, and the incident behind the
-check-at-every-stop rule: the `workspace-label` skill.**
+**Why the handle behaves that way, and the incident behind the check-at-every-stop rule:
+the `workspace-label` skill.**
