@@ -1,0 +1,65 @@
+#!/bin/bash
+# /usr/lib/systemd/system-sleep/80-eagle-lid-hibernate
+# Installed by install.sh next to this file. Replaces logind's
+# suspend-then-hibernate for lid closes (dotfiles issue #4).
+#
+# Why: the S3 RTC wake alarm is intermittently missed on this MacBookAir6,2.
+# systemd-sleep cannot tell a lid-open wake from the alarm once the deadline has
+# passed, so a missed alarm turned the next *user* wake into an immediate
+# hibernate behind a frozen lock screen. Here the lid decides: open means the
+# user is here, stay awake; closed and past the deadline means hibernate.
+#
+# Arms only when the lid is closed at suspend time, so idle/manual suspends
+# with the lid open stay plain suspend, as before.
+#
+# Env overrides exist for tests only: EAGLE_STATE EAGLE_RTC EAGLE_LID EAGLE_DELAY
+set -u
+
+action=${SYSTEMD_SLEEP_ACTION:-${2:-}}
+state=${EAGLE_STATE:-/run/eagle}
+deadline_file=$state/lid-hibernate-deadline
+rtc=${EAGLE_RTC:-/sys/class/rtc/rtc0/wakealarm}
+lid=${EAGLE_LID:-/proc/acpi/button/lid/LID0/state}
+delay=${EAGLE_DELAY:-1800}
+
+log() { logger -t eagle-lid-hibernate "$*"; }
+lid_closed() { grep -qs closed "$lid"; }
+disarm() { rm -f "$deadline_file"; echo 0 > "$rtc" 2>/dev/null; }
+later() { systemd-run --no-block --collect --quiet --on-active=3 --unit="eagle-lid-$1-$(date +%s)" systemctl "$1"; }
+
+now=$(date +%s)
+deadline=$(cat "$deadline_file" 2>/dev/null)
+[[ $deadline =~ ^[0-9]+$ ]] || deadline=
+
+case "${1:-}/$action" in
+  pre/suspend)
+    if ! lid_closed; then disarm; exit 0; fi
+    mkdir -p "$state"
+    [[ -n $deadline ]] || { deadline=$((now + delay)); echo "$deadline" > "$deadline_file"; }
+    alarm=$(( deadline > now + 60 ? deadline : now + 60 ))
+    echo 0 > "$rtc"; echo "$alarm" > "$rtc"
+    log "armed: hibernate at $(date -d "@$deadline" +%T), rtc $(date -d "@$alarm" +%T)"
+    ;;
+
+  post/suspend)
+    [[ -n $deadline ]] || exit 0
+    if ! lid_closed; then
+      disarm
+      log "lid open on wake: staying awake"
+    elif (( now >= deadline )); then
+      log "lid closed, deadline passed: hibernating"
+      later hibernate
+    else
+      # Spurious early wake in the bag; don't rely on logind's holdoff recheck.
+      log "lid closed, $(( deadline - now ))s to deadline: re-suspending"
+      later suspend
+    fi
+    ;;
+
+  pre/hibernate)
+    # With HibernateMode=shutdown a live alarm could power the machine back on.
+    disarm
+    ;;
+esac
+
+exit 0
