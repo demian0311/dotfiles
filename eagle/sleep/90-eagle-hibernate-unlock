@@ -1,0 +1,81 @@
+#!/bin/bash
+# /usr/lib/systemd/system-sleep/90-eagle-hibernate-unlock
+# Source: ~/code/dotfiles/eagle/sleep, installed by install.sh next to this file.
+#
+# Must live under /usr/lib, not /etc: `strings /usr/lib/systemd/systemd-sleep`
+# lists only that directory, so an /etc copy is never run and fails silently.
+#
+# Drops a root-owned vouch when the machine has genuinely come back through a
+# hibernate image restore, so demian.lock can skip its own password prompt. The
+# image lives in /swap/swapfile inside the LUKS root, so that resume has already
+# cost a passphrase at the initramfs prompt and the lock screen is asking for
+# the same secret a second time.
+#
+# It must never fire for the S3 half of suspend-then-hibernate: a wake inside
+# HibernateDelaySec has no LUKS gate at all, and there the lock screen is the
+# only thing guarding the session. Two independent conditions enforce that. The
+# pending marker is written only when SYSTEMD_SLEEP_ACTION is exactly
+# "hibernate", and the post side additionally requires the kernel to have
+# printed the restore line in a record whose /dev/kmsg sequence number is past
+# the one saved in the marker -- the ring buffer comes back with the image, so
+# every later record belongs to this restore.
+#
+# Sequence numbers, not `dmesg | wc -l`: the buffer is 128 KiB and wraps within
+# a day under pm_debug_messages, after which a line count stops growing and the
+# restore line was never found (dotfiles issue #5). A record's seq is stable
+# across wraps; only the restore line itself being evicted can hide it, and a
+# restore logs ~56 KB.
+#
+# Every unexpected shape fails closed (a hibernation that fell back to suspend,
+# a marker that is not a number, an unreadable /dev/kmsg): no vouch is written
+# and the password prompt behaves exactly as it did before.
+#
+# Env overrides exist for tests only: EAGLE_STATE EAGLE_KMSG
+
+set -u
+
+action=${SYSTEMD_SLEEP_ACTION:-${2:-}}
+state=${EAGLE_STATE:-/run/eagle}
+marker=$state/hibernate-pending
+vouch=$state/hibernate-unlock
+restored="Hibernation image restored successfully"
+
+# Every record in the buffer, "prio,seq,ts,flags;message" one per line. Each
+# read returns one record and EAGAIN ends dd at the tail. Continuation lines
+# (" KEY=value") carry no seq and are dropped by the numeric filters below.
+kmsg() {
+  if [[ -n ${EAGLE_KMSG:-} ]]; then cat "$EAGLE_KMSG"
+  else dd if=/dev/kmsg iflag=nonblock bs=16384 2>/dev/null; fi
+}
+
+# systemd is documented to run these per sub-operation for suspend-then-hibernate
+# ($1 pre/post, SYSTEMD_SLEEP_ACTION suspend or hibernate), which is the whole
+# basis for telling the two halves apart. Traced so the next cycle proves it
+# rather than leaving it on the man page's word: journalctl -t eagle-hibernate-unlock
+logger -t eagle-hibernate-unlock "${1:-?} action=${action:-?} arg2=${2:-?}"
+
+case ${1:-} in
+  pre)
+    [[ $action == "hibernate" ]] || exit 0
+    mkdir -p "$state"
+    kmsg | awk -F'[,;]' '$2 ~ /^[0-9]+$/ { seq = $2 } END { print seq }' > "$marker"
+    ;;
+
+  post)
+    [[ -f $marker ]] || exit 0
+    seq=$(< "$marker")
+    rm -f "$marker"
+
+    [[ $seq =~ ^[0-9]+$ ]] || exit 0
+    # Hibernation can fail and fall back to plain suspend. That path never saw
+    # the LUKS prompt.
+    [[ $action == "suspend-after-failed-hibernate" ]] && exit 0
+    kmsg | awk -F'[,;]' -v s="$seq" '$2 ~ /^[0-9]+$/ && $2 + 0 > s + 0' |
+      grep -qF "$restored" || exit 0
+
+    printf '%s %s\n' "$(date +%s)" "$(head -c 12 /dev/urandom | base64)" > "$vouch"
+    chmod 0644 "$vouch"
+    ;;
+esac
+
+exit 0

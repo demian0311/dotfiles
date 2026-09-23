@@ -1,0 +1,44 @@
+#!/bin/bash
+# Runs 90-eagle-hibernate-unlock against a fake /dev/kmsg. No root needed.
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
+export EAGLE_STATE=$t/state EAGLE_KMSG=$t/kmsg
+fail=0
+hook() { SYSTEMD_SLEEP_ACTION=$2 "$here/90-eagle-hibernate-unlock" "$1" "$2"; }
+rec() { printf '6,%s,100,-;%s\n' "$1" "$2"; }
+check() { # name, expect(yes|no)
+  local got=no; [[ -f $EAGLE_STATE/hibernate-unlock ]] && got=yes
+  [[ $got == "$2" ]] && echo "ok   $1" || { echo "FAIL $1: vouch=$got want=$2"; fail=1; }
+  rm -rf "$EAGLE_STATE"
+}
+
+# Wrapped buffer: seqs start high, restore evicts as many records as it adds.
+{ for i in $(seq 5000 5999); do rec "$i" "PM: calling x"; done; } > "$EAGLE_KMSG"
+hook pre hibernate
+{ for i in $(seq 5500 6000); do rec "$i" "PM: calling x"; done
+  rec 6001 "PM: hibernation: Hibernation image restored successfully."
+  printf ' SUBSYSTEM=platform\n'; } > "$EAGLE_KMSG"
+hook post hibernate; check "restore after wrapped buffer vouches" yes
+
+# Restore line predates the marker (stale, from an earlier resume).
+{ rec 10 "PM: hibernation: Hibernation image restored successfully."; rec 11 x; } > "$EAGLE_KMSG"
+hook pre hibernate; rec 12 y >> "$EAGLE_KMSG"
+hook post hibernate; check "stale restore line does not vouch" no
+
+# S3 half of suspend-then-hibernate never writes a marker.
+rec 20 "Hibernation image restored successfully" > "$EAGLE_KMSG"
+hook pre suspend; rec 21 "Hibernation image restored successfully" >> "$EAGLE_KMSG"
+hook post suspend; check "suspend does not vouch" no
+
+# Hibernate that fell back to suspend.
+rec 30 x > "$EAGLE_KMSG"; hook pre hibernate
+rec 31 "Hibernation image restored successfully" >> "$EAGLE_KMSG"
+hook post suspend-after-failed-hibernate; check "failed hibernate does not vouch" no
+
+# Unreadable kmsg at pre: empty marker fails closed.
+EAGLE_KMSG=$t/missing hook pre hibernate
+rec 41 "Hibernation image restored successfully" > "$EAGLE_KMSG"
+hook post hibernate; check "empty marker does not vouch" no
+
+exit $fail
