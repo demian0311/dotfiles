@@ -156,10 +156,14 @@ if [ -d "$skills_src" ]; then
 fi
 
 # Shared skills: agents/skills/<name> is real, and both ~/.claude/skills and the
-# harness-neutral ~/.agents/skills get a symlink to it -- an agent that never looks
-# inside ~/.claude still finds them. Same shape the diagrammo project already uses
-# one level down. ~/.agents/skills is only populated where it already exists, so a
-# machine with nothing reading it grows no empty tree.
+# harness-neutral ~/.agents/skills get a symlink to it. That second root is NOT
+# dead weight now that Codex is gone -- Omarchy populates it (omarchy,
+# diagnose-crash) and OpenClaw reads it as its personal skill root, priority 3 of
+# 6, so anything dropped from here disappears from those agents. Only skills
+# written harness-neutrally belong in agents/skills; Claude-specific ones go in
+# claude/skills. Same shape the diagrammo project uses one level down.
+# ~/.agents/skills is populated only where it already exists, so a machine with
+# nothing reading it grows no empty tree.
 shared_src="$(dirname "$repo_dir")/agents/skills"
 if [ -d "$shared_src" ]; then
   for src in "$shared_src"/*/; do
