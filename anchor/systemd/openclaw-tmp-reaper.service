@@ -1,0 +1,9 @@
+[Unit]
+Description=Delete leaked OpenClaw plugin captures from /tmp
+Documentation=https://github.com/openclaw/openclaw/issues/156571
+
+[Service]
+Type=oneshot
+# bin/ is not on the PATH systemd gives a user unit, so call it by path.
+ExecStart=%h/code/dotfiles/bin/openclaw-tmp-reaper
+Nice=10

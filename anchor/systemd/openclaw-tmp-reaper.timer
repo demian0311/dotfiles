@@ -1,0 +1,12 @@
+[Unit]
+Description=Delete leaked OpenClaw plugin captures from /tmp, hourly
+
+[Timer]
+# Each isolated automation run leaks ~341 MB; the 03:20-04:00 cluster alone
+# leaks four. Hourly keeps /tmp's per-user quota from filling between runs.
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -51,6 +51,9 @@ fi
 # disk budget but has no concept of context LENGTH, so nothing else shrinks a
 # session that is merely long (#878).
 systemctl --user enable --now openclaw-compact-sweep.timer
+# Leaked plugin captures, hourly. OpenClaw 2026.9.5 leaves ~341 MB in /tmp per
+# isolated run and /tmp's per-user quota fills silently (openclaw#156571).
+systemctl --user enable --now openclaw-tmp-reaper.timer
 
 systemctl --user enable --now anchor-hub.service anchor-docs.service \
   anchor-site.service anchor-api.service \

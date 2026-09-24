@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Delete OpenClaw plugin source captures that nothing will ever read again.
+#
+# OpenClaw 2026.9.5 copies a plugin's whole package tree into
+# $TMPDIR/openclaw-plugin-build-XXXXXX for every isolated agent run and never
+# removes it (openclaw/openclaw#156571). Here that is ~341 MB per automation run.
+# /tmp is a tmpfs mounted `usrquota`, so the per-user quota binds long before
+# `df` looks full: on 2026-09-24 twelve leaked captures made every write fail
+# with EDQUOT (surfaced as "Unknown system error -122"), which killed the 03:35
+# close-out composer and two subagents while the jobs still reported `ok`.
+#
+# 2026.9.6 fixes the CLI-run and crash cases (#154324, #153468); whether it fixes
+# the isolated-run producer seen here is unconfirmed, so this stays until a week
+# on a fixed release shows no new captures.
+#
+# 🔴 NOT EVERY CAPTURE IS DEAD. A live worker lazily imports from the captures it
+# made at startup, and deleting one breaks it later with "Cannot find module
+# .../openclaw-plugin-build-XXXX/..." (reported upstream in #156571). So:
+#   - only top-level captures; never anything inside openclaw-model-catalog-*,
+#     which belongs to the gateway's live catalog worker;
+#   - only captures older than MIN_AGE_MIN;
+#   - never one any live process has open, mapped, or as its cwd;
+#   - never one created in the gateway's first STARTUP_GRACE_MIN of life.
+#
+# Usage: openclaw-tmp-reaper [--dry-run]
+set -euo pipefail
+
+MIN_AGE_MIN=${MIN_AGE_MIN:-60}
+STARTUP_GRACE_MIN=${STARTUP_GRACE_MIN:-15}
+tmp=${TMPDIR:-/tmp}
+dry=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) dry=true; shift ;;
+    *) printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
+  esac
+done
+
+now=$(date +%s)
+
+# The gateway's own startup captures are the ones it may still import from.
+gw_start=0
+gw_pid=$(systemctl --user show -p MainPID --value openclaw-gateway 2>/dev/null || echo 0)
+if [ "${gw_pid:-0}" != 0 ] && [ -d "/proc/$gw_pid" ]; then
+  gw_start=$(( now - $(ps -o etimes= -p "$gw_pid" | tr -d ' ') ))
+fi
+
+# Every path any live process is holding: open fds, mapped files, cwds.
+held=$(
+  for p in /proc/[0-9]*; do
+    ls -l "$p/fd" 2>/dev/null | sed -n 's/.* -> //p'
+    awk '{print $6}' "$p/maps" 2>/dev/null
+    readlink "$p/cwd" 2>/dev/null
+  done | grep -F "$tmp/openclaw-plugin-build-" | sed 's|$|/|' | sort -u || true
+)
+# The trailing slash lets a cwd that IS the capture match the "$d/" prefix below.
+
+reclaimed=0 kept=0
+for d in "$tmp"/openclaw-plugin-build-*/; do
+  [ -d "$d" ] || continue
+  d=${d%/}
+  created=$(stat -c %Y "$d")
+  why=""
+  if [ $(( now - created )) -lt $(( MIN_AGE_MIN * 60 )) ]; then
+    why="younger than ${MIN_AGE_MIN}m"
+  elif [ "$gw_start" -gt 0 ] && [ "$created" -ge $(( gw_start - 60 )) ] \
+       && [ "$created" -le $(( gw_start + STARTUP_GRACE_MIN * 60 )) ]; then
+    why="gateway startup capture"
+  elif printf '%s\n' "$held" | grep -qF "$d/"; then
+    why="held by a live process"
+  fi
+  if [ -n "$why" ]; then
+    kept=$(( kept + 1 ))
+    printf 'keep %s (%s)\n' "${d##*/}" "$why"
+    continue
+  fi
+  size=$(du -sm "$d" | cut -f1)
+  if $dry; then
+    printf 'would delete %s (%s MB)\n' "${d##*/}" "$size"
+  else
+    rm -rf -- "$d"
+    printf 'deleted %s (%s MB)\n' "${d##*/}" "$size"
+  fi
+  reclaimed=$(( reclaimed + size ))
+done
+
+printf 'reclaimed %s MB, kept %s\n' "$reclaimed" "$kept"
