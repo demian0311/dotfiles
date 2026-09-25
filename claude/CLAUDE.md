@@ -76,8 +76,10 @@ Rules of thumb:
 - One task per agent, scoped tightly, with the return format stated.
 - **Name the model.** A task whose answer is facts found — "where is X defined", "what calls Y",
   reading a file too big to hold here, fetching a page — goes to the `locate` agent, which is
-  Haiku by definition; the user-level `Explore` override is Haiku too. Otherwise pass `haiku`. An audit, a review, or anything turning on judgement
-  keeps the default. To date 52 of 32,871 recorded messages have run on anything but Opus, greps
+  Haiku by definition; the user-level `Explore` override is Haiku too. Otherwise pass `haiku`. An audit, a review, or anything turning on bounded
+  judgement passes `sonnet`, as the workspace reviewer agents already declare. Opus, the default,
+  is for work that needs deep reasoning — architecture, a hard diagnosis, a subtle correctness
+  review. Decided 2026-09-24. To date 52 of 32,871 recorded messages have run on anything but Opus, greps
   included.
 - Don't delegate what you already know how to do in one or two tool calls — the overhead exceeds the work.
 - Never run a search yourself that you've already delegated; wait for the result.
