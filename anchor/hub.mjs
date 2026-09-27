@@ -560,6 +560,17 @@ async function snapshot() {
   return { services, views, links };
 }
 
+// The tab icon: the same anchor glyph as the brand, drawn heavier so it reads at
+// 16px, in the page's accent. The SVG carries its own dark-mode colour because a
+// favicon cannot inherit the page's tokens.
+const FAVICON =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+      '<style>g{stroke:#3b6ea5}@media (prefers-color-scheme:dark){g{stroke:#5b9bd5}}</style>' +
+      `<g>${ICONS.anchor}</g></svg>`
+  );
+
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -870,6 +881,7 @@ function page(services, views, links) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>anchor</title>
+<link rel="icon" type="image/svg+xml" href="${FAVICON}">
 <!-- Every link leaves this page in a new tab: the hub is the browser's start page and stays
      open as home base. The one in-page link, the brand, opts back into _self. -->
 <base target="_blank">
@@ -1479,6 +1491,7 @@ function docsPage() {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cloud API reference</title>
+<link rel="icon" type="image/svg+xml" href="${FAVICON}">
 <style>
 ${SLATE}
   body { margin: 0; background: var(--bg); color: var(--ink); }
