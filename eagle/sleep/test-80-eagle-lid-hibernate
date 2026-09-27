@@ -1,0 +1,76 @@
+#!/bin/bash
+# Runs 80-eagle-lid-hibernate against fake lid/AC/battery/RTC files. No root needed.
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
+export EAGLE_STATE=$t/state EAGLE_RTC=$t/rtc EAGLE_LID=$t/lid EAGLE_AC=$t/ac \
+  EAGLE_BAT=$t/bat EAGLE_LATER=$t/later EAGLE_DELAY=3600 EAGLE_LOW=20 EAGLE_CHECK=3600
+logger() { :; }; export -f logger
+fail=0
+T0=1000000
+hook() { EAGLE_NOW=$1 SYSTEMD_SLEEP_ACTION=$3 "$here/80-eagle-lid-hibernate" "$2" "$3"; }
+setup() { rm -rf "$EAGLE_STATE" "$EAGLE_LATER"; : > "$EAGLE_RTC"; echo "state: $1" > "$EAGLE_LID"; echo "$2" > "$EAGLE_AC"; echo "$3" > "$EAGLE_BAT"; }
+eq() { [[ $2 == "$3" ]] && echo "ok   $1" || { echo "FAIL $1: got '$2' want '$3'"; fail=1; }; }
+rtc() { cat "$EAGLE_RTC"; }
+next() { cat "$EAGLE_LATER" 2>/dev/null || echo none; }
+
+setup closed 0 70; hook $T0 pre suspend
+eq "battery: alarm at delay" "$(rtc)" $((T0 + 3600))
+hook $((T0 + 3600)) post suspend
+eq "battery: hibernates at deadline" "$(next)" hibernate
+
+setup closed 0 18; hook $T0 pre suspend
+eq "low battery: alarm at the 60s floor" "$(rtc)" $((T0 + 60))
+hook $((T0 + 60)) post suspend
+eq "low battery: hibernates at once" "$(next)" hibernate
+
+setup closed 1 50; hook $T0 pre suspend
+eq "AC: alarm at check" "$(rtc)" $((T0 + 3600))
+hook $((T0 + 3600)) post suspend
+eq "AC: re-suspends at check" "$(next)" suspend
+
+setup closed 1 10; hook $T0 pre suspend; hook $((T0 + 3600)) post suspend
+eq "AC at low battery: still re-suspends" "$(next)" suspend
+
+# Close on battery, plug in at 40m, alarm at 60m finds AC.
+setup closed 0 70; hook $T0 pre suspend; echo 1 > "$EAGLE_AC"
+hook $((T0 + 3600)) post suspend
+eq "plugged in mid-window: re-suspends" "$(next)" suspend
+hook $((T0 + 3605)) pre suspend
+eq "plugged in mid-window: deadline dropped" "$(ls "$EAGLE_STATE")" lid-hibernate-armed
+eq "plugged in mid-window: next alarm is a check" "$(rtc)" $((T0 + 3605 + 3600))
+
+# Asleep on AC, unplugged; the check notices and starts a battery window.
+setup closed 1 70; hook $T0 pre suspend; echo 0 > "$EAGLE_AC"
+hook $((T0 + 3600)) post suspend
+eq "unplugged on AC: re-suspends" "$(next)" suspend
+hook $((T0 + 3605)) pre suspend
+eq "unplugged on AC: fresh deadline" "$(rtc)" $((T0 + 3605 + 3600))
+
+# Battery drops through the threshold during the window.
+setup closed 0 25; hook $T0 pre suspend; echo 19 > "$EAGLE_BAT"
+hook $((T0 + 600)) post suspend
+eq "falls below low mid-window: hibernates" "$(next)" hibernate
+
+setup closed 0 70; hook $T0 pre suspend; echo "state: open" > "$EAGLE_LID"
+hook $((T0 + 600)) post suspend
+eq "lid open: stays awake" "$(next)" none
+eq "lid open: disarmed" "$(rtc)$(ls "$EAGLE_STATE")" 0
+
+setup open 0 10; hook $T0 pre suspend
+eq "lid open at suspend: not armed" "$(rtc)" 0
+hook $((T0 + 600)) post suspend
+eq "lid open at suspend: no action on wake" "$(next)" none
+
+setup closed 0 70; hook $T0 pre suspend; hook $((T0 + 600)) post suspend
+eq "early wake: re-suspends" "$(next)" suspend
+hook $((T0 + 605)) pre suspend
+eq "early wake: keeps original deadline" "$(rtc)" $((T0 + 3600))
+
+setup closed 0 70; rm -f "$EAGLE_BAT"; hook $T0 pre suspend
+eq "unreadable battery: treated as low" "$(rtc)" $((T0 + 60))
+
+setup closed 0 70; hook $T0 pre suspend; hook $((T0 + 3600)) pre hibernate
+eq "pre-hibernate: disarms" "$(rtc)$(ls "$EAGLE_STATE")" 0
+
+exit $fail

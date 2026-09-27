@@ -12,46 +12,79 @@
 # Arms only when the lid is closed at suspend time, so idle/manual suspends
 # with the lid open stay plain suspend, as before.
 #
+# Power-aware: on battery, sleep $delay then hibernate, or hibernate at once at
+# or below $low%. On AC, stay asleep, waking every $check to recheck, since
+# unplugging does not wake this machine (ADP1 is not an armed wake source).
+# A deadline starts when the lid is first seen closed on battery, including
+# after an unplug noticed at a check.
+#
 # Env overrides exist for tests only: EAGLE_STATE EAGLE_RTC EAGLE_LID EAGLE_DELAY
+# EAGLE_AC EAGLE_BAT EAGLE_LOW EAGLE_CHECK EAGLE_NOW EAGLE_LATER
 set -u
 
 action=${SYSTEMD_SLEEP_ACTION:-${2:-}}
 state=${EAGLE_STATE:-/run/eagle}
+armed_file=$state/lid-hibernate-armed
 deadline_file=$state/lid-hibernate-deadline
 rtc=${EAGLE_RTC:-/sys/class/rtc/rtc0/wakealarm}
 lid=${EAGLE_LID:-/proc/acpi/button/lid/LID0/state}
+ac=${EAGLE_AC:-/sys/class/power_supply/ADP1/online}
+bat=${EAGLE_BAT:-/sys/class/power_supply/BAT0/capacity}
 delay=${EAGLE_DELAY:-3600}
+low=${EAGLE_LOW:-20}
+check=${EAGLE_CHECK:-3600}
 
 log() { logger -t eagle-lid-hibernate "$*"; }
 lid_closed() { grep -qs closed "$lid"; }
-disarm() { rm -f "$deadline_file"; echo 0 > "$rtc" 2>/dev/null; }
-later() { systemd-run --no-block --collect --quiet --on-active=3 --unit="eagle-lid-$1-$(date +%s)" systemctl "$1"; }
+on_ac() { [[ $(cat "$ac" 2>/dev/null) == 1 ]]; }
+# Unreadable capacity counts as low: failing toward the disk image is safe.
+capacity() { local c; c=$(cat "$bat" 2>/dev/null); [[ $c =~ ^[0-9]+$ ]] && echo "$c" || echo 0; }
+disarm() { rm -f "$armed_file" "$deadline_file"; echo 0 > "$rtc" 2>/dev/null; }
+set_rtc() { echo 0 > "$rtc"; echo "$1" > "$rtc"; }
+later() {
+  if [[ -n ${EAGLE_LATER:-} ]]; then echo "$1" >> "$EAGLE_LATER"; return; fi
+  systemd-run --no-block --collect --quiet --on-active=3 --unit="eagle-lid-$1-$(date +%s)" systemctl "$1"
+}
 
-now=$(date +%s)
+now=${EAGLE_NOW:-$(date +%s)}
 deadline=$(cat "$deadline_file" 2>/dev/null)
 [[ $deadline =~ ^[0-9]+$ ]] || deadline=
+cap=$(capacity)
 
 case "${1:-}/$action" in
   pre/suspend)
     if ! lid_closed; then disarm; exit 0; fi
-    mkdir -p "$state"
-    [[ -n $deadline ]] || { deadline=$((now + delay)); echo "$deadline" > "$deadline_file"; }
+    mkdir -p "$state"; touch "$armed_file"
+    if on_ac; then
+      rm -f "$deadline_file"
+      set_rtc $((now + check))
+      log "armed on AC at ${cap}%: recheck at $(date -d "@$((now + check))" +%T)"
+      exit 0
+    fi
+    [[ -n $deadline ]] || deadline=$((now + delay))
+    (( cap <= low && deadline > now )) && deadline=$now
+    echo "$deadline" > "$deadline_file"
     alarm=$(( deadline > now + 60 ? deadline : now + 60 ))
-    echo 0 > "$rtc"; echo "$alarm" > "$rtc"
-    log "armed: hibernate at $(date -d "@$deadline" +%T), rtc $(date -d "@$alarm" +%T)"
+    set_rtc "$alarm"
+    log "armed on battery at ${cap}%: hibernate at $(date -d "@$deadline" +%T), rtc $(date -d "@$alarm" +%T)"
     ;;
 
   post/suspend)
-    [[ -n $deadline ]] || exit 0
+    [[ -f $armed_file ]] || exit 0
     if ! lid_closed; then
       disarm
       log "lid open on wake: staying awake"
-    elif (( now >= deadline )); then
-      log "lid closed, deadline passed: hibernating"
+    elif on_ac; then
+      rm -f "$deadline_file"
+      log "lid closed on AC at ${cap}%: re-suspending"
+      later suspend
+    elif [[ -n $deadline ]] && { (( now >= deadline )) || (( cap <= low )); }; then
+      log "lid closed on battery at ${cap}%, deadline reached: hibernating"
       later hibernate
     else
-      # Spurious early wake in the bag; don't rely on logind's holdoff recheck.
-      log "lid closed, $(( deadline - now ))s to deadline: re-suspending"
+      # Spurious early wake, or an unplug noticed at a check; pre/suspend
+      # starts a fresh deadline if there is none.
+      log "lid closed on battery at ${cap}%: re-suspending"
       later suspend
     fi
     ;;
