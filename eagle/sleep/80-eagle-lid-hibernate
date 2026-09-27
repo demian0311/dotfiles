@@ -20,7 +20,7 @@ state=${EAGLE_STATE:-/run/eagle}
 deadline_file=$state/lid-hibernate-deadline
 rtc=${EAGLE_RTC:-/sys/class/rtc/rtc0/wakealarm}
 lid=${EAGLE_LID:-/proc/acpi/button/lid/LID0/state}
-delay=${EAGLE_DELAY:-1800}
+delay=${EAGLE_DELAY:-7200}
 
 log() { logger -t eagle-lid-hibernate "$*"; }
 lid_closed() { grep -qs closed "$lid"; }
