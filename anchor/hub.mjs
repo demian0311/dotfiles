@@ -870,6 +870,9 @@ function page(services, views, links) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>anchor</title>
+<!-- Every link leaves this page in a new tab: the hub is the browser's start page and stays
+     open as home base. The one in-page link, the brand, opts back into _self. -->
+<base target="_blank">
 <style>
 ${SLATE}
   /* 🔴 The type scale, seven steps, and every size on the page is one of them.
@@ -1263,7 +1266,7 @@ ${SLATE}
 <body>
 <div class="bar">
   <div class="bar-inner">
-    <a class="brand" href="#top">
+    <a class="brand" href="#top" target="_self">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.anchor}</svg>
       anchor
