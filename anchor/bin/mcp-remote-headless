@@ -1,0 +1,26 @@
+#!/bin/sh
+# mcp-remote for unattended callers (the OpenClaw gateway's heartbeat runs).
+#
+# When a Cloudflare MCP login lapses, mcp-remote opens the OAuth page in a
+# browser and waits. Unattended, nobody clicks, the caller times out after 15s
+# and the tab stays: one Chromium tab per run, every 30 minutes. cf-graphql's
+# refresh token died 2026-09-23 and ~50 login tabs piled up by 2026-09-27.
+#
+# Unsetting DISPLAY is NOT enough: Chromium's singleton forwards the URL to the
+# running instance, so the tab opens anyway. Instead every opener mcp-remote
+# tries (bundled xdg-open, /usr/bin/xdg-open, gio, x-www-browser,
+# sensible-browser) is starved of a handler: no desktop files, no mimeapps,
+# generic DE, BROWSER=false. Verified 2026-09-27: xdg-open exits 3 "no method
+# available", gio exits 2 "Failed to find default application". The login
+# then fails in the gateway log instead of on screen.
+#
+# Tokens still live in ~/.mcp-auth (keyed off HOME, not XDG), so a valid or
+# refreshable login keeps working. To log in again, run plain mcp-remote with
+# the server URL from an interactive shell.
+empty="${TMPDIR:-/tmp}/mcp-remote-headless-empty"
+mkdir -p "$empty"
+exec env -u DISPLAY -u WAYLAND_DISPLAY -u XDG_CURRENT_DESKTOP -u DESKTOP_SESSION \
+  BROWSER=false \
+  XDG_CONFIG_HOME="$empty" XDG_CONFIG_DIRS="$empty" \
+  XDG_DATA_HOME="$empty" XDG_DATA_DIRS="$empty" \
+  "${MCP_REMOTE_BIN:-$HOME/.local/share/mise/installs/node/latest/bin/mcp-remote}" "$@"

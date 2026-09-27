@@ -11,6 +11,11 @@ units="$HOME/.config/systemd/user"
 
 mkdir -p "$HOME/anchor-hub" "$units"
 install -m 0644 "$here/hub.mjs" "$HOME/anchor-hub/hub.mjs"
+# OpenClaw's Cloudflare MCP servers run through this, so a lapsed login fails in
+# the gateway log instead of opening a Chromium tab every heartbeat. The
+# servers' "command" in ~/.openclaw/openclaw.json must point at it.
+mkdir -p "$HOME/.local/bin"
+install -m 0755 "$here/bin/mcp-remote-headless" "$HOME/.local/bin/mcp-remote-headless"
 install -m 0644 "$here"/systemd/*.service "$units/"
 install -m 0644 "$here"/systemd/*.timer "$units/"
 
