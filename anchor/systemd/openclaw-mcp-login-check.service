@@ -1,0 +1,9 @@
+[Unit]
+Description=Probe OpenClaw's MCP logins and file lapsed ones as Your turn issues
+
+[Service]
+Type=oneshot
+# bin/ is not on the PATH systemd gives a user unit, so call it by path.
+ExecStart=%h/code/dotfiles/bin/openclaw-mcp-login-check
+Environment=PATH=%h/.local/bin:%h/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+Nice=10

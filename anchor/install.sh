@@ -59,6 +59,10 @@ systemctl --user enable --now openclaw-compact-sweep.timer
 # Leaked plugin captures, hourly. OpenClaw 2026.9.5 leaves ~341 MB in /tmp per
 # isolated run and /tmp's per-user quota fills silently (openclaw#156571).
 systemctl --user enable --now openclaw-tmp-reaper.timer
+# Lapsed MCP logins, daily at 03:05. mcp-remote-headless keeps a lapsed login
+# from opening tabs, which also hides it; this files it as a `Your turn` issue
+# so the 03:55 morning message carries it.
+systemctl --user enable --now openclaw-mcp-login-check.timer
 
 systemctl --user enable --now anchor-hub.service anchor-docs.service \
   anchor-site.service anchor-api.service \

@@ -1,0 +1,11 @@
+[Unit]
+Description=Probe OpenClaw's MCP logins, daily before the morning message
+
+[Timer]
+# 03:05 lands a lapsed-login issue on the board before the 03:20 decisions
+# composer reads `Your turn` for the 03:55 Telegram message.
+OnCalendar=*-*-* 03:05:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

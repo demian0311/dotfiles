@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Probe every OpenClaw MCP server that runs through mcp-remote-headless and put
+# a lapsed login on the owner's plate: a `Your turn` / human-only issue on
+# diagrammo/diagrammo, which the 03:55 Telegram morning message lists.
+#
+# Why: mcp-remote-headless (anchor/bin) stops a lapsed login from opening a
+# Chromium tab every heartbeat, which also makes the lapse invisible. Only a
+# person can click Authorize, so it belongs in `Your turn`. cf-graphql sat
+# lapsed 2026-09-23..27 with ~50 tabs as the only signal.
+#
+# Runs daily at 03:05 (openclaw-mcp-login-check.timer), ahead of the 03:20
+# decisions composer. One open issue per server, found by exact title; a login
+# that works again closes its issue and moves it to Done. A probe that neither
+# connects nor asks for a login (network, Cloudflare down) is logged and
+# skipped: that is not something the owner can fix by signing in.
+set -uo pipefail
+# CFG and DRY_RUN=1 (report, write nothing to the tracker) are for testing.
+CFG="${CFG:-$HOME/.openclaw/openclaw.json}"
+DRY_RUN="${DRY_RUN:-}"
+WRAPPER="$HOME/.local/bin/mcp-remote-headless"
+REPO=diagrammo/diagrammo
+STATUS="$HOME/code/diagrammo/scripts/issue-status.sh"
+INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"login-check","version":"0"}}}'
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+
+python3 - "$CFG" "$WRAPPER" <<'PY' > "$tmp/servers"
+import json, sys
+cfg, wrapper = sys.argv[1], sys.argv[2]
+for name, s in json.load(open(cfg)).get("mcp", {}).get("servers", {}).items():
+    if s.get("command") == wrapper and s.get("enabled", True) and s.get("args"):
+        print(name, s["args"][0])
+PY
+
+while read -r name url <&3; do
+  ( echo "$INIT"; sleep 25 ) | timeout 30 "$WRAPPER" "$url" > "$tmp/out" 2> "$tmp/err"
+  title="OpenClaw's Cloudflare login for $name has lapsed"
+  open=$(gh issue list --repo "$REPO" --state open --search "in:title \"$title\"" \
+    --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+
+  if command grep -q '"result"' "$tmp/out"; then
+    echo "$name: ok"
+    if [ -n "$open" ] && [ -z "$DRY_RUN" ]; then
+      gh issue close "$open" --repo "$REPO" --comment "Login for \`$name\` works again (checked $(date '+%F %H:%M') by openclaw-mcp-login-check)." >/dev/null
+      "$STATUS" set "$open" "Done" >/dev/null
+      echo "$name: closed the lapsed-login issue ($open)"
+    fi
+  elif command grep -q 'Authentication required' "$tmp/err"; then
+    echo "$name: login lapsed"
+    [ -n "$open" ] && { echo "$name: already filed ($open)"; continue; }
+    [ -n "$DRY_RUN" ] && { echo "$name: DRY_RUN, would file: $title"; continue; }
+    command cat > "$tmp/body" <<BODY
+OpenClaw's \`$name\` connection to Cloudflare needs a fresh sign-in. Until then, every OpenClaw run that uses it goes without it; the failure shows only in the gateway log (\`journalctl --user -u openclaw-gateway | grep $name\`).
+
+**To fix, on anchor** — in any terminal:
+
+\`\`\`
+~/.local/share/mise/installs/node/latest/bin/mcp-remote $url
+\`\`\`
+
+A Cloudflare tab opens: sign in, click **Authorize**, then Ctrl-C the command. The next daily check (03:05) closes this issue by itself.
+
+Filed $(date +%F) by \`openclaw-mcp-login-check\` (dotfiles).
+BODY
+    n=$(gh issue create --repo "$REPO" --title "$title" --label human-only --body-file "$tmp/body" | command grep -oE '[0-9]+$')
+    [ -n "$n" ] && "$STATUS" set "$n" "Your turn" >/dev/null && echo "$name: filed $n, Your turn"
+  else
+    echo "$name: probe inconclusive, skipped"; tail -3 "$tmp/err"
+  fi
+done 3< "$tmp/servers"
