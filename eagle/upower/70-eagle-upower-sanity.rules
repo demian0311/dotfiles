@@ -1,0 +1,2 @@
+# /etc/udev/rules.d/70-eagle-upower-sanity.rules — AC plug/unplug triggers the check.
+SUBSYSTEM=="power_supply", ACTION=="change", ATTR{type}=="Mains", RUN+="/usr/bin/systemctl --no-block start eagle-upower-sanity.service"

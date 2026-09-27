@@ -1,0 +1,5 @@
+#!/bin/bash
+# /usr/lib/systemd/system-sleep/95-eagle-upower-sanity — resume triggers the check.
+# --no-block: a blocking start from inside systemd-sleep would wait on itself.
+[[ ${1:-} == post ]] && systemctl --no-block start eagle-upower-sanity.service
+exit 0

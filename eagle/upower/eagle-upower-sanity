@@ -1,0 +1,41 @@
+#!/bin/bash
+# /usr/local/bin/eagle-upower-sanity
+# Installed by install.sh next to this file. Run by eagle-upower-sanity.service,
+# which fires on AC plug/unplug (udev), after resume (system-sleep hook) and
+# every 30 min (timer).
+#
+# Why: acpi-sbs on this MacBookAir6,2 transiently reports the battery's full
+# capacity as 0xFFFF mAh (65.535 Ah) around plug-in/resume. upower latches it
+# as energy-full = 65.535 Ah x 7.6 V = 498.066 Wh and keeps it until restarted,
+# so the bar showed ~9% on a battery at 86% (2026-09-26). The kernel recovers;
+# upower never re-reads. A full figure over twice design can only be that.
+#
+# Env overrides exist for tests only: EAGLE_UPOWER_FAKE EAGLE_RESTART EAGLE_DELAYS
+set -u
+
+delays=${EAGLE_DELAYS:-15 45}
+restart=${EAGLE_RESTART:-systemctl restart upower.service}
+
+log() { logger -t eagle-upower-sanity "$*"; }
+
+# One "full design" line (Wh) per battery upower knows about.
+readings() {
+  if [[ -n ${EAGLE_UPOWER_FAKE:-} ]]; then command cat "$EAGLE_UPOWER_FAKE"; return; fi
+  local dev full design
+  for dev in $(upower -e | grep /battery_); do
+    full=$(busctl get-property org.freedesktop.UPower "$dev" org.freedesktop.UPower.Device EnergyFull | awk '{print $2}')
+    design=$(busctl get-property org.freedesktop.UPower "$dev" org.freedesktop.UPower.Device EnergyFullDesign | awk '{print $2}')
+    echo "${full:-0} ${design:-0}"
+  done
+}
+
+bogus() { readings | awk '$2 > 0 && $1 > 2 * $2 { print; found = 1 } END { exit !found }'; }
+
+for d in $delays; do
+  sleep "$d"
+  if bad=$(bogus); then
+    log "upower energy-full/design = $bad Wh; restarting upower"
+    $restart
+    exit 0
+  fi
+done

@@ -1,0 +1,7 @@
+[Unit]
+Description=Restart upower if it latched a bogus battery full capacity (eagle)
+After=upower.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/eagle-upower-sanity

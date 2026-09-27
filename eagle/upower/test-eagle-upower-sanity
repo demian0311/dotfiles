@@ -1,0 +1,19 @@
+#!/bin/bash
+# Runs eagle-upower-sanity against fake upower readings. No root needed.
+set -u
+here=$(cd "$(dirname "$0")" && pwd)
+t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
+export EAGLE_UPOWER_FAKE=$t/readings EAGLE_RESTART="touch $t/restarted" EAGLE_DELAYS=0
+fail=0
+check() { # name, readings, expect(yes|no)
+  printf '%b' "$2" > "$EAGLE_UPOWER_FAKE"; rm -f "$t/restarted"
+  "$here/eagle-upower-sanity"
+  local got=no; [[ -f $t/restarted ]] && got=yes
+  [[ $got == "$3" ]] && echo "ok   $1" || { echo "FAIL $1: restart=$got want=$3"; fail=1; }
+}
+check "0xFFFF latch restarts"      '498.066 53.2\n' yes
+check "healthy battery left alone" '54.1728 53.2\n' no
+check "unknown design ignored"     '498.066 0\n'    no
+check "no battery ignored"         ''               no
+check "any bad battery restarts"   '54.1 53.2\n498.066 53.2\n' yes
+exit $fail
