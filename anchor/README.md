@@ -150,6 +150,7 @@ no port is open to the internet.
 | `systemd/` | one user unit per service, plus the hub's. Not OpenClaw's — that is its own project's |
 | `install.sh` | run it on anchor from a checkout of this repo |
 | `hypridle.conf` | the display-off timer — Omarchy 4 ships none. See **The display never turned itself off** below |
+| `chromium-home.json` | Chromium *recommended* policy: opens the hub on startup and on Home. Root-owned target, so `install.sh` cannot place it: `sudo install -Dm644 anchor/chromium-home.json /etc/chromium/policies/recommended/anchor-home.json`. Recommended, not managed, so it stays changeable in settings. Added 2026-09-27 |
 
 🔴 **`~/anchor-hub/` on the box holds exactly one file, `hub.mjs`, and it is a
 COPY of the one here.** Anything beside it — a `hub.mjs.bak-*`, a `hub.mjs.new`

@@ -35,6 +35,8 @@ const PROXY = (p) => p + 20000;
 // the two realm marks. A glyph is never used for both a row and the heading
 // above it -- two identical marks in a column read as a repeat rather than as
 // a hierarchy.
+const BOARD_URL = 'https://github.com/orgs/diagrammo/projects/1/views/1';
+
 const ICONS = {
   // a magnifier — the filter
   search: '<circle cx="11" cy="11" r="6.4"/><path d="m15.9 15.9 4.6 4.6"/>',
@@ -90,6 +92,7 @@ const ICONS = {
   // bars — product analytics
   bars: '<path d="M3.5 20h17"/><path d="M6.5 20v-6"/><path d="M12 20V4.5"/><path d="M17.5 20v-9"/>',
   // a dot in a ring — an open issue
+  board: '<rect x="3" y="4" width="18" height="16" rx="2.4"/><path d="M9 4v16M15 4v16"/><path d="M5.2 7.6h1.6M11.2 7.6h1.6M11.2 10.6h1.6M17.2 7.6h1.6"/>',
   issue: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/>',
   // a box — a published package
   package:
@@ -998,6 +1001,21 @@ ${SLATE}
   .meta a.raw:hover { text-decoration-thickness: 2px; }
 
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  /* The one link opened most often, so it sits above every band rather than
+     as a row inside one -- the board is the usual reason this page is open. */
+  .board {
+    display: flex; align-items: center; gap: .9rem; margin: 0 0 1.6rem;
+    padding: .95rem 1.1rem; border-radius: 12px; text-decoration: none;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+    color: var(--ink);
+  }
+  .board:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
+  .board svg { width: 1.9rem; height: 1.9rem; color: var(--accent); flex: none; }
+  .board-text { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+  .board-text b { font-size: var(--fs-2xl); font-weight: 680; letter-spacing: -.015em; }
+  .board-text span { color: var(--muted); font-size: var(--fs-md); }
+  .board-go { margin-left: auto; font-size: 1.4rem; color: var(--accent); }
   .lede {
     margin: .1rem 0 1.15rem; color: var(--muted); font-size: var(--fs-md);
     max-width: 66ch; text-wrap: balance;
@@ -1273,6 +1291,12 @@ ${SLATE}
 <main id="top">
   <h1 class="sr">anchor</h1>
   <p class="lede">Everything on this box, reachable from any device on the tailnet, plus the addresses off it. Nothing here is open to the internet.</p>
+  <a class="board" href="${BOARD_URL}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.board}</svg>
+    <span class="board-text"><b>Kanban board</b><span>diagrammo project · what is in flight, ready, waiting on you</span></span>
+    <span class="board-go" aria-hidden="true">&rarr;</span>
+  </a>
   ${bands
     .map((r) =>
       band(

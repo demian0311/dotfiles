@@ -1,0 +1,7 @@
+{
+  "RestoreOnStartup": 4,
+  "RestoreOnStartupURLs": ["http://localhost:7777/"],
+  "HomepageLocation": "http://localhost:7777/",
+  "HomepageIsNewTabPage": false,
+  "ShowHomeButton": true
+}
