@@ -226,10 +226,10 @@ _cmux_mem_daemon() {
 }
 _cmux_mem_daemon
 
-# ---- cmux agent badges: is this workspace Claude or Codex ------------------
+# ---- cmux agent badges: which agent is in this workspace -------------------
 # Starts bin/cmux-agents' loop, which puts the AGENT'S NAME on each workspace
 # row. cmux's own pills say the lifecycle (`Running`, `Idle`) in one styling for
-# every agent, so with both running side by side the sidebar could not answer
+# every agent, so with several running side by side the sidebar could not answer
 # "which one is this". The badge answers it; the lifecycle pills are left alone.
 #
 # Same launch constraint as the memory gauge above — cmux's socket is `cmuxOnly`,

@@ -56,15 +56,6 @@
   //         "backgroundColorHex" : "#F6D5C8"
   //       },
   //       {
-  //         "kind" : "commandTemplate",
-  //         "assetName" : "AgentIcons\/Codex",
-  //         "systemImage" : "sparkles",
-  //         "id" : "codex",
-  //         "commandTemplate" : "codex --yolo -- {{prompt}}",
-  //         "title" : "Codex --yolo",
-  //         "backgroundColorHex" : "#8FDBFF"
-  //       },
-  //       {
   //         "id" : "opencode",
   //         "title" : "OpenCode",
   //         "commandTemplate" : "opencode --prompt {{prompt}}",

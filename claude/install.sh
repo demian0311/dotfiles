@@ -160,8 +160,8 @@ if [ -d "$skills_src" ]; then
 fi
 
 # Shared skills: agents/skills/<name> is real, and both ~/.claude/skills and the
-# harness-neutral ~/.agents/skills get a symlink to it. That second root is NOT
-# dead weight now that Codex is gone -- Omarchy populates it (omarchy,
+# harness-neutral ~/.agents/skills get a symlink to it. That second root is live:
+# Omarchy populates it (omarchy,
 # diagnose-crash) and OpenClaw reads it as its personal skill root, priority 3 of
 # 6, so anything dropped from here disappears from those agents. Only skills
 # written harness-neutrally belong in agents/skills; Claude-specific ones go in
