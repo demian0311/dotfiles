@@ -14,5 +14,5 @@
 - [Auto-disabled automation is silent](auto-disabled-automation-is-silent.md) — a job that auto-disables after 10 errors never alerts again and reads as ordinary quiet; check `--all` for `disabled (Nx)` before blaming the transport.
 - [Disabling an MCP server kills its grant](disabling-mcp-server-kills-its-grant.md) — no bridge runs, so nothing refreshes the OAuth token; authorize first, enable second, and never verify a bridge with `pgrep -f <url>`.
 - [Say issue, not row](say-issue-not-row.md) — tracker items are "issues"; the word "row" is retired from my replies and from the messages the automations send him.
-- [Merged-work statuses](merged-work-statuses.md) — Needs your check / Awaiting release / Done + `Awaiting release — repo@sha` marker; Your turn = 4 statuses, board view 6; option edits need every old option id.
+- [Merged-work statuses](merged-work-statuses.md) — check (Your turn + `check` label since 10-02, was a column) / Awaiting release / Done + `Awaiting release — repo@sha` marker; Your turn = 4 statuses, board view 6; option edits need every old option id.
 - [dgmo cache dirties app-site](dgmo-cache-dirties-app-site.md) — `.dgmo/references/*.json` is a tracked cache whose `fetchedAt` a dgmo fetch rewrites, so `diagrammo_app_site` goes dirty by itself and its nightly pull is REFUSED.

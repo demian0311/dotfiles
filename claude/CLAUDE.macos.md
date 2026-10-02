@@ -26,7 +26,7 @@ Adding an ad-hoc openclaw automation is also out of band: it duplicates a pipeli
 that already exists.
 - **Put the "check back later" in the tracker instead.** Give the row the right
   board status, and comment what to check and what counts as done. Bob's nightly
-  jobs already surface every Needs your check / Your turn row in the 03:55
+  jobs already surface every Your turn row (checks included) in the 03:55
   Telegram message (`docs/agents/nightly-pipeline.md` in `~/code/diagrammo`).
 - **If bob's workflow should do something new, change bob:** edit the pipeline, or
   raise it with bob on anchor. Don't bolt a job on beside it.
