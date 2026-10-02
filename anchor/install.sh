@@ -41,10 +41,25 @@ else
 fi
 
 # Remote desktop: the Mac views this screen with `open vnc://anchor:5900`
-# (macOS Screen Sharing). Bound to the Tailscale address only; no VNC password,
-# the tailnet is the gate. Same no-sudo rule as hypridle:
+# (macOS Screen Sharing). Bound to the Tailscale address only, and it signs in
+# with anchor's own login through PAM (/etc/pam.d/wayvnc ships with the package).
+# 🔴 Screen Sharing will not connect to a server with no login -- it opened the
+# socket and neatvnc logged "Client handshake timed out" (2026-10-02).
+# relax_encryption is what offers Apple Diffie-Hellman, the method Screen
+# Sharing speaks; enable_auth refuses to start without the TLS and RSA keys even
+# so. Same no-sudo rule as hypridle:
 #   sudo pacman -S --needed wayvnc
 if command -v wayvnc >/dev/null; then
+  vnc="$HOME/.config/wayvnc"
+  mkdir -p "$vnc"
+  [ -f "$vnc/tls_key.pem" ] || openssl req -x509 -newkey ec \
+    -pkeyopt ec_paramgen_curve:secp384r1 -sha384 -days 3650 -nodes \
+    -keyout "$vnc/tls_key.pem" -out "$vnc/tls_cert.pem" -subj /CN=anchor
+  [ -f "$vnc/rsa_key.pem" ] || openssl genrsa -traditional -out "$vnc/rsa_key.pem" 4096
+  chmod 600 "$vnc/tls_key.pem" "$vnc/rsa_key.pem"
+  printf '%s\n' enable_auth=true enable_pam=true relax_encryption=true \
+    "private_key_file=$vnc/tls_key.pem" "certificate_file=$vnc/tls_cert.pem" \
+    "rsa_private_key_file=$vnc/rsa_key.pem" > "$vnc/config"
   systemctl --user enable --now wayvnc.service
 else
   echo "wayvnc absent; run 'sudo pacman -S --needed wayvnc' then re-run this script"
