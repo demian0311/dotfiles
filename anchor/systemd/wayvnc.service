@@ -1,0 +1,16 @@
+[Unit]
+Description=wayvnc — anchor's desktop over VNC, tailnet only
+PartOf=graphical-session.target
+After=graphical-session.target tailscaled.service
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+# Bound to anchor's Tailscale address, so only the tailnet can reach it. A start
+# before tailscaled holds that address fails to bind; the restart retries it.
+ExecStart=/usr/bin/wayvnc 100.123.116.110 5900
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

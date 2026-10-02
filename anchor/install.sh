@@ -40,6 +40,16 @@ else
   echo "hypridle absent; run 'sudo pacman -S --needed hypridle' then re-run this script"
 fi
 
+# Remote desktop: the Mac views this screen with `open vnc://anchor:5900`
+# (macOS Screen Sharing). Bound to the Tailscale address only; no VNC password,
+# the tailnet is the gate. Same no-sudo rule as hypridle:
+#   sudo pacman -S --needed wayvnc
+if command -v wayvnc >/dev/null; then
+  systemctl --user enable --now wayvnc.service
+else
+  echo "wayvnc absent; run 'sudo pacman -S --needed wayvnc' then re-run this script"
+fi
+
 # anchor-studio serves artifacts that `pnpm studio` produces. On a fresh box
 # run that once first, or the unit starts and serves an empty gallery:
 #   cd ~/code/diagrammo/dgmo-mcp && pnpm studio   # ctrl-c once it says ready
