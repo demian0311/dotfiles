@@ -40,8 +40,8 @@ else
   echo "hypridle absent; run 'sudo pacman -S --needed hypridle' then re-run this script"
 fi
 
-# Remote desktop: the Mac views this screen with `open vnc://anchor:5900`
-# (macOS Screen Sharing). Bound to the Tailscale address only.
+# Remote desktop: the Mac views this screen with TigerVNC (README has why not
+# Screen Sharing). Bound to the Tailscale address only.
 # 🔴 Screen Sharing speaks RFB 3.3 to a non-Apple server, and 3.3 carries only
 # classic VNC auth: one password, no username, 8 characters, DES. With no auth
 # it would not connect at all; with PAM or Apple Diffie-Hellman neatvnc logged
