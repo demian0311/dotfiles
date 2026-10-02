@@ -41,13 +41,15 @@ else
 fi
 
 # Remote desktop: the Mac views this screen with `open vnc://anchor:5900`
-# (macOS Screen Sharing). Bound to the Tailscale address only, and it signs in
-# with anchor's own login through PAM (/etc/pam.d/wayvnc ships with the package).
-# 🔴 Screen Sharing will not connect to a server with no login -- it opened the
-# socket and neatvnc logged "Client handshake timed out" (2026-10-02).
-# relax_encryption is what offers Apple Diffie-Hellman, the method Screen
-# Sharing speaks; enable_auth refuses to start without the TLS and RSA keys even
-# so. Same no-sudo rule as hypridle:
+# (macOS Screen Sharing). Bound to the Tailscale address only.
+# 🔴 Screen Sharing speaks RFB 3.3 to a non-Apple server, and 3.3 carries only
+# classic VNC auth: one password, no username, 8 characters, DES. With no auth
+# it would not connect at all; with PAM or Apple Diffie-Hellman neatvnc logged
+# "Authentication required, but not supported for RFB 3.3" (both 2026-10-02).
+# So allow_broken_crypto is on and the password is generated once, kept only in
+# ~/.config/wayvnc/config (0600), never in this repo. The tailnet is the real
+# gate. enable_auth refuses to start without the TLS and RSA keys even so.
+# Same no-sudo rule as hypridle:
 #   sudo pacman -S --needed wayvnc
 if command -v wayvnc >/dev/null; then
   vnc="$HOME/.config/wayvnc"
@@ -57,9 +59,13 @@ if command -v wayvnc >/dev/null; then
     -keyout "$vnc/tls_key.pem" -out "$vnc/tls_cert.pem" -subj /CN=anchor
   [ -f "$vnc/rsa_key.pem" ] || openssl genrsa -traditional -out "$vnc/rsa_key.pem" 4096
   chmod 600 "$vnc/tls_key.pem" "$vnc/rsa_key.pem"
-  printf '%s\n' enable_auth=true enable_pam=true relax_encryption=true \
+  pw=$(sed -n 's/^password=//p' "$vnc/config" 2>/dev/null || true)
+  [ -n "$pw" ] || pw=$(LC_ALL=C tr -dc 'a-km-zA-HJ-NP-Z2-9' </dev/urandom | head -c 8)
+  printf '%s\n' enable_auth=true allow_broken_crypto=true relax_encryption=true \
+    "password=$pw" \
     "private_key_file=$vnc/tls_key.pem" "certificate_file=$vnc/tls_cert.pem" \
     "rsa_private_key_file=$vnc/rsa_key.pem" > "$vnc/config"
+  chmod 600 "$vnc/config"
   systemctl --user enable --now wayvnc.service
 else
   echo "wayvnc absent; run 'sudo pacman -S --needed wayvnc' then re-run this script"
