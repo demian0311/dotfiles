@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Gives the VNC viewer on :5900 a virtual screen the size of the Mac's display,
+# so nothing has to be panned. On the first connect it creates a headless
+# Hyprland output, moves every workspace onto it and points wayvnc at it; on
+# the last disconnect it removes the output and Hyprland hands the workspaces
+# back to the real monitor. :5901 (wayvnc-real.service) never does any of this.
+#
+# 🔴 The output MUST be named HEADLESS-*: wayvnc decides "headless" by name
+# prefix alone (output_is_headless, src/output.c). wayvnc's own resize-to-window
+# path is a dead end here -- it forwards the request and Hyprland 0.56.2 never
+# applies it (measured 2026-10-02) -- so the size is fixed by MODE instead.
+# 🔴 Hyprland 0.56.2 configs are Lua: `hyprctl keyword monitor` answers "can't
+# work with non-legacy parsers", so the mode is set with `hyprctl eval`.
+set -u
+
+sock="${XDG_RUNTIME_DIR:?}/wayvncctl"
+out=HEADLESS-VNC
+mode="${WAYVNC_FIT_MODE:-2560x1080@60}"
+
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+  HYPRLAND_INSTANCE_SIGNATURE=$(ls -t "$XDG_RUNTIME_DIR/hypr/" | head -1)
+  export HYPRLAND_INSTANCE_SIGNATURE
+fi
+
+exists() { hyprctl monitors all -j | jq -e --arg o "$out" 'any(.[]; .name == $o)' >/dev/null; }
+real_output() { hyprctl monitors -j | jq -r --arg o "$out" '[.[] | select(.name != $o)][0].name'; }
+active_ws() { hyprctl activeworkspace -j | jq -r '.id'; }
+focus_ws() { hyprctl dispatch "hl.dsp.focus({ workspace = \"$1\" })" >/dev/null; }
+
+attach() {
+  exists && return
+  local ws keep
+  keep=$(active_ws)
+  hyprctl output create headless "$out" >/dev/null
+  hyprctl eval "hl.monitor({ output = \"$out\", mode = \"$mode\", position = \"auto-right\", scale = 1 })" >/dev/null
+  for ws in $(hyprctl workspaces -j | jq -r --arg o "$out" '.[] | select(.monitor != $o and .id > 0) | .id'); do
+    hyprctl dispatch "hl.dsp.workspace.move({ workspace = \"$ws\", monitor = \"$out\" })" >/dev/null
+  done
+  focus_ws "$keep"
+  # wayvnc learns of the new output asynchronously; retry until it can see it.
+  for _ in $(seq 20); do
+    wayvncctl -S "$sock" output-set "$out" >/dev/null 2>&1 && break
+    sleep 0.2
+  done
+  echo "attached: $out $mode"
+}
+
+detach() {
+  exists || return
+  local keep
+  keep=$(active_ws)
+  wayvncctl -S "$sock" output-set "$(real_output)" >/dev/null 2>&1
+  hyprctl output remove "$out" >/dev/null
+  focus_ws "$keep"
+  echo "detached: workspaces back on $(real_output)"
+}
+
+detach   # a crash can leave the output behind; start from the real monitor
+
+wayvncctl -S "$sock" --wait --reconnect --json event-receive | while IFS= read -r evt; do
+  count=$(jq -r '.params.connection_count // 0' <<<"$evt")
+  case "$(jq -r '.method' <<<"$evt")" in
+    client-connected) [ "$count" -ge 1 ] && attach ;;
+    client-disconnected) [ "$count" -eq 0 ] && detach ;;
+    wayvnc-shutdown) detach ;;
+  esac
+done

@@ -1,0 +1,15 @@
+[Unit]
+Description=wayvnc-real — the escape hatch: anchor's real monitor on :5901, untouched
+PartOf=graphical-session.target
+After=graphical-session.target tailscaled.service
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+# Its own control socket, so wayvnc-fit never steers it. Same config, same login.
+ExecStart=/usr/bin/wayvnc -S %t/wayvncctl-real 100.123.116.110 5901
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

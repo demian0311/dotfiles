@@ -1,0 +1,14 @@
+[Unit]
+Description=wayvnc-fit — a Mac-sized virtual screen while a viewer is on :5900
+PartOf=graphical-session.target
+After=graphical-session.target wayvnc.service
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/wayvnc-fit
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

@@ -60,7 +60,10 @@ if command -v wayvnc >/dev/null; then
     "private_key_file=$vnc/tls_key.pem" "certificate_file=$vnc/tls_cert.pem" \
     "rsa_private_key_file=$vnc/rsa_key.pem" > "$vnc/config"
   chmod 600 "$vnc/config"
-  systemctl --user enable --now wayvnc.service
+  install -m 0755 "$here/bin/wayvnc-fit" "$HOME/.local/bin/wayvnc-fit"
+  # :5900 gets a Mac-sized virtual screen per connection (wayvnc-fit);
+  # :5901 is the real monitor, untouched -- the way back in if the helper breaks.
+  systemctl --user enable --now wayvnc.service wayvnc-fit.service wayvnc-real.service
 else
   echo "wayvnc absent; run 'sudo pacman -S --needed wayvnc' then re-run this script"
 fi
