@@ -1,0 +1,143 @@
+#!/bin/bash
+# Watch anchor's Wi-Fi link and re-associate it when the `wl` driver's link
+# collapses. See the memory note anchor-wifi-link-collapse for the diagnosis.
+#
+# Runs as root from wifi-watch.timer every 5 minutes. Root is deliberate: it
+# needs `nmcli con up`, which polkit gates behind `auth`, and anchor has no
+# polkit agent. Running as root avoids both a sudoers carve-out and a prompt
+# nobody is there to answer.
+#
+# 🔴 NEVER add a `modprobe -r wl` path. Wi-Fi is anchor's only link, and on
+# 2026-09-22 unloading the module did not come back -- five reconnects, an NM
+# restart and a second modprobe all failed, needing console recovery.
+# 🔴 NEVER add a reboot fallback. Unattended, that trades a walk to the console
+# for days of destroyed session state (anchor routinely carries Claude sessions
+# 3+ days old). If the bounce fails, leave it down and say so on screen.
+
+set -uo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+
+CON=0311
+DEV=wlp2s0
+GW=10.0.1.1
+LOG=/var/log/wifi-watch.log
+STATE=/var/lib/wifi-watch
+DESKTOP_UID=1000
+
+# Thresholds. Derived 2026-09-22 by measuring both states.
+#
+# The discriminator is the MEDIAN per-packet RTT, not the mean. The mean is
+# useless here: a healthy link throws occasional multi-hundred-ms spikes that
+# drag it to 170 ms, which overlaps the collapsed range and would have made any
+# workable threshold impossible. Medians separate cleanly --
+#   healthy   5.1  6.8  8.3 15.2 18.4 20.6 21.0 21.2 30.2 55.6 ms  (n=10)
+#   collapsed              241           369 ms                    (n=2)
+# 120 ms sits ~2.2x above the worst healthy median and ~2x below the best
+# collapsed one.
+MEDIAN_MS_BAD=120
+LOSS_PCT_BAD=40
+STRIKES_TO_BOUNCE=3     # consecutive; one bad sample is meaningless on this link
+COOLDOWN_SEC=1800       # no evaluation for 30 min after a bounce
+MAX_BOUNCES_24H=4       # past this, keep observing but stop acting
+
+mkdir -p "$STATE"
+exec 9>"$STATE/lock"
+flock -n 9 || exit 0    # a previous run is still bouncing
+
+log() { printf '%s %s\n' "$(date -Is)" "$*" >>"$LOG"; }
+
+notify() {
+  local urgency=$1 title=$2 body=$3
+  sudo -u "#$DESKTOP_UID" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$DESKTOP_UID/bus" \
+    notify-send -u "$urgency" -a "wifi-watch" "$title" "$body" 2>/dev/null || true
+}
+
+read_state() { cat "$STATE/$1" 2>/dev/null || echo "${2:-0}"; }
+write_state() { printf '%s\n' "$2" >"$STATE/$1"; }
+
+# Bounces in the last 24h, as a newline-separated list of epoch seconds.
+recent_bounces() {
+  local now cutoff t
+  now=$(date +%s); cutoff=$((now - 86400))
+  while read -r t; do [[ -n $t ]] && (( t > cutoff )) && echo "$t"; done <"$STATE/bounces" 2>/dev/null
+}
+
+have_ip() { ip -4 addr show "$DEV" 2>/dev/null | grep -q 'inet '; }
+
+measure() {
+  # Emits "median loss" or "down down". Median, not mean -- see the thresholds.
+  local out times med loss
+  out=$(ping -c 15 -i 0.3 -W 3 -s 1400 "$GW" 2>&1)
+  times=$(echo "$out" | grep -o 'time=[0-9.]*' | cut -d= -f2)
+  [[ -z $times ]] && { echo "down down"; return; }
+  med=$(echo "$times" | sort -n | awk '{a[NR]=$1} END{print (NR%2) ? a[(NR+1)/2] : (a[NR/2]+a[NR/2+1])/2}')
+  loss=$(echo "$out" | grep -o '[0-9.]*% packet loss' | tr -d '%' | awk '{print $1; exit}')
+  echo "$med ${loss:-0}"
+}
+
+bounce() {
+  local i
+  log "BOUNCE start"
+  notify normal "Wi-Fi bounce" "Link collapsed; re-associating $CON."
+  nmcli con down "$CON" >/dev/null 2>&1
+  sleep 8
+  for i in 1 2 3 4 5; do
+    nmcli con up "$CON" >/dev/null 2>&1
+    sleep 6
+    have_ip && { log "BOUNCE ok after $i reconnect attempt(s)"; return 0; }
+  done
+  log "BOUNCE reconnect failed; restarting NetworkManager"
+  systemctl restart NetworkManager; sleep 12
+  for i in 1 2 3 4 5; do
+    nmcli con up "$CON" >/dev/null 2>&1
+    sleep 6
+    have_ip && { log "BOUNCE ok after NetworkManager restart"; return 0; }
+  done
+  log "BOUNCE FAILED -- anchor is off the network and needs console recovery: sudo nmcli con up $CON"
+  notify critical "Wi-Fi DOWN" "Bounce failed. anchor is off the network. At the console: sudo nmcli con up $CON"
+  return 1
+}
+
+now=$(date +%s)
+until_ts=$(read_state cooldown_until 0)
+if (( now < until_ts )); then
+  log "cooldown, $(( (until_ts - now) / 60 ))m remaining"
+  exit 0
+fi
+
+read -r med loss < <(measure)
+strikes=$(read_state strikes 0)
+
+if [[ $med == down ]]; then
+  verdict=DOWN; bad=1
+elif awk "BEGIN{exit !($med > $MEDIAN_MS_BAD)}" || awk "BEGIN{exit !($loss >= $LOSS_PCT_BAD)}"; then
+  verdict=BAD; bad=1
+else
+  verdict=ok; bad=0
+fi
+
+if (( bad )); then strikes=$((strikes + 1)); else strikes=0; fi
+write_state strikes "$strikes"
+log "$verdict median=${med}ms loss=${loss}% strikes=$strikes/$STRIKES_TO_BOUNCE"
+
+(( strikes >= STRIKES_TO_BOUNCE )) || exit 0
+
+count=$(recent_bounces | wc -l)
+if (( count >= MAX_BOUNCES_24H )); then
+  log "RATE LIMIT: $count bounces in 24h, not acting. Something is wrong beyond the link -- see the antenna theory in memory."
+  notify critical "Wi-Fi bouncing repeatedly" "$count bounces in 24h. Bouncing is not fixing it; the fault is likely physical."
+  write_state strikes 0
+  write_state cooldown_until $((now + COOLDOWN_SEC))
+  exit 0
+fi
+
+{ recent_bounces; echo "$now"; } >"$STATE/bounces.new" && mv "$STATE/bounces.new" "$STATE/bounces"
+write_state strikes 0
+write_state cooldown_until $((now + COOLDOWN_SEC))
+
+if bounce; then
+  read -r med2 loss2 < <(measure)
+  log "AFTER median=${med2}ms loss=${loss2}%"
+  notify normal "Wi-Fi recovered" "Median was ${med}ms, now ${med2}ms."
+fi

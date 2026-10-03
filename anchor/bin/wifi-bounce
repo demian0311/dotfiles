@@ -1,0 +1,109 @@
+#!/bin/bash
+# Re-associate anchor's Wi-Fi, which recovers the `wl` driver's periodic link
+# collapse (seconds of latency and sub-1-Mbit throughput on an association that
+# still reports signal 100 / 270 Mbit/s). Measured 2026-09-22: 363 ms -> 7-20 ms
+# average, <0.07 -> 14-20 Mbit/s.
+#
+#   ssh anchor -t 'sudo bash ~/.local/bin/wifi-bounce' # measure, bounce, measure
+#   wifi-bounce --check                               # measure only, no root
+#
+# Detaches after authenticating, so a dropped SSH session cannot strand the box
+# mid-bounce. Watch with: ssh anchor 'tail -f /tmp/wifi-bounce.log'
+#
+# 🔴 This script must NEVER unload the wl module. Wi-Fi is anchor's only link
+# (the gigabit port has no cable), and on 2026-09-22 `modprobe -r wl` did not
+# come back -- five reconnects, an NM restart and a second modprobe all failed,
+# and the machine needed console recovery. A reboot DOES restore it reliably,
+# so that is the last resort here instead.
+
+set -uo pipefail
+
+CON=0311
+DEV=wlp2s0
+GW=10.0.1.1
+LOG=/tmp/wifi-bounce.log
+MODE=${1:-}
+
+say() { echo "[$(date +%H:%M:%S)] $*"; }
+
+measure() {
+  local label=$1
+  say "--- measuring: $label ---"
+  say "    small packets (64B x25):"
+  ping -c 25 -i 0.3 -W 3 "$GW" 2>&1 | tail -2 | sed 's/^/      /'
+  say "    large packets (1400B x25) -- what a file transfer feels like:"
+  ping -c 25 -i 0.3 -W 3 -s 1400 "$GW" 2>&1 | tail -2 | sed 's/^/      /'
+  say "    link: $(nmcli -t -f IN-USE,BSSID,SSID,CHAN,SIGNAL,RATE dev wifi list 2>/dev/null | grep '^\*' || echo unknown)"
+  say "    (healthy is a single- or low-double-digit average; hundreds of ms means bounce)"
+}
+
+# --check needs no privileges and changes nothing.
+if [[ $MODE == --check ]]; then
+  measure "current link"
+  exit 0
+fi
+
+if [[ -n $MODE ]]; then
+  echo "usage: sudo bash $0          # bounce" >&2
+  echo "       bash $0 --check       # measure only" >&2
+  exit 1
+fi
+
+if (( EUID != 0 )); then echo "run with sudo, or pass --check to measure only" >&2; exit 1; fi
+
+if [[ ${WIFI_BOUNCE_DETACHED:-} != 1 ]]; then
+  export WIFI_BOUNCE_DETACHED=1
+  : >"$LOG"; chmod 666 "$LOG"
+  setsid nohup bash "$0" >>"$LOG" 2>&1 < /dev/null &
+  echo "detached (pid $!). Watching the log; Ctrl-C is safe, the bounce continues."
+  sleep 1; exec tail -f "$LOG"
+fi
+
+have_ip() { ip -4 addr show "$DEV" 2>/dev/null | grep -q 'inet '; }
+
+restore() {
+  local i
+  for i in 1 2 3 4 5; do
+    say "restore attempt $i: nmcli con up $CON"
+    nmcli con up "$CON" >/dev/null 2>&1
+    sleep 6
+    have_ip && { say "restore OK: $(ip -4 -br addr show $DEV)"; return 0; }
+  done
+
+  say "restore failing -- restarting NetworkManager"
+  systemctl restart NetworkManager; sleep 12
+  for i in 1 2 3 4 5; do
+    nmcli con up "$CON" >/dev/null 2>&1; sleep 6
+    have_ip && { say "restore OK after NM restart"; return 0; }
+  done
+
+  # Last resort. NOT a module reload -- see the header. A reboot is the one
+  # recovery proven to work on this card, and the grace window cancels it if
+  # the link returns on its own.
+  say "!!! still down after every reconnect path -- scheduling reboot in 5 min"
+  say "!!! cancel from the console with: sudo shutdown -c"
+  shutdown -r +5 "wifi-bounce: wlp2s0 did not return; rebooting to restore the link" 2>&1 | sed 's/^/    /'
+  for i in $(seq 1 28); do
+    sleep 10
+    if have_ip; then
+      say "link returned on its own after $((i*10))s -- cancelling the reboot"
+      shutdown -c 2>&1 | sed 's/^/    /'
+      return 0
+    fi
+  done
+  say "reboot proceeding"
+  return 1
+}
+
+say "=== anchor wifi bounce, $(date -Is) ==="
+measure "BEFORE"
+
+say "=== disconnect + reassociate ==="
+nmcli con down "$CON" >/dev/null 2>&1
+say "    down; waiting 8s for the radio to settle"
+sleep 8
+restore || exit 1
+sleep 5
+measure "AFTER"
+
+say "=== done. anchor is up: $(ip -4 -br addr show $DEV) ==="

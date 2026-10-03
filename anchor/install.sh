@@ -16,6 +16,8 @@ install -m 0644 "$here/hub.mjs" "$HOME/anchor-hub/hub.mjs"
 # servers' "command" in ~/.openclaw/openclaw.json must point at it.
 mkdir -p "$HOME/.local/bin"
 install -m 0755 "$here/bin/mcp-remote-headless" "$HOME/.local/bin/mcp-remote-headless"
+# Manual recovery for the `wl` Wi-Fi link collapse; header has usage.
+install -m 0755 "$here/bin/wifi-bounce" "$HOME/.local/bin/wifi-bounce"
 install -m 0644 "$here"/systemd/*.service "$units/"
 install -m 0644 "$here"/systemd/*.timer "$units/"
 
