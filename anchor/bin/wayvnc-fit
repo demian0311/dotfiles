@@ -15,7 +15,10 @@ set -u
 
 sock="${XDG_RUNTIME_DIR:?}/wayvncctl"
 out=HEADLESS-VNC
-mode="${WAYVNC_FIT_MODE:-2560x1080@60}"
+# The Mac's usable area is 2560x1049 (31 px menu bar, Dock auto-hidden), less
+# TigerVNC's 28 px title bar. Full screen fits 2560x1080 exactly but takes the
+# window controls away, and the viewer then grabs ⌘Q -- unusable (2026-10-03).
+mode="${WAYVNC_FIT_MODE:-2560x1020@60}"
 
 if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
   HYPRLAND_INSTANCE_SIGNATURE=$(ls -t "$XDG_RUNTIME_DIR/hypr/" | head -1)
