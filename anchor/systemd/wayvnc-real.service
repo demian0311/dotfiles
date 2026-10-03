@@ -7,7 +7,7 @@ ConditionEnvironment=WAYLAND_DISPLAY
 [Service]
 Type=simple
 # Its own control socket, so wayvnc-fit never steers it. Same config, same login.
-ExecStart=/usr/bin/wayvnc -S %t/wayvncctl-real 100.123.116.110 5901
+ExecStart=/usr/bin/wayvnc -S %t/wayvncctl-real -o DP-1 100.123.116.110 5901
 Restart=on-failure
 RestartSec=5
 

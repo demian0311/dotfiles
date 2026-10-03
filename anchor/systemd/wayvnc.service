@@ -8,7 +8,10 @@ ConditionEnvironment=WAYLAND_DISPLAY
 Type=simple
 # Bound to anchor's Tailscale address, so only the tailnet can reach it. A start
 # before tailscaled holds that address fails to bind; the restart retries it.
-ExecStart=/usr/bin/wayvnc 100.123.116.110 5900
+# The virtual screen must exist before wayvnc starts, so it is captured from the
+# first frame of every connection and no viewer ever sees a size change.
+ExecStartPre=%h/.local/bin/wayvnc-fit ensure
+ExecStart=/usr/bin/wayvnc -o HEADLESS-VNC 100.123.116.110 5900
 Restart=on-failure
 RestartSec=5
 
