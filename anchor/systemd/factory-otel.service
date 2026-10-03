@@ -1,0 +1,12 @@
+[Unit]
+Description=Factory OpenTelemetry collector (otelcol-contrib, :4318 loopback) — bob's Claude Code telemetry (diagrammo#1071)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/demian/.local/bin/otelcol-contrib --config=/home/demian/code/diagrammo/factory/otelcol.yaml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
