@@ -81,6 +81,15 @@ Shortest answer that is complete. Specifically, delete:
 - **Diffs, code snippets and file paths**, unless they were asked for. State what was
   accomplished; someone who wants the diff will ask for the diff.
 
+**Write plain sentences.** The model here is ASD-STE100, Simplified Technical English —
+the controlled-language standard aerospace maintenance manuals are written in. Take its
+writing rules, not its 900-word dictionary: one idea per sentence; at most 20 words in an
+instruction and 25 in a description; active voice; the imperative for steps; the condition
+before the action. Use one word for one meaning and never vary it for elegance. Drop idioms,
+and drop a phrasal verb where a one-word verb exists. These cost a few dozen tokens of
+standing instruction and pay it back in shorter output. A lint that flags long sentences
+and passive voice makes the rule visible, since a prompt alone only asks.
+
 Two things look like they break this rule and don't, because both are far shorter than
 the exchange they prevent.
 
