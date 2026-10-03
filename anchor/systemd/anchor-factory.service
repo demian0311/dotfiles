@@ -1,0 +1,17 @@
+[Unit]
+Description=Factory site — how each bob run went (node, :4360) — diagrammo#1071
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/demian/code/diagrammo/factory
+Environment=PATH=/home/demian/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin
+Environment=PORT=4360
+Environment=HOST=127.0.0.1
+ExecStart=/home/demian/.local/share/mise/shims/node server.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

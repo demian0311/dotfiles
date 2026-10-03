@@ -291,6 +291,16 @@ const SERVICES = [
     unit: 'anchor-docs',
   },
   {
+    id: 'factory',
+    group: 'reference',
+    icon: 'bars',
+    name: 'Factory',
+    blurb: 'How each bob-day and bob-night run went: week, day, run and issue pages.',
+    detail: 'Rebuilt after every run from the event log and Claude Code telemetry (diagrammo#1071).',
+    port: 4360,
+    unit: 'anchor-factory',
+  },
+  {
     id: 'mcp',
     group: 'reference',
     icon: 'grid',
