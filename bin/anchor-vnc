@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Open anchor's desktop in TigerVNC without typing the login.
+#   anchor-vnc         the fitted virtual screen (:5900)
+#   anchor-vnc real    the real monitor, the escape hatch (:5901)
+#
+# TigerVNC's "Keep password for reconnect" lasts only until the viewer quits;
+# what persists is VNC_USERNAME / VNC_PASSWORD, which vncviewer reads at the
+# login prompt (present in 1.16.2). The password lives in the login Keychain:
+#   security add-generic-password -s anchor-vnc -a demian -w
+# It is anchor's own login password (wayvnc authenticates through PAM).
+# Server side: anchor/README.md and anchor/bin/wayvnc-fit.
+set -euo pipefail
+
+port=5900
+[ "${1:-}" = real ] && port=5901
+user=demian
+viewer=/Applications/TigerVNC.app/Contents/MacOS/vncviewer
+
+if ! pass=$(security find-generic-password -s anchor-vnc -a "$user" -w 2>/dev/null); then
+  echo "no Keychain item; run: security add-generic-password -s anchor-vnc -a $user -w" >&2
+  exit 1
+fi
+
+VNC_USERNAME=$user VNC_PASSWORD=$pass nohup "$viewer" "100.123.116.110::$port" >/dev/null 2>&1 &
