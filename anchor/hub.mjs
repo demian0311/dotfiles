@@ -814,6 +814,25 @@ function groupStat(group, rows) {
   }/${rows.length}</b></span>`;
 }
 
+// The launchpad's column count, chosen so the rows come out even. auto-fill
+// broke eight tiles 5 + 3 at 790px, a ragged last row under a full one. Here
+// each candidate count is ceil(n / rows) -- 8, 4, 3, 2, 1 for eight pins --
+// and the widest that fits at PIN_MIN per tile wins, via a container query on
+// the wrapper, so a narrow window steps 8 -> 4 -> 3 -> 2 and never leaves one
+// tile hanging under seven.
+const PIN_MIN = 7.4; // rem, one tile's narrowest
+const PIN_GAP = 0.55; // rem, matches .pins gap
+function pinGrid(n) {
+  const counts = [...new Set(Array.from({ length: n }, (_, k) => Math.ceil(n / (k + 1))))];
+  return counts
+    .sort((a, b) => a - b)
+    .map((c) => {
+      const min = c * PIN_MIN + (c - 1) * PIN_GAP;
+      return `  @container (min-width: ${min.toFixed(2)}rem) { .pins { --cols: ${c}; } }`;
+    })
+    .join('\n');
+}
+
 // A launchpad tile: one big icon and a name, for the places this page is
 // opened to reach. A server's tile carries the same pip as its row and loses
 // its href the same way when the thing is down.
@@ -1009,6 +1028,7 @@ function page(services, views, links) {
 <base target="_blank">
 <style>
 ${SLATE}
+${pinGrid(PINS.length)}
   /* 🔴 The type scale, seven steps, and every size on the page is one of them.
      Before 2026-09-05 there were FIFTEEN distinct sizes spanning 11px to
      21.1px, eleven of them inside three pixels of each other -- a difference
@@ -1141,10 +1161,8 @@ ${SLATE}
   /* The launchpad. Big marks and short names, because these are found by
      shape at a glance rather than read -- the page is the browser start page
      and these are what it is opened for. */
-  .pins {
-    display: grid; gap: .55rem; margin: 0 0 1.7rem;
-    grid-template-columns: repeat(auto-fill, minmax(7.4rem, 1fr));
-  }
+  .pins-wrap { container-type: inline-size; margin: 0 0 1.7rem; }
+  .pins { display: grid; gap: .55rem; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); }
   .pin {
     display: flex; flex-direction: column; align-items: center; gap: .3rem;
     padding: .85rem .5rem .7rem; border-radius: 12px; min-width: 0;
@@ -1484,12 +1502,12 @@ ${SLATE}
 <main id="top">
   <h1 class="sr">anchor</h1>
   <p class="lede">Everything on this box, reachable from any device on the tailnet, plus the addresses off it. Nothing here is open to the internet.</p>
-  <nav class="pins" id="pins" aria-label="Pinned">
+  <div class="pins-wrap"><nav class="pins" id="pins" aria-label="Pinned">
     ${PINS.map((id) => rows.find((r) => r.id === id))
       .filter(Boolean)
       .map((r) => pin(r, GROUPS.find((g) => g.id === r.group)))
       .join('\n    ')}
-  </nav>
+  </nav></div>
   ${bands
     .map((r) => {
       const mine = groups.filter((g) => g.realm === r.id);
