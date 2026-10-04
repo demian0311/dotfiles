@@ -12,6 +12,9 @@ import http from 'node:http';
 import net from 'node:net';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const execFileP = promisify(execFile);
 const HOST = process.env.ANCHOR_HUB_HOST || 'anchor.tailb10eb2.ts.net';
@@ -38,6 +41,8 @@ const PROXY = (p) => p + 20000;
 const BOARD_URL = 'https://github.com/orgs/diagrammo/projects/1/views/1';
 
 const ICONS = {
+  // a chevron — a section that opens and closes
+  chevron: '<path d="m9 5.5 6.5 6.5L9 18.5"/>',
   // a magnifier — the filter
   search: '<circle cx="11" cy="11" r="6.4"/><path d="m15.9 15.9 4.6 4.6"/>',
   // a box with an arrow leaving it — addresses that are not on this machine
@@ -357,6 +362,14 @@ const VIEWS = [
 // guess. npm is the one that matters -- see its row.
 const LINKS = [
   {
+    id: 'board',
+    group: 'consoles',
+    icon: 'board',
+    name: 'Kanban board',
+    host: 'github.com/orgs/diagrammo/projects/1',
+    url: BOARD_URL,
+  },
+  {
     id: 'prod-editor',
     group: 'production',
     icon: 'editor',
@@ -493,6 +506,45 @@ const LINKS = [
   },
 ];
 
+// The launchpad: the handful of places this page is opened to reach, as big
+// tiles above everything else, in this order. Each id is a row from SERVICES,
+// VIEWS or LINKS, which it also stays in -- a pin is a shortcut, not a move.
+//
+// Every section below starts collapsed, because with these on top the rest is
+// reference. A section opens by itself only when something in it is not
+// running, and the open/closed choice is remembered per browser.
+//
+// The first cut was a guess from the tabs the owner keeps open (2026-10-03).
+// Clicks are now counted in HITS_FILE and served in /status.json as `hits`, so
+// the next cut can be read off use instead of guessed.
+const PINS = ['board', 'tracker', 'editor', 'factory', 'openclaw', 'prod-console', 'cloudflare', 'posthog'];
+
+// Click counts, one { n, last } per row id. A file rather than a database
+// because this hub has no dependencies on purpose; written at most once a
+// second, so a burst of clicks is one write.
+const HITS_FILE =
+  process.env.ANCHOR_HUB_HITS || path.join(os.homedir(), '.local/state/anchor-hub/hits.json');
+let hits = {};
+try {
+  hits = JSON.parse(fs.readFileSync(HITS_FILE, 'utf8'));
+} catch {
+  hits = {};
+}
+let hitsTimer;
+function countHit(id) {
+  const h = hits[id] || { n: 0 };
+  hits[id] = { n: h.n + 1, last: new Date().toISOString() };
+  clearTimeout(hitsTimer);
+  hitsTimer = setTimeout(() => {
+    try {
+      fs.mkdirSync(path.dirname(HITS_FILE), { recursive: true });
+      fs.writeFileSync(HITS_FILE, JSON.stringify(hits, null, 2));
+    } catch (e) {
+      console.error(`hits: ${e.message}`);
+    }
+  }, 1000);
+}
+
 // A TCP connect on both loopback families: Astro 7 binds [::1] only on this
 // box, wrangler binds 127.0.0.1, and probing one family reports the other down.
 function probe(port) {
@@ -548,7 +600,9 @@ async function snapshot() {
         exposed,
         state: !up ? 'stopped' : exposed ? 'ready' : 'unexposed',
         url: `https://${HOST}:${PUBLIC(s.port)}${s.path ?? '/'}`,
-        short: `:${PUBLIC(s.port)}${s.path ?? ''}`,
+        // Port only. The path is in the href; printed here, the Cloud API's
+        // :18787/openapi.json ran past its lane and over the prose beside it.
+        short: `:${PUBLIC(s.port)}`,
         start: `systemctl --user start ${s.unit}`,
         expose: `tailscale serve --bg --https=${PUBLIC(s.port)} http://localhost:${PROXY(s.port)}`,
       };
@@ -643,7 +697,7 @@ function row(s) {
       ? `<p class="note stopped">Needs ${esc(s.requires)} running.</p>`
       : `<p class="note unexposed">On anchor:<code>${esc(s.expose)}</code></p>
         <p class="note stopped">On anchor:<code>${esc(s.start)}</code></p>`;
-  return `<a class="row ${s.state}" id="card-${esc(s.id)}" data-id="${esc(s.id)}"
+  return `<a class="row ${s.state}" id="card-${esc(s.id)}" data-id="${esc(s.id)}" data-hit="${esc(s.id)}"
         data-key="${haystack(s.name, s.short, s.unit, s.port)}"
         data-find="${haystack(s.name, s.short, s.unit, s.port, s.blurb, s.detail)}"${href}
         ${s.state === 'ready' ? '' : 'tabindex="0"'}>
@@ -671,7 +725,7 @@ function row(s) {
 // goes. Fourteen of these used to carry as much page height as the eight
 // servers above them; they are the cheapest thing here and now read that way.
 function tile(l) {
-  return `<a class="tile" id="card-${esc(l.id)}" data-key="${haystack(l.name, l.host)}"
+  return `<a class="tile" id="card-${esc(l.id)}" data-hit="${esc(l.id)}" data-key="${haystack(l.name, l.host)}"
         data-find="${haystack(l.name, l.host)}"
         href="${esc(l.url)}" target="_blank" rel="noreferrer">
         ${mark(l.icon, false, 'flat')}
@@ -697,7 +751,7 @@ function tile(l) {
 //
 // The tint fills the strip and the glyph, never the heading text: four of the
 // six hues fall under 4.5:1 against the light ground and a heading is text.
-function section(group, rows) {
+function section(group, rows, solo) {
   const body = group.probed
     ? `<div class="rows">
         ${rows.map(row).join('\n        ')}
@@ -705,21 +759,74 @@ function section(group, rows) {
     : `<div class="tiles">
         ${rows.map(tile).join('\n        ')}
       </div>`;
-  // A section whose band heading already named it takes no strip of its own.
-  // OpenClaw is one project with one address; a band, a strip and a row for it
-  // would be three lines of chrome on one link.
-  const head = group.bare
-    ? ''
-    : `<div class="group-head">
+  const sick = group.probed && rows.some((r) => r.state !== 'ready');
+  // A section whose band heading already named it takes no strip of its own:
+  // the band heading IS its summary. OpenClaw is one project with one address,
+  // and a band, a strip and a row for it would be three lines of chrome.
+  const tail = `${peek(rows)}${groupStat(group, rows)}
+        <span class="chev" aria-hidden="true">${glyph('chevron')}</span>`;
+  const head = solo
+    ? `<summary class="band-head">
+        ${mark(solo.glyph, false, 'big')}
+        <h2>${esc(solo.name)}</h2>
+        <p>${esc(solo.blurb)}</p>
+        <span class="rule" aria-hidden="true"></span>
+        ${tail}
+      </summary>`
+    : `<summary class="group-head">
         ${mark(group.glyph, false, 'sm')}
         <h3>${esc(group.name)}</h3>
         ${group.blurb ? `<p>${esc(group.blurb)}</p>` : ''}
-      </div>`;
-  return `<section id="${esc(group.id)}" class="group" data-group="${esc(group.id)}"
+        <span class="rule" aria-hidden="true"></span>
+        ${tail}
+      </summary>`;
+  return `<details id="${esc(group.id)}" class="group${solo ? ' solo' : ''}" data-group="${esc(group.id)}"
+      data-sick="${sick ? 1 : 0}"${sick ? ' open' : ''}
       style="--tint: var(--t-${esc(group.tint)})">
       ${head}
       ${body}
-    </section>`;
+    </details>`;
+}
+
+// A bare svg, for marks that are not chips.
+const glyph = (id) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id] ?? ''}</svg>`;
+
+// What a closed section holds, as a strip of its rows' icons -- so a collapsed
+// section still says what is inside it, and for a server, whether it is up.
+// Hidden while the section is open, where the rows themselves say it.
+function peek(rows) {
+  return `<span class="peek" aria-hidden="true">${rows
+    .map(
+      (r) =>
+        `<span class="mini ${r.kind === 'link' ? 'link' : esc(r.state)}" id="mini-${esc(r.id)}" title="${esc(r.name)}">${glyph(r.icon)}</span>`
+    )
+    .join('')}</span>`;
+}
+
+// A section's own tally: the running fraction for servers, a plain count for
+// addresses. data-group-up is what the 5-second refresh patches.
+function groupStat(group, rows) {
+  if (!group.probed) return `<span class="band-stat">${rows.length}</span>`;
+  return `<span class="band-stat"><b data-group-up="${esc(group.id)}">${
+    rows.filter((r) => r.state === 'ready').length
+  }/${rows.length}</b></span>`;
+}
+
+// A launchpad tile: one big icon and a name, for the places this page is
+// opened to reach. A server's tile carries the same pip as its row and loses
+// its href the same way when the thing is down.
+function pin(r, group) {
+  const live = r.kind !== 'link';
+  const href = r.kind === 'link' || r.state === 'ready' ? ` href="${esc(r.url)}"` : '';
+  const sub = r.kind === 'link' ? r.host.split('/')[0].split(' ')[0] : r.short;
+  return `<a class="pin ${live ? esc(r.state) : 'link'}" id="pin-${esc(r.id)}" data-hit="${esc(r.id)}"${href}
+        style="--tint: var(--t-${esc(group.tint)})">
+        ${mark(r.icon, live, 'xl')}
+        <span class="pin-name">${esc(r.name)}</span>
+        <span class="pin-sub">${esc(sub)}</span>
+      </a>`;
 }
 
 // A band is the page's outermost cut, and there are three: the two projects
@@ -733,7 +840,12 @@ function section(group, rows) {
 // is that nothing here can say. Grouping by owner put the addresses this page
 // cannot probe in the middle of a column of pips that all mean something.
 // OpenClaw has no production and no consoles, so nothing is lost by the move.
-function band(r, sections, stat) {
+function band(r, sections, stat, solo) {
+  if (solo) {
+    return `<section class="band" id="band-${esc(r.id)}" style="--tint: var(--t-${esc(r.tint)})">
+    ${sections.join('\n      ')}
+  </section>`;
+  }
   return `<section class="band" id="band-${esc(r.id)}" style="--tint: var(--t-${esc(r.tint)})">
     <div class="band-head">
       ${mark(r.glyph, false, 'big')}
@@ -1026,21 +1138,42 @@ ${SLATE}
   .meta a.raw:hover { text-decoration-thickness: 2px; }
 
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  /* The one link opened most often, so it sits above every band rather than
-     as a row inside one -- the board is the usual reason this page is open. */
-  .board {
-    display: flex; align-items: center; gap: .9rem; margin: 0 0 1.6rem;
-    padding: .95rem 1.1rem; border-radius: 12px; text-decoration: none;
-    background: color-mix(in srgb, var(--accent) 12%, var(--card));
-    border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
-    color: var(--ink);
+  /* The launchpad. Big marks and short names, because these are found by
+     shape at a glance rather than read -- the page is the browser start page
+     and these are what it is opened for. */
+  .pins {
+    display: grid; gap: .55rem; margin: 0 0 1.7rem;
+    grid-template-columns: repeat(auto-fill, minmax(7.4rem, 1fr));
   }
-  .board:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
-  .board svg { width: 1.9rem; height: 1.9rem; color: var(--accent); flex: none; }
-  .board-text { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
-  .board-text b { font-size: var(--fs-2xl); font-weight: 680; letter-spacing: -.015em; }
-  .board-text span { color: var(--muted); font-size: var(--fs-md); }
-  .board-go { margin-left: auto; font-size: 1.4rem; color: var(--accent); }
+  .pin {
+    display: flex; flex-direction: column; align-items: center; gap: .3rem;
+    padding: .85rem .5rem .7rem; border-radius: 12px; min-width: 0;
+    background: var(--card); border: 1px solid var(--line-soft);
+    text-decoration: none; color: var(--ink);
+    transition: background-color 120ms ease-out, border-color 120ms ease-out;
+  }
+  .pin[href]:hover {
+    border-color: color-mix(in srgb, var(--tint) 55%, var(--line));
+    background: color-mix(in srgb, var(--tint) 9%, var(--card));
+  }
+  .pin { --pip: var(--stop); }
+  .pin.ready { --pip: var(--ready); }
+  .pin.unexposed { --pip: var(--warn); }
+  .pin.stopped, .pin.unexposed { border-color: var(--pip); }
+  .pin.stopped .pip, .pin.unexposed .pip { animation: breathe 2.6s ease-out infinite; }
+  .mark.xl { width: 2.6rem; height: 2.6rem; border-radius: 11px; margin-bottom: .15rem; }
+  .mark.xl svg { width: 1.45rem; height: 1.45rem; }
+  .mark.xl .pip { width: .6rem; height: .6rem; }
+  .pin-name {
+    font-size: var(--fs-lg); font-weight: 650; letter-spacing: -.005em;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pin-sub {
+    font: var(--fs-xs)/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--muted); max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  body.filtering .pins { display: none; }
   .lede {
     margin: .1rem 0 1.15rem; color: var(--muted); font-size: var(--fs-md);
     max-width: 66ch; text-wrap: balance;
@@ -1086,6 +1219,40 @@ ${SLATE}
     letter-spacing: -.012em; color: var(--ink); white-space: nowrap;
   }
   .group-head p { margin: 0; color: var(--muted); font-size: var(--fs-md); max-width: 62ch; }
+  /* Every section is a details element, closed unless something in it is
+     down or it was opened here before. The summary is the strip itself, so
+     the whole strip is the hit target and no extra control is drawn. */
+  summary { list-style: none; cursor: pointer; user-select: none; }
+  summary::-webkit-details-marker { display: none; }
+  .group:not([open]) > .group-head { border-bottom-color: transparent; }
+  .group:not([open]) > summary p {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .group-head .rule { flex: 1 1 1rem; min-width: .5rem; }
+  .group > summary { align-items: center; }
+  .group > summary:hover { background: color-mix(in srgb, var(--tint) 16%, transparent); }
+  .chev { display: inline-flex; color: var(--muted); transition: transform 140ms ease-out; flex: none; }
+  .chev svg { width: .95rem; height: .95rem; }
+  .group[open] > summary .chev { transform: rotate(90deg); }
+  /* The closed section's contents as icons: tinted for an address, and for a
+     server its status colour, so a closed section still reports health. */
+  .peek { display: inline-flex; gap: .3rem; align-items: center; flex: none; }
+  .group[open] > summary .peek { display: none; }
+  .mini { display: inline-flex; color: color-mix(in srgb, var(--tint) 80%, var(--muted)); }
+  .mini svg { width: .9rem; height: .9rem; }
+  .mini.ready { color: var(--ready); }
+  .mini.unexposed { color: var(--warn); }
+  .mini.stopped { color: var(--stop); }
+  /* The solo band: its heading is the summary, and the rows sit in their own
+     panel under it rather than inside a strip. */
+  .group.solo { background: none; border: 0; border-radius: 0; overflow: visible; }
+  .group.solo > summary { margin-bottom: 0; padding: .1rem 0; border-radius: 9px; }
+  .group.solo[open] > summary { margin-bottom: .8rem; }
+  .group.solo > summary:hover { background: none; }
+  .group.solo > summary:hover h2 { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+  .group.solo > .rows {
+    background: var(--card); border: 1px solid var(--line-soft); border-radius: 12px;
+  }
   .rows, .tiles { padding: .42rem .55rem .5rem; }
 
   .mark {
@@ -1267,7 +1434,8 @@ ${SLATE}
     .band-head { flex-wrap: wrap; }
     .band-head .rule { display: none; }
     .band-head p { order: 3; flex: 1 0 100%; margin-top: -.1rem; }
-    .group-head { flex-wrap: wrap; }
+    .group-head .peek, .group-head p, .group-head .rule { display: none; }
+    .group-head h3 { margin-right: auto; }
     main { padding-left: 1.1rem; padding-right: 1.1rem; }
     /* Two up rather than one: fourteen stacked addresses were a third of the
        page's height on a phone, for the cheapest links on it. */
@@ -1316,20 +1484,23 @@ ${SLATE}
 <main id="top">
   <h1 class="sr">anchor</h1>
   <p class="lede">Everything on this box, reachable from any device on the tailnet, plus the addresses off it. Nothing here is open to the internet.</p>
-  <a class="board" href="${BOARD_URL}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS.board}</svg>
-    <span class="board-text"><b>Kanban board</b><span>diagrammo project · what is in flight, ready, waiting on you</span></span>
-    <span class="board-go" aria-hidden="true">&rarr;</span>
-  </a>
+  <nav class="pins" id="pins" aria-label="Pinned">
+    ${PINS.map((id) => rows.find((r) => r.id === id))
+      .filter(Boolean)
+      .map((r) => pin(r, GROUPS.find((g) => g.id === r.group)))
+      .join('\n    ')}
+  </nav>
   ${bands
-    .map((r) =>
-      band(
+    .map((r) => {
+      const mine = groups.filter((g) => g.realm === r.id);
+      const solo = mine.length === 1 && mine[0].bare ? r : null;
+      return band(
         r,
-        groups.filter((g) => g.realm === r.id).map((g) => section(g, byGroup(g.id))),
-        bandStat(r, groups, rows)
-      )
-    )
+        mine.map((g) => section(g, byGroup(g.id), solo)),
+        bandStat(r, groups, rows),
+        solo
+      );
+    })
     .join('\n  ')}
   <p class="empty" id="empty">Nothing here matches <b id="empty-q"></b>.</p>
 </main>
@@ -1339,6 +1510,14 @@ ${SLATE}
   // you were holding on to. External addresses are never touched -- they carry
   // no state to repaint.
   const paint = (r) => {
+    const mini = document.getElementById('mini-' + r.id);
+    if (mini) mini.className = 'mini ' + r.state;
+    const pin = document.getElementById('pin-' + r.id);
+    if (pin) {
+      pin.className = 'pin ' + r.state;
+      if (r.state === 'ready') pin.setAttribute('href', r.url);
+      else pin.removeAttribute('href');
+    }
     const el = document.getElementById('card-' + r.id);
     if (!el) return;
     el.className = 'row ' + r.state + (el.classList.contains('sel') ? ' sel' : '');
@@ -1364,6 +1543,20 @@ ${SLATE}
     for (const el of document.querySelectorAll('[data-band-up]')) {
       const mine = rows.filter((r) => G[r.group] && G[r.group].probed && G[r.group].realm === el.dataset.bandUp);
       el.textContent = mine.filter((r) => r.state === 'ready').length + '/' + mine.length;
+    }
+    for (const el of document.querySelectorAll('[data-group-up]')) {
+      const id = el.dataset.groupUp;
+      const mine = rows.filter((r) => r.group === id);
+      const ok = mine.filter((r) => r.state === 'ready').length;
+      el.textContent = ok + '/' + mine.length;
+      const d = document.getElementById(id);
+      const sick = ok < mine.length;
+      const was = d.dataset.sick === '1';
+      d.dataset.sick = sick ? '1' : '0';
+      // Something just went down: open its section so the row is seen. Going
+      // healthy again puts back whatever was chosen here.
+      if (sick && !was) d.open = true;
+      if (!sick && was && !term) d.open = stored()[id] === true;
     }
     const probed = rows.filter((r) => G[r.group] && G[r.group].probed);
     const up = probed.filter((r) => r.state === 'ready').length;
@@ -1401,6 +1594,39 @@ ${SLATE}
   const items = [...document.querySelectorAll('[data-find]')];
   let sel = -1;
   let term = '';
+  let wasFiltering = false;
+
+  // Which sections were left open, per browser. Only a click on a summary
+  // writes it -- opening everything for a filter, or opening a section because
+  // a server went down, is the page's doing and is not remembered.
+  const KEY = 'anchor-hub.open';
+  const sections = [...document.querySelectorAll('details.group')];
+  const stored = () => {
+    try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
+  };
+  function restore() {
+    const s = stored();
+    for (const d of sections) d.open = s[d.id] === true || d.dataset.sick === '1';
+  }
+  for (const d of sections) {
+    d.querySelector('summary').addEventListener('click', () => {
+      if (term) return;
+      setTimeout(() => {
+        const s = stored();
+        s[d.id] = d.open;
+        try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+      });
+    });
+  }
+  restore();
+
+  // Count what gets opened, so the pins can follow use rather than a guess.
+  const hit = (e) => {
+    const a = e.target.closest && e.target.closest('a[href][data-hit]');
+    if (a && navigator.sendBeacon) navigator.sendBeacon('/hit?id=' + encodeURIComponent(a.dataset.hit));
+  };
+  document.addEventListener('click', hit);
+  document.addEventListener('auxclick', (e) => { if (e.button === 1) hit(e); });
 
   // Order matters as much as membership. A row matched on its NAME, port, path
   // or unit comes before one matched only on its prose, so ArrowDown walks the
@@ -1443,6 +1669,10 @@ ${SLATE}
     for (const b of document.querySelectorAll('.band')) {
       b.hidden = !b.querySelector('.group:not([hidden])');
     }
+    document.body.classList.toggle('filtering', Boolean(term));
+    if (term) for (const d of sections) d.open = true;
+    else if (wasFiltering) restore();
+    wasFiltering = Boolean(term);
     hits.textContent = term ? shown + ' of ' + items.length : '';
     document.body.classList.toggle('no-hits', Boolean(term) && shown === 0);
     document.getElementById('empty-q').textContent = q.value.trim();
@@ -1809,6 +2039,14 @@ http
   .createServer(async (req, res) => {
     const url = req.url || '/';
 
+    if (url.startsWith('/hit')) {
+      // Only ids this page drew are counted, so the file cannot fill with junk.
+      const id = new URL(url, 'http://x').searchParams.get('id');
+      if (req.method === 'POST' && [...SERVICES, ...VIEWS, ...LINKS].some((r) => r.id === id)) countHit(id);
+      res.writeHead(204);
+      res.end();
+      return;
+    }
     if (url.startsWith('/api-docs')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(docsPage());
@@ -1837,7 +2075,7 @@ http
     const { services, views, links } = await snapshot();
     if (url.startsWith('/status.json')) {
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ realms: REALMS, groups: GROUPS, services, views, links }, null, 2));
+      res.end(JSON.stringify({ realms: REALMS, groups: GROUPS, services, views, links, hits }, null, 2));
       return;
     }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
