@@ -77,6 +77,17 @@ STATE_FILE = os.path.expanduser('~/Library/Caches/cmux-mem.json')
 
 GB = 1024 ** 3
 
+# Disk is the other thing that runs out on a 228 GB laptop running ten sessions, and
+# nothing else watches it. Below DISK_LOW_GB free, every row carries a `disk` pill and a
+# notification names the fix — `tidy-disk`, run by hand. The cleanup itself is never
+# automatic: pruning the pnpm store while another session installs breaks that session
+# somewhere far from here. Measured 2026-10-03: 14 GB free before the first tidy.
+DISK_KEY = 'disk'
+DISK_ICON = 'internaldrive'
+DISK_PRIORITY = '41'
+DISK_PATH = '/System/Volumes/Data'   # the user volume; `/` is the sealed system snapshot
+DISK_STATE_FILE = os.path.expanduser('~/Library/Caches/cmux-mem-disk.json')
+
 # Fractions of physical RAM. Swap alone is the sharper signal — it is pure overflow —
 # so it trips at a lower share than swap+compressor combined.
 SWAP_TIGHT, SWAP_CRITICAL = 0.18, 0.38
@@ -247,6 +258,55 @@ def write_state(data):
 def clear_all(ws):
     for w in ws:
         cmux(['clear-status', PILL_KEY, '--workspace', w['ref']])
+        cmux(['clear-status', DISK_KEY, '--workspace', w['ref']])
+
+
+def disk_free(args):
+    if args.pretend_disk_free is not None:
+        return int(args.pretend_disk_free * GB)
+    try:
+        st = os.statvfs(DISK_PATH)
+        return st.f_bavail * st.f_frsize
+    except OSError:
+        return None
+
+
+def paint_disk(args, ws):
+    """A `disk` pill on every row while free space is under --disk-low, else none."""
+    free = disk_free(args)
+    low = free is not None and free < args.disk_low * GB
+    for w in ws:
+        if low:
+            cmux(['set-status', DISK_KEY, '%s free · tidy-disk' % human(free),
+                  '--icon', DISK_ICON, '--color', COLOR_TOP,
+                  '--priority', DISK_PRIORITY, '--workspace', w['ref']])
+        else:
+            cmux(['clear-status', DISK_KEY, '--workspace', w['ref']])
+
+    try:
+        with open(DISK_STATE_FILE) as f:
+            last = datetime.datetime.fromisoformat(json.load(f)['at'])
+    except Exception:
+        last = None
+    now = datetime.datetime.now()
+    if not low:
+        if last:
+            try:
+                os.remove(DISK_STATE_FILE)
+            except OSError:
+                pass
+        return free
+    if args.no_notify or (last and (now - last).total_seconds() < args.renotify * 60):
+        return free
+    cmux(['notify', '--title', 'Disk is nearly full',
+          '--subtitle', '%s free on this Mac' % human(free),
+          '--body', 'Run tidy-disk in any terminal (--dry-run to see what it would remove).'])
+    try:
+        with open(DISK_STATE_FILE, 'w') as f:
+            json.dump({'at': now.isoformat(timespec='seconds')}, f)
+    except Exception:
+        pass
+    return free
 
 
 PIDFILE = os.path.expanduser('~/Library/Caches/cmux-mem.pid')
@@ -281,6 +341,7 @@ def run_once(args, tidy_due):
     if args.pretend:
         m['state'] = args.pretend
     paint(args, m, ws)
+    paint_disk(args, ws)
     if tidy_due:
         drive_tidy()
     return True
@@ -636,6 +697,10 @@ def main():
     ap.add_argument('--no-notify', action='store_true', help='pills only, never notify')
     ap.add_argument('--pretend', choices=('ok', 'tight', 'critical'),
                     help='force the verdict, to see what a bad day looks like before you have one')
+    ap.add_argument('--disk-low', type=float, default=20,
+                    help='GB free below which every row gets a disk pill (default 20)')
+    ap.add_argument('--pretend-disk-free', type=float, metavar='GB',
+                    help='force the free-disk reading, to see the warning without filling the disk')
     ap.add_argument('--log', metavar='PATH',
                     help='append one dated line per run that warns (silent when calm)')
     args = ap.parse_args()
@@ -682,8 +747,12 @@ def main():
     if args.pretend:
         m['state'] = args.pretend
     paint(args, m, ws)
+    free = paint_disk(args, ws)
 
     if args.report:
+        if free is not None:
+            print('Disk: %s free on %s, warns under %s'
+                  % (human(free), DISK_PATH, human(args.disk_low * GB)))
         if m['state'] == 'unknown':
             print('Could not read this machine: sysctl gave nothing back, so the gauge')
             print('is dead and only the workspace ranking below is real.')

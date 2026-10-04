@@ -78,6 +78,7 @@ hand is the same mistake as a manual row colour.
 |---|---|---|
 | `claude_code` | `cmux-throbber.py`, `cmux-session-start.py` — **and cmux itself** | the context bar |
 | `mem` | `bin/cmux-mem` | each workspace's size, plus a headroom warning |
+| `disk` | `bin/cmux-mem` | on every row while free disk is under 20 GB; the fix is `bin/tidy-disk`, run by hand |
 | `tidy` | `bin/cmux-tidy` | dev servers listening with nobody connected |
 | `agents` | `bin/cmux-agents` | which agent is running, and a non-Claude session's context bar |
 

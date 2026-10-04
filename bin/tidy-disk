@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+#
+# Reclaim the disk that dev tooling fills and nothing ever trims. Run by hand when
+# cmux-mem's `disk` pill appears (under 20 GB free). Never scheduled: pruning the pnpm
+# store while another session installs breaks that session, so a human picks the moment.
+#
+# What it removes, and what that costs (measured 2026-10-03 on the 228 GB laptop):
+#   pnpm store prune       packages no node_modules links to — mostly deleted worktrees.
+#                          Skipped while any pnpm/npm install is running.
+#   npm cache (_cacache)   tarballs; the next install re-downloads.
+#                          ~/.npm/_npx is LEFT: MCP servers run from it via npx.
+#   Rust target folders    every Cargo project under ~/code capped by cargo-sweep at
+#                          RUST_TARGET_CAP (default 7GB), oldest artifacts first.
+#   Library/Caches         node-gyp headers, Slack/Signal updater leftovers (*.ShipIt),
+#                          the dev app's webview cache (tauri-app, unless it is running).
+#   Homebrew               `brew cleanup` — old versions and downloads.
+# Never touched: ms-playwright (the e2e suites need those browsers), app caches that
+# cap themselves (Spotify), ~/.claude.
+#
+# Usage: tidy-disk [--dry-run]
+
+set -u
+DRY=0; [ "${1:-}" = "--dry-run" ] && DRY=1
+CAP="${RUST_TARGET_CAP:-7GB}"
+VOL=/System/Volumes/Data
+C="$HOME/Library/Caches"
+
+free_gb() { df -g "$VOL" | awk 'NR==2{print $4}'; }
+size() { du -sh "$@" 2>/dev/null | awk '{print $1}' | paste -sd' ' -; }
+step() { printf '\n== %s\n' "$1"; }
+run() { if [ $DRY = 1 ]; then echo "would run: $*"; else "$@"; fi; }
+
+before=$(free_gb)
+echo "Free before: ${before} GB$([ $DRY = 1 ] && echo '  (dry run — nothing is removed)')"
+
+step "pnpm store"
+if pgrep -fl 'pnpm (install|i|add|update)|npm (install|ci)' >/dev/null 2>&1; then
+  echo "skipped: an install is running"
+elif command -v pnpm >/dev/null; then
+  echo "store: $(size "$(pnpm store path)")"
+  run pnpm store prune
+fi
+
+step "npm cache"
+if command -v npm >/dev/null && [ -d "$HOME/.npm/_cacache" ]; then
+  echo "cache: $(size "$HOME/.npm/_cacache")"
+  run npm cache clean --force
+fi
+
+step "Rust target folders (cap ${CAP} each)"
+if cargo sweep --version >/dev/null 2>&1; then
+  find "$HOME/code" -maxdepth 5 -type d -name target -prune 2>/dev/null | while read -r t; do
+    proj=$(dirname "$t")
+    [ -f "$proj/Cargo.toml" ] || continue
+    echo "$(size "$t")  $proj"
+    if [ $DRY = 1 ]; then cargo sweep --dry-run --maxsize "$CAP" "$proj" 2>&1 | command grep -v '^\[DEBUG\]'
+    else cargo sweep --maxsize "$CAP" "$proj" 2>&1 | command grep -v '^\[DEBUG\]'; fi
+  done
+else
+  echo "skipped: cargo-sweep not installed (cargo install cargo-sweep)"
+fi
+
+step "Library/Caches"
+targets=("$C/node-gyp")
+for d in "$C"/*.ShipIt; do [ -d "$d" ] && targets+=("$d"); done
+if pgrep -f 'target/(debug|release)/(Diagrammo|tauri-app)' >/dev/null 2>&1; then
+  echo "tauri-app cache kept: the dev app is running"
+else
+  targets+=("$C/tauri-app")
+fi
+for d in "${targets[@]}"; do
+  [ -e "$d" ] || continue
+  echo "$(size "$d")  ${d#$C/}"
+  run rm -rf "$d"
+done
+
+step "Homebrew"
+command -v brew >/dev/null && { if [ $DRY = 1 ]; then brew cleanup -n 2>/dev/null | tail -1; else brew cleanup -q 2>/dev/null; fi; }
+
+after=$(free_gb)
+printf '\nFree after: %s GB (%+d GB)\n' "$after" $((after - before))
