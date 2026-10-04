@@ -366,7 +366,7 @@ const LINKS = [
     group: 'consoles',
     icon: 'board',
     name: 'Kanban board',
-    host: 'github.com/orgs/diagrammo/projects/1',
+    host: 'github.com · project 1',
     url: BOARD_URL,
   },
   {
