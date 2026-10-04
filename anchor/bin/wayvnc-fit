@@ -21,9 +21,14 @@
 # is set with `hyprctl eval` and dispatches are hl.dsp.* calls.
 set -u
 
-sock="${XDG_RUNTIME_DIR:?}/wayvncctl"
-out=HEADLESS-VNC
-park="name:vnc"
+# One instance per viewer device, each with its own screen, wayvnc and socket.
+# The defaults are the Mac's (:5900); wayvnc-eagle*.service override them for
+# eagle's 1440x900 laptop (:5902). Two viewers at once each pull every
+# workspace onto their own screen, so the last to connect wins.
+sock="${WAYVNC_FIT_SOCK:-${XDG_RUNTIME_DIR:?}/wayvncctl}"
+out="${WAYVNC_FIT_OUT:-HEADLESS-VNC}"
+park="name:${WAYVNC_FIT_PARK:-vnc}"
+pos="${WAYVNC_FIT_POS:--2560x10000}"
 # The Mac's usable area is 2560x1049 (31 px menu bar, Dock auto-hidden), less
 # TigerVNC's 28 px title bar. Full screen fits 2560x1080 exactly but takes the
 # window controls away, and the viewer then grabs ⌘Q -- unusable (2026-10-03).
@@ -36,12 +41,13 @@ fi
 
 dispatch() { hyprctl dispatch "$1" >/dev/null; }
 exists() { hyprctl monitors all -j | jq -e --arg o "$out" 'any(.[]; .name == $o)' >/dev/null; }
-real_output() { hyprctl monitors -j | jq -r --arg o "$out" '[.[] | select(.name != $o)][0].name'; }
+real_output() { hyprctl monitors -j | jq -r '[.[] | select(.name | startswith("HEADLESS-") | not)][0].name'; }
 active_ws() { hyprctl activeworkspace -j | jq -r '.name'; }
-# Every normal workspace not already on $1 (specials have negative ids).
+# Every normal workspace not already on $1 (specials have negative ids). Every
+# instance's park starts "vnc", so none moves another's.
 workspaces_off() {
-  hyprctl workspaces -j | jq -r --arg m "$1" --arg p "${park#name:}" \
-    '.[] | select(.id > 0 and .monitor != $m and .name != $p) | .name'
+  hyprctl workspaces -j | jq -r --arg m "$1" \
+    '.[] | select(.id > 0 and .monitor != $m and (.name | startswith("vnc") | not)) | .name'
 }
 move_all_to() {
   local keep ws
@@ -49,7 +55,7 @@ move_all_to() {
   for ws in $(workspaces_off "$1"); do
     dispatch "hl.dsp.workspace.move({ workspace = \"name:$ws\", monitor = \"$1\" })"
   done
-  [ "$keep" = "${park#name:}" ] || dispatch "hl.dsp.focus({ workspace = \"name:$keep\" })"
+  [[ "$keep" == vnc* ]] || dispatch "hl.dsp.focus({ workspace = \"name:$keep\" })"
 }
 
 # Hyprland hands an empty monitor the next numbered workspace -- at creation,
@@ -70,7 +76,7 @@ ensure() {
   local keep
   keep=$(active_ws)
   hyprctl output create headless "$out" >/dev/null
-  hyprctl eval "hl.monitor({ output = \"$out\", mode = \"$mode\", position = \"-2560x10000\", scale = 1 })" >/dev/null
+  hyprctl eval "hl.monitor({ output = \"$out\", mode = \"$mode\", position = \"$pos\", scale = 1 })" >/dev/null
   # The output is not ready for focus dispatches the instant it is created.
   for i in $(seq 20); do
     hyprctl monitors -j | jq -e --arg o "$out" 'any(.[]; .name == $o and .width > 0)' >/dev/null && break

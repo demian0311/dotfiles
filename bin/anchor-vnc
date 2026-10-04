@@ -2,6 +2,7 @@
 # Open anchor's desktop in TigerVNC without typing the login.
 #   anchor-vnc         the fitted virtual screen (:5900)
 #   anchor-vnc real    the real monitor, the escape hatch (:5901)
+#   anchor-vnc eagle   the virtual screen sized for eagle (:5902), the default on Linux
 #
 # TigerVNC's "Keep password for reconnect" lasts only until the viewer quits;
 # what persists is VNC_USERNAME / VNC_PASSWORD, which vncviewer reads at the
@@ -12,9 +13,17 @@
 set -euo pipefail
 
 port=5900
-[ "${1:-}" = real ] && port=5901
+[ "$(uname)" = Linux ] && port=5902
+case "${1:-}" in real) port=5901 ;; eagle) port=5902 ;; mac) port=5900 ;; esac
 user=demian
 viewer=/Applications/TigerVNC.app/Contents/MacOS/vncviewer
+
+# Linux has no Keychain: vncviewer asks for the login itself.
+# (sudo pacman -S --needed tigervnc)
+if [ "$(uname)" = Linux ]; then
+  VNC_USERNAME=$user nohup vncviewer "100.123.116.110::$port" >/dev/null 2>&1 &
+  exit 0
+fi
 
 if ! pass=$(security find-generic-password -s anchor-vnc -a "$user" -w 2>/dev/null); then
   echo "no Keychain item; run: security add-generic-password -s anchor-vnc -a $user -w" >&2

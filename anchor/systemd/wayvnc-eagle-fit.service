@@ -1,0 +1,17 @@
+[Unit]
+Description=wayvnc-eagle-fit — moves the workspaces onto eagle's screen while a viewer is on :5902
+PartOf=graphical-session.target
+After=graphical-session.target wayvnc-eagle.service
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+Environment=WAYVNC_FIT_OUT=HEADLESS-EAGLE WAYVNC_FIT_PARK=vnc-eagle
+Environment=WAYVNC_FIT_POS=-1416x20000 WAYVNC_FIT_MODE=1416x852@60
+Environment=WAYVNC_FIT_SOCK=%t/wayvncctl-eagle
+ExecStart=%h/.local/bin/wayvnc-fit
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

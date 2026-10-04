@@ -65,7 +65,9 @@ if command -v wayvnc >/dev/null; then
   install -m 0755 "$here/bin/wayvnc-fit" "$HOME/.local/bin/wayvnc-fit"
   # :5900 gets a Mac-sized virtual screen per connection (wayvnc-fit);
   # :5901 is the real monitor, untouched -- the way back in if the helper breaks.
-  systemctl --user enable --now wayvnc.service wayvnc-fit.service wayvnc-real.service
+  # :5902 is the same idea sized for eagle, the 1440x900 Omarchy laptop.
+  systemctl --user enable --now wayvnc.service wayvnc-fit.service wayvnc-real.service \
+    wayvnc-eagle.service wayvnc-eagle-fit.service
 else
   echo "wayvnc absent; run 'sudo pacman -S --needed wayvnc' then re-run this script"
 fi

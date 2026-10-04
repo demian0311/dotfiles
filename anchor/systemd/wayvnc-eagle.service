@@ -1,0 +1,21 @@
+[Unit]
+Description=wayvnc-eagle — an eagle-sized virtual screen on :5902, pointer drawn in
+PartOf=graphical-session.target
+After=graphical-session.target tailscaled.service
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+# eagle is 1440x900; a tiled TigerVNC window there is 1416x852 (24 px bar,
+# 10 px gaps, 2 px border -- measured 2026-10-03). -r draws the pointer into
+# the picture: without it Hyprland's capture leaves it out entirely.
+Environment=WAYVNC_FIT_OUT=HEADLESS-EAGLE WAYVNC_FIT_PARK=vnc-eagle
+Environment=WAYVNC_FIT_POS=-1416x20000 WAYVNC_FIT_MODE=1416x852@60
+Environment=WAYVNC_FIT_SOCK=%t/wayvncctl-eagle
+ExecStartPre=%h/.local/bin/wayvnc-fit ensure
+ExecStart=/usr/bin/wayvnc -S %t/wayvncctl-eagle -r -o HEADLESS-EAGLE 100.123.116.110 5902
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
