@@ -14,6 +14,7 @@
 #   Library/Caches         node-gyp headers, Slack/Signal updater leftovers (*.ShipIt),
 #                          the dev app's webview cache (tauri-app, unless it is running).
 #   Homebrew               `brew cleanup` — old versions and downloads.
+#   Time Machine           re-marks node_modules and package caches as excluded (no deletion).
 # Never touched: ms-playwright (the e2e suites need those browsers), app caches that
 # cap themselves (Spotify), ~/.claude.
 #
@@ -73,6 +74,19 @@ for d in "${targets[@]}"; do
   echo "$(size "$d")  ${d#$C/}"
   run rm -rf "$d"
 done
+
+step "Time Machine exclusions"
+# The exclusion is an attribute on the folder, so a node_modules deleted and
+# reinstalled is backed up again until this re-marks it. Re-marking is idempotent.
+n=0
+while read -r d; do
+  if ! tmutil isexcluded "$d" 2>/dev/null | command grep -q Excluded; then
+    run tmutil addexclusion "$d" && n=$((n + 1))
+  fi
+done < <(find "$HOME/code" -maxdepth 6 -type d -name node_modules -prune 2>/dev/null
+         for d in "$HOME/Library/pnpm" "$HOME/.npm" "$HOME/.cargo/registry" "$HOME/.rustup"; do
+           [ -d "$d" ] && echo "$d"; done)
+echo "newly excluded: $n"
 
 step "Homebrew"
 command -v brew >/dev/null && { if [ $DRY = 1 ]; then brew cleanup -n 2>/dev/null | tail -1; else brew cleanup -q 2>/dev/null; fi; }
