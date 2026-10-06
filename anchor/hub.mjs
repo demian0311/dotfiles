@@ -323,7 +323,7 @@ const SERVICES = [
     id: 'openclaw',
     group: 'openclaw',
     icon: 'bot',
-    name: 'Gateway',
+    name: 'OpenClaw Gateway',
     blurb: 'The personal agent gateway and its control page, on the Claude CLI backend.',
     detail: 'Its own repo. It can drive Diagrammo the way it can drive anything else.',
     port: 18789,
@@ -517,7 +517,7 @@ const LINKS = [
 // The first cut was a guess from the tabs the owner keeps open (2026-10-03).
 // Clicks are now counted in HITS_FILE and served in /status.json as `hits`, so
 // the next cut can be read off use instead of guessed.
-const PINS = ['board', 'tracker', 'editor', 'factory', 'openclaw', 'prod-console', 'cloudflare', 'posthog'];
+const PINS = ['factory', 'board', 'tracker', 'editor', 'openclaw', 'prod-console'];
 
 // Click counts, one { n, last } per row id. A file rather than a database
 // because this hub has no dependencies on purpose; written at most once a
