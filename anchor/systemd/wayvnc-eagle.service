@@ -13,7 +13,7 @@ Environment=WAYVNC_FIT_OUT=HEADLESS-EAGLE WAYVNC_FIT_PARK=vnc-eagle
 Environment=WAYVNC_FIT_POS=-1416x20000 WAYVNC_FIT_MODE=1416x852@60
 Environment=WAYVNC_FIT_SOCK=%t/wayvncctl-eagle
 ExecStartPre=%h/.local/bin/wayvnc-fit ensure
-ExecStart=/usr/bin/wayvnc -S %t/wayvncctl-eagle -r -o HEADLESS-EAGLE 100.123.116.110 5902
+ExecStart=/usr/bin/wayvnc -S %t/wayvncctl-eagle -r -R -o HEADLESS-EAGLE 100.123.116.110 5902
 Restart=on-failure
 RestartSec=5
 

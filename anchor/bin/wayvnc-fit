@@ -15,8 +15,11 @@
 # (at 10000x0 the real monitor jumped to 12560x0, adjacent again), and it only ever holds the empty
 # workspace "name:vnc", so Super+<n> at the desk never lands on it.
 # 🔴 The name MUST start HEADLESS-: wayvnc decides "headless" by prefix
-# (output_is_headless, src/output.c). Hyprland 0.56.2 never applies wayvnc's
-# resize-to-window request, hence a fixed MODE.
+# (output_is_headless, src/output.c).
+# 🔴 wayvnc runs with -R. Its automatic resize DOES reach Hyprland, and it also
+# resets the screen to 0x0, where both screens overlapped and input went to the
+# one nobody watched (#1155). Placement lives in ~/.config/hypr/vnc_monitors.lua
+# (dotfiles anchor/hypr/), so a reload keeps it; the eval below is a fallback.
 # 🔴 Hyprland 0.56.2 configs are Lua: `hyprctl keyword` is refused, so the mode
 # is set with `hyprctl eval` and dispatches are hl.dsp.* calls.
 set -u

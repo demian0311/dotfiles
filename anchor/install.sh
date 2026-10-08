@@ -63,6 +63,13 @@ if command -v wayvnc >/dev/null; then
     "rsa_private_key_file=$vnc/rsa_key.pem" > "$vnc/config"
   chmod 600 "$vnc/config"
   install -m 0755 "$here/bin/wayvnc-fit" "$HOME/.local/bin/wayvnc-fit"
+  # Where the virtual screens sit, as config rules so a reload keeps them.
+  # monitors.lua is Omarchy's file, so it only gains a require line.
+  mkdir -p "$HOME/.config/hypr"
+  install -m 0644 "$here/hypr/vnc_monitors.lua" "$HOME/.config/hypr/vnc_monitors.lua"
+  grep -q 'hypr.vnc_monitors' "$HOME/.config/hypr/monitors.lua" 2>/dev/null ||
+    printf '\n-- VNC virtual screens, from dotfiles anchor/hypr/vnc_monitors.lua\nrequire("hypr.vnc_monitors")\n' \
+      >> "$HOME/.config/hypr/monitors.lua"
   # :5900 gets a Mac-sized virtual screen per connection (wayvnc-fit);
   # :5901 is the real monitor, untouched -- the way back in if the helper breaks.
   # :5902 is the same idea sized for eagle, the 1440x900 Omarchy laptop.
