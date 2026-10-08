@@ -83,10 +83,11 @@ below cost a restart. Run them first, until the linked issue makes them automati
 - **MCP registry** (#1164): `release.yml` 404s at "Publish to MCP Registry"
   when npm is not serving yet (~10 min after publish). Wait for
   `npm view @diagrammo/dgmo-mcp version`, then re-dispatch the same tag.
-- **Homebrew** (#1158): `bump-homebrew.yml` gets a 403 on the tap. Until the
-  owner replaces `HOMEBREW_TAP_TOKEN`, edit `homebrew-dgmo/Formula/dgmo.rb` by
-  hand: `url` → `dgmo-cli-<ver>.tgz`, `sha256` →
-  `curl -sL <url> | shasum -a 256`, commit, push.
+- **Homebrew**: `bump-homebrew.yml` only OPENS a PR on `diagrammo/homebrew-dgmo`
+  and never merges it. Merge it: `gh pr list -R diagrammo/homebrew-dgmo`, then
+  `gh pr merge <n> -R diagrammo/homebrew-dgmo --squash --delete-branch`. 0.88.0
+  never reached brew because its PR sat unmerged for a week. The token was
+  replaced and proven to push 2026-10-08 (tap-token issue #1158, closed).
 
 ## Finishing a release-all that died partway (until the resume issue, #1159, adds `--resume`)
 
@@ -371,7 +372,7 @@ When releasing multiple repos in one session:
 1. **`dgmo` first** — every other repo depends on it transitively.
 2. **`dgmo-mcp` and `remark-dgmo`** next, in parallel. Both consume `@diagrammo/dgmo`.
 3. **Host wrappers** (`astro-dgmo`, `docusaurus-plugin-dgmo`, `fumadocs-dgmo`, `nextra-dgmo`, `vitepress-dgmo`) — all five depend on `remark-dgmo`. Release only after remark is live on npm.
-   **Homebrew**: `brew install dgmo` installs `@diagrammo/dgmo-cli`, not the library. After a CLI release, bump the tap — `gh workflow run bump-homebrew.yml -R diagrammo/dgmo -f version=X.Y.Z`. ⚠️ That workflow 403s until the tap-token issue (#1158) is done — see "After release-all".
+   **Homebrew**: `brew install dgmo` installs `@diagrammo/dgmo-cli`, not the library. After a CLI release, bump the tap — `gh workflow run bump-homebrew.yml -R diagrammo/dgmo -f version=X.Y.Z`. It opens a PR on the tap — **merge it**, or brew stays behind.
 4. **`obsidian-dgmo`** — separate convention: plain semver tag (no `v` prefix). Per `reference_obsidian_community_store`, the community store auto-picks up new versions from GH releases.
 5. **`diagrammo-app`** — uses its own `diagrammo-app/release.sh` with code-signing + notarization. Releases go on `diagrammo/releases` repo (NOT `diagrammo/app`). Single `v*` tag triggers both desktop build + `online.diagrammo.app` Cloudflare Pages deploy.
 6. **`diagrammo_app_site`** — 🔴 **a push to `main` deploys nothing.** That repo is **private**, so its Actions runs are billing-blocked: its newest run still failed with zero steps when checked 2026-08-14. Ship it by hand with `pnpm build && npx wrangler deploy`. This does not touch the ten package repos — they are public and their Actions run free.
