@@ -46,6 +46,85 @@ scripts/release-all.sh --dry-run --app 0.54.0 dgmo=0.83.0
   signing key, and AppImage is the only Linux target the updater supports
   (#614).
 
+## Before starting — checks release-all does NOT do yet (2026-10-08)
+
+The 0.89.0 / app 0.61.0 release took ~4 hours for ~1 hour of work. Each item
+below cost a restart. Run them first, until the linked issue makes them automatic.
+
+1. **Changelog coverage** — the release-preflight checks issue (#1161). Per repo, `git log <file's last commit>..HEAD -- src/`
+   against `CHANGELOG.md` (dgmo) and `RELEASE_NOTES.md` (app). A dated section
+   written days ago is not proof that later commits are in it — dgmo's 0.89.0
+   section missed 10.
+2. **App licenses** (#1161): `cd diagrammo-app && ./scripts/generate-licenses.sh --check`.
+   Stale after ANY dep bump; release.sh otherwise aborts the desktop half ~40
+   min in. Regenerating also rewrites two files in `diagrammo_app_site` — commit both.
+3. **Mac pre-push on every package repo** — the macOS-only failure issue (#1162). Gates run on anchor (Linux), but
+   the release commit is pushed through the MAC's pre-push hook. A Mac-only
+   test failure therefore stops the cascade after earlier levels are on npm.
+   Nightly-written tests have never run on macOS. Probe: `pnpm test` in each
+   package repo here before starting.
+4. **Site submodule** — the site-floors issue (#1160): `git -C diagrammo_app_site submodule status` must
+   show no `+`. The tail builds the working tree.
+5. **Concurrency on anchor** — the gate-load issue (#1163). Don't start the app gate and package gates
+   together on a busy anchor; heavy tests (layout search, resvg PNG) time out
+   under load and the whole cascade restarts. A gate that fails on a timeout:
+   re-run that file alone on anchor before believing it.
+
+## After release-all — steps it skips (2026-10-08)
+
+- **Site floors** (#1160): the cascade raises 17 manifests but NOT
+  `diagrammo_app_site`. Before `--tail-only`, raise its four floors
+  (`@diagrammo/dgmo`, `dgmo-standalone`, `astro-dgmo`, `remark-dgmo`),
+  `pnpm install`, check `pnpm-lock.yaml` resolves the new versions, commit,
+  push. Otherwise the site deploys the previous packages and reports success.
+- **Floor-bump commits**: the cascade leaves them uncommitted in every repo plus
+  `diagrammo-cloud` and `factory/`. Stage only the `M` files it touched.
+  🔴 In zsh `git add $files` does not word-split — pipe through `xargs git add`.
+- **MCP registry** (#1164): `release.yml` 404s at "Publish to MCP Registry"
+  when npm is not serving yet (~10 min after publish). Wait for
+  `npm view @diagrammo/dgmo-mcp version`, then re-dispatch the same tag.
+- **Homebrew** (#1158): `bump-homebrew.yml` gets a 403 on the tap. Until the
+  owner replaces `HOMEBREW_TAP_TOKEN`, edit `homebrew-dgmo/Formula/dgmo.rb` by
+  hand: `url` → `dgmo-cli-<ver>.tgz`, `sha256` →
+  `curl -sL <url> | shasum -a 256`, commit, push.
+
+## Finishing a release-all that died partway (until the resume issue, #1159, adds `--resume`)
+
+release-all has no resume. If either half fails, it exits at the join with NO
+deploys and NO board records. Finish it like this:
+
+1. **Packages**: `scripts/release-cascade.sh --gates-on anchor <only the
+   pairs npm does not serve yet>`. Check with `npm view <pkg> version`. If those
+   shas already passed a gate, `--gates-on none` saves ~20 min. An unpushed
+   `Release vX` commit + local tag from a refused push: nothing reached the
+   remote, so check `git ls-remote --tags origin vX`, then `git tag -d` +
+   `git reset --hard HEAD~1` (it is your own unpushed commit).
+2. **App**: `cd diagrammo-app && ./release.sh --preflight --gates-on anchor
+   --defer-tail --publish` (it can run during step 1). Then, after the cascade
+   AND the site floors: `./release.sh --tail-only --publish`.
+3. **Deploys + records**, the part that is easy to forget:
+   ```bash
+   cd diagrammo-cloud && bash -c "$(../scripts/issue-status.sh deploy-command diagrammo-cloud)"
+   scripts/issue-status.sh deployed diagrammo-cloud $(git -C diagrammo-cloud rev-parse HEAD)
+   bash -c "$(scripts/issue-status.sh deploy-command online-console)"
+   scripts/issue-status.sh deployed online-console $(git rev-parse HEAD)
+   scripts/issue-status.sh deployed diagrammo_app_site $(git -C diagrammo_app_site rev-parse HEAD)
+   scripts/issue-status.sh shipped diagrammo-app
+   scripts/issue-status.sh shipped dgmo      # release-all never runs these two —
+   scripts/issue-status.sh shipped dgmo-mcp  # their Awaiting release rows stay open
+   ```
+   Before the Cloud deploy, `wrangler d1 migrations list diagrammo-cloud
+   --remote` and read every pending `.sql`. Applied out of order (0046 before
+   0044) does not mean held back — check the tracker, not the numbering.
+4. **Verify live**: `npm view` each package, `curl -s https://diagrammo.app/latest.json`
+   shows the new `version`, `gh release view vX -R diagrammo/releases` is not
+   a draft, and `curl https://api.diagrammo.app/health` returns 200.
+
+**A step that "hangs" after its log says it passed** is waiting for EOF on a
+pipe that a leftover child process still holds. Check with `sample <pid>`, then
+`lsof | grep <pipe id>`. On 2026-10-08 the culprit was `bin/anchor`'s timeout
+watcher, fixed in dotfiles f89d2d0. Every gate had waited 40 min after passing.
+
 ## Decision: which path?
 
 **CI publishing over npm Trusted Publishing (OIDC) is the canonical and only path, as
@@ -292,7 +371,7 @@ When releasing multiple repos in one session:
 1. **`dgmo` first** — every other repo depends on it transitively.
 2. **`dgmo-mcp` and `remark-dgmo`** next, in parallel. Both consume `@diagrammo/dgmo`.
 3. **Host wrappers** (`astro-dgmo`, `docusaurus-plugin-dgmo`, `fumadocs-dgmo`, `nextra-dgmo`, `vitepress-dgmo`) — all five depend on `remark-dgmo`. Release only after remark is live on npm.
-   **Homebrew**: `brew install dgmo` installs `@diagrammo/dgmo-cli`, not the library. After a CLI release, bump the tap — `gh workflow run bump-homebrew.yml -R diagrammo/dgmo -f version=X.Y.Z`.
+   **Homebrew**: `brew install dgmo` installs `@diagrammo/dgmo-cli`, not the library. After a CLI release, bump the tap — `gh workflow run bump-homebrew.yml -R diagrammo/dgmo -f version=X.Y.Z`. ⚠️ That workflow 403s until the tap-token issue (#1158) is done — see "After release-all".
 4. **`obsidian-dgmo`** — separate convention: plain semver tag (no `v` prefix). Per `reference_obsidian_community_store`, the community store auto-picks up new versions from GH releases.
 5. **`diagrammo-app`** — uses its own `diagrammo-app/release.sh` with code-signing + notarization. Releases go on `diagrammo/releases` repo (NOT `diagrammo/app`). Single `v*` tag triggers both desktop build + `online.diagrammo.app` Cloudflare Pages deploy.
 6. **`diagrammo_app_site`** — 🔴 **a push to `main` deploys nothing.** That repo is **private**, so its Actions runs are billing-blocked: its newest run still failed with zero steps when checked 2026-08-14. Ship it by hand with `pnpm build && npx wrangler deploy`. This does not touch the ten package repos — they are public and their Actions run free.
