@@ -94,7 +94,12 @@ ssh -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
     "$host" bash -l < "$tmp/in" > "$tmp/out" 2>&1 &
 sshpid=$!
 
-( sleep "$wall"; kill -TERM "$sshpid" 2>/dev/null; : > "$tmp/walled" ) &
+# Its fds go to /dev/null and its sleep dies with it: an orphaned sleep that
+# inherited our stdout held a caller's pipe open for the whole wall after the
+# work finished (release-cascade gates each waited 2400s, 2026-10-08).
+( trap 'kill "$s" 2>/dev/null; exit' TERM
+  sleep "$wall" & s=$!; wait "$s"
+  kill -TERM "$sshpid" 2>/dev/null; : > "$tmp/walled" ) </dev/null >/dev/null 2>&1 &
 watcher=$!
 
 reauth=
