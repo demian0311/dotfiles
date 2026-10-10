@@ -58,25 +58,34 @@ below cost a restart. Run them first, until the linked issue makes them automati
 2. **App licenses** (#1161): `cd diagrammo-app && ./scripts/generate-licenses.sh --check`.
    Stale after ANY dep bump; release.sh otherwise aborts the desktop half ~40
    min in. Regenerating also rewrites two files in `diagrammo_app_site` — commit both.
-3. **Mac pre-push on every package repo** — the macOS-only failure issue (#1162). Gates run on anchor (Linux), but
-   the release commit is pushed through the MAC's pre-push hook. A Mac-only
-   test failure therefore stops the cascade after earlier levels are on npm.
-   Nightly-written tests have never run on macOS. Probe: `pnpm test` in each
-   package repo here before starting.
-4. **Site submodule** — the site-floors issue (#1160): `git -C diagrammo_app_site submodule status` must
-   show no `+`. The tail builds the working tree.
-5. **Concurrency on anchor** — the gate-load issue (#1163). Don't start the app gate and package gates
-   together on a busy anchor; heavy tests (layout search, resvg PNG) time out
-   under load and the whole cascade restarts. A gate that fails on a timeout:
-   re-run that file alone on anchor before believing it.
+### Now automatic (landed 2026-10-09; no real release has run them yet)
+
+The three issues below stay open as `check` rows until one release does.
+
+- **Mac pre-push** — the macOS-only failure issue (#1162). `release-cascade.sh`
+  runs each package repo's REAL pre-push hook on this Mac against HEAD, in the
+  background while anchor gates, and refuses before Level 0 if any hook would.
+  On by default on macOS; `--no-mac-prepush` skips it (e.g. a resume whose
+  shas already passed). Logs: `$LOGDIR/mac-prepush-<repo>.log`.
+- **Site submodule** — the site-floors issue (#1160). `release-all.sh` refuses a
+  submodule not at its recorded commit (`+`, `-`, `U` in `submodule status`),
+  by name, with the update command. It never updates one itself.
+- **One gate budget on anchor** — the gate-load issue (#1163). `--gate-jobs`
+  (default 1) now counts the app's gate too: release-all exports
+  `RELEASE_GATE_SLOTS`, and `release-remote.sh` takes a slot on the Mac before
+  gating. A standalone `release-cascade.sh` sets no budget.
+- **Retry alone** (#1163). A failed package gate is re-run once after the others
+  finish. Pass alone → `::warning::LOAD, not code`, and the run continues; the
+  first log is kept as `gate-<repo>.first.log`. The app's gate does not retry.
 
 ## After release-all — steps it skips (2026-10-08)
 
-- **Site floors** (#1160): the cascade raises 17 manifests but NOT
-  `diagrammo_app_site`. Before `--tail-only`, raise its four floors
-  (`@diagrammo/dgmo`, `dgmo-standalone`, `astro-dgmo`, `remark-dgmo`),
-  `pnpm install`, check `pnpm-lock.yaml` resolves the new versions, commit,
-  push. Otherwise the site deploys the previous packages and reports success.
+- **Site floors** (#1160) — automatic since 2026-10-09. Before the tail,
+  release-all runs `scripts/site-floors.sh --raise --commit`: raises the four
+  floors, `pnpm install`, checks `pnpm-lock.yaml` resolves exactly the versions
+  in this workspace's manifests, then commits + pushes only `package.json` and
+  `pnpm-lock.yaml`. Any other change in the site → it refuses and the tail does
+  not run. By hand: `scripts/site-floors.sh` (check only) or `--raise --commit`.
 - **Floor-bump commits**: the cascade leaves them uncommitted in every repo plus
   `diagrammo-cloud` and `factory/`. Stage only the `M` files it touched.
   🔴 In zsh `git add $files` does not word-split — pipe through `xargs git add`.
