@@ -83,6 +83,7 @@ Rules of thumb:
   review. Decided 2026-09-24. To date 52 of 32,871 recorded messages have run on anything but Opus, greps
   included.
 - Don't delegate what you already know how to do in one or two tool calls — the overhead exceeds the work.
+- **Before a fan-out, find the step that runs one at a time** — a lock, a single test gate, one repo's `main`. Parallel agents only speed up the work before that step. If the serial step costs about as much as the work, run the items one after another. Otherwise fan out the diagnosis and fixes, and land them in turn. Each extra agent waiting there also costs a rebase and a re-run whenever another one lands first. Count other sessions in the queue too. Observed 2026-10-09: seven agents fixed their bugs in parallel, then waited 20+ minutes each in one push queue, and two had to push twice.
 - Never run a search yourself that you've already delegated; wait for the result.
 - Report what the agent concluded, not its transcript.
 - **Cap the scope in the prompt.** An unscoped "sweep this repo" can cost more than the answer is worth. Name the subdirectory, or tell the agent to count first and say what it skipped — a silent partial sweep reads as a clean result.
