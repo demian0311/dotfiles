@@ -1,0 +1,117 @@
+#!/bin/sh
+# This repo's push gate (diagrammo/diagrammo#1147). It exists so the nightly
+# issue run can build here: the run merges a reviewed row by pushing, and a
+# repo with no executable pre-push is UNARMED in the run's gate survey.
+#
+# Installed by claude/install.sh via core.hooksPath, like pre-commit. It runs on
+# every push from every machine, so each check is seconds, not minutes.
+#
+# Three checks, over what the push adds and the tree it pushes:
+#
+#   1. The landmine. This repo is the owner's global Claude config -- CLAUDE.md,
+#      settings, skills, memory. A commit carrying the run's `Nightly-Run:`
+#      trailer may touch only `bin/` and `.githooks/`; anything else refuses
+#      the push. A person's commits are not limited. `.githooks/` is in reach
+#      so a run can repair this gate; such a change is a sensitive path the
+#      run records and its fresh reviewer must pass.
+#   2. Shell syntax: `-n` on every shell script under bin/ and claude/ (which
+#      holds install.sh -- it has no dry-run mode), with the interpreter its
+#      shebang names. shellcheck is not installed on anchor. An interpreter
+#      not on PATH (zsh on anchor) is named, not run.
+#   3. gitleaks over the pushed commits. This repo is PUBLIC. Missing gitleaks
+#      is said loudly and allowed, as pre-commit does; the run's gate survey
+#      marks the repo UNARMED when gitleaks is not on its PATH.
+#
+# Test: sh .githooks/tests/pre-push.test.sh
+
+ZERO=0000000000000000000000000000000000000000
+TMP="${TMPDIR:-/tmp}"
+failed=0
+
+refuse() {
+  printf 'pre-push: REFUSED -- %s\n' "$1" >&2
+  failed=1
+}
+
+check_landmine() {
+  for c in $1; do
+    git log -1 --format=%B "$c" | grep -q '^Nightly-Run:' || continue
+    outside=$(git diff-tree --no-commit-id --name-only -r --root -m "$c" \
+      | grep -vE '^(bin|\.githooks)/' | sort -u)
+    [ -z "$outside" ] && continue
+    refuse "$(git rev-parse --short "$c") carries a Nightly-Run: trailer and touches files outside bin/ and .githooks/:"
+    printf '%s\n' "$outside" | sed 's/^/    /' >&2
+  done
+}
+
+check_syntax() {
+  sha=$1
+  blob=$(mktemp "$TMP/dotfiles-pre-push.XXXXXX")
+  for f in $(git ls-tree -r --name-only "$sha" -- bin claude); do
+    first=$(git show "$sha:$f" 2>/dev/null | head -1)
+    case "$first" in
+      '#!'*zsh*)  sh_=zsh ;;
+      '#!'*bash*) sh_=bash ;;
+      '#!'*/sh|'#!'*/sh' '*|'#!'*' sh'|'#!'*' sh '*) sh_=sh ;;
+      *) continue ;;
+    esac
+    if ! command -v "$sh_" >/dev/null 2>&1; then
+      printf 'pre-push: %s not on PATH, %s not syntax-checked\n' "$sh_" "$f"
+      continue
+    fi
+    git show "$sha:$f" > "$blob"
+    if ! err=$("$sh_" -n "$blob" 2>&1); then
+      refuse "$f does not parse ($sh_ -n):"
+      printf '%s\n' "$err" | sed "s|$blob|$f|g; s/^/    /" >&2
+    fi
+  done
+  rm -f "$blob"
+}
+
+check_leaks() {
+  if ! command -v gitleaks >/dev/null 2>&1; then
+    printf 'pre-push: gitleaks not on PATH -- push allowed, NOTHING SCANNED\n' >&2
+    return
+  fi
+  if ! gitleaks git --log-opts="$1" --redact --no-banner -l warn . </dev/null >&2; then
+    refuse "gitleaks found something in the pushed commits. This repo is public."
+  fi
+}
+
+# Git hands a pre-push hook "<local ref> <local sha> <remote ref> <remote sha>"
+# per ref on stdin. It can only be read once, so capture it up front.
+refs=$(cat)
+gated=0
+
+while read -r _lref lsha _rref rsha; do
+  [ -z "$lsha" ] && continue
+  [ "$lsha" = "$ZERO" ] && continue            # branch deletion
+  # A remote sha this clone has never fetched cannot be a range end; gate
+  # everything no remote-tracking ref holds instead.
+  if [ "$rsha" != "$ZERO" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+    range="$rsha..$lsha"
+  else
+    range="$lsha --not --remotes"
+  fi
+  # shellcheck disable=SC2086 -- $range is deliberately split into rev-list args.
+  commits=$(git rev-list $range)
+  [ -z "$commits" ] && continue
+
+  printf 'pre-push: gating %s\n' "$(git rev-parse --short "$lsha")"
+  gated=1
+  check_landmine "$commits"
+  check_syntax "$lsha"
+  check_leaks "$range"
+done <<EOF
+$refs
+EOF
+
+if [ "$gated" = 0 ]; then
+  echo "pre-push: nothing to gate (no new commits in this push)"
+  exit 0
+fi
+if [ "$failed" != 0 ]; then
+  echo "pre-push: CHECKS FAILED -- push refused" >&2
+  exit 1
+fi
+echo "pre-push: checks passed"
