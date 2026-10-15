@@ -74,6 +74,7 @@ links=(
   cmux-throbber.py
   agents
   agent-model-gate.py
+  session-kill-guard.py
 )
 
 # Reported only when not --quiet: the run changed nothing.
