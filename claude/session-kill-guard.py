@@ -15,11 +15,15 @@ import json
 import re
 import sys
 
-KILL = re.compile(r"(^|[\s;&|(`$])(/usr/bin/|/bin/)?kill\b")
+# A command word: at the start, or after ; & | ( or a newline. Prose that only
+# names a command (a commit message, an issue body) does not match.
+AT = r"(?:^|[;&|(\n])\s*(?:sudo\s+)?"
+KILL = re.compile(AT + r"(?:/usr/bin/|/bin/)?kill\b", re.MULTILINE)
 PARENT = re.compile(r"\bppid\b|\$\{?PPID\b|/proc/[^\s/]+/stat\b", re.IGNORECASE)
 SESSION_END = re.compile(
-    r"\bsystemctl\s+(--user\s+)?(.*\s)?(exit|kill\s+user@)"
-    r"|\bloginctl\s+(terminate|kill)-(user|session)\b"
+    AT + r"(?:systemctl\s+--user\s+exit\b|systemctl\s+kill\s+user@"
+    r"|loginctl\s+(?:terminate|kill)-(?:user|session)\b)",
+    re.MULTILINE,
 )
 
 REASON = (
