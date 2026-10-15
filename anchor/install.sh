@@ -21,6 +21,15 @@ install -m 0755 "$here/bin/wifi-bounce" "$HOME/.local/bin/wifi-bounce"
 install -m 0644 "$here"/systemd/*.service "$units/"
 install -m 0644 "$here"/systemd/*.timer "$units/"
 
+# Systemd user-manager environment: bob runs, units and the desktop session.
+mkdir -p "$HOME/.config/environment.d"
+install -m 0644 "$here"/environment.d/*.conf "$HOME/.config/environment.d/"
+# Login and interactive shells never read environment.d, so .bashrc carries the
+# same value. 🔴 A bare `ssh anchor '<cmd>'` reads neither: Arch's bash does not
+# source .bashrc for it, so such a command still caches in /tmp. ~/.bashrc is Omarchy's file; it only gains a line.
+grep -q 'NODE_COMPILE_CACHE' "$HOME/.bashrc" 2>/dev/null ||
+  sed -i '/^\[\[ \$- != \*i\* \]\] && return/i export NODE_COMPILE_CACHE="$HOME/.cache/node-compile-cache"  # off the RAM /tmp (diagrammo#1350)\n' "$HOME/.bashrc"
+
 systemctl --user daemon-reload
 
 # Display blanking. Omarchy 4 has no display-off step of its own: its idle
