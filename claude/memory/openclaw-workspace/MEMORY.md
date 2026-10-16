@@ -16,3 +16,4 @@
 - [Say issue, not row](say-issue-not-row.md) — tracker items are "issues"; the word "row" is retired from my replies and from the messages the automations send him.
 - [Merged-work statuses](merged-work-statuses.md) — check (Your turn + `check` label since 10-02, was a column) / Awaiting release / Done + `Awaiting release — repo@sha` marker; Your turn = 4 statuses, board view 6; option edits need every old option id.
 - [dgmo cache dirties app-site](dgmo-cache-dirties-app-site.md) — `.dgmo/references/*.json` is a tracked cache whose `fetchedAt` a dgmo fetch rewrites, so `diagrammo_app_site` goes dirty by itself and its nightly pull is REFUSED.
+- [/tmp quota filled by plugin-build leak](tmp-quota-plugin-build-leak.md) — "Unknown system error -122" is EDQUOT; leaked `/tmp/openclaw-plugin-build-*` dirs fill the tmpfs usrquota while df still looks fine.

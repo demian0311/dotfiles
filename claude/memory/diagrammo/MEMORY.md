@@ -2,3 +2,6 @@
 - [Truncated brief recovery](truncated-brief-recovery.md) — full text of a cut-off resumed brief lives in the prior transcript JSONL
 - [Nightly retro job](nightly-retro-job.md) — 04:30 retro automation, dry-run recipe, agent exec cannot read cron history
 - [Magic Mouse drops on anchor](anchor-magic-mouse-bluetooth-drops.md) — BCM20702 USB autosuspend; udev fix written but never installed
+- [dgmo-pane mod](dgmo-pane-mod.md) — live .dgmo pane mod at ~/code/diagrammo/dgmo-pane, local marketplace; Image file source blank over ssh
+- [Nightly scratch worktree naming](nightly-scratch-worktree-naming.md) — never name dgmo-content scratch *-wt-issue-<n>; nightly-land.sh lands it
+- [App probe worktree shares dgmo](app-probe-worktree-shares-dgmo.md) — two app worktrees on one private dgmo: install repoints its node_modules

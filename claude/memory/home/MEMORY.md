@@ -8,7 +8,7 @@
 - [OpenClaw claude-cli owner check](openclaw-claude-cli-owner-check.md) — 9.3 rejects a script `claude` on the gateway PATH; why the 9.1→9.3 update "failed" and the symlink fix.
 - [OpenClaw MCP OAuth crash loop](openclaw-mcp-oauth-crash-loop.md) — an mcp-remote server stuck on dead OAuth crash-loops the 9.3 gateway; UI looks up but unresponsive.
 - [Apple Display iSight bandwidth](apple-display-isight-bandwidth.md) — why the monitor camera dies above 320x240, and the uvcvideo quirks=128 fix.
-- [Magic Mouse Bluetooth dropouts](magic-mouse-bluetooth-dropouts.md) — the BT Magic Mouse 2 drops hourly on HIDP GET_REPORT timeouts; two mice exist, do not blame USB.
+- [Magic Mouse Bluetooth dropouts](magic-mouse-bluetooth-dropouts.md) — the BT Magic Mouse 2 drops hourly and never reconnects at boot until clicked; two mice exist, do not blame USB.
 - [Auto mode blocks passphrase-less gpg](auto-mode-denies-passphraseless-gpg.md) — the Security Weaken denial on `--passphrase ''`, and why to hand it back rather than route around it.
 - [anchor HDD head parking is already fixed](anchor-hdd-head-parking-fixed.md) — Load_Cycle_Count/Power_On_Hours is a lifetime average, not the current rate; fixed 2026-09-05.
 - anchor home backups — **held back from the public repo**; kept at `~/.claude/memory-local/anchor-home-backups.md` because it maps where the restic passphrase lives. Machine-local, not synced.
@@ -18,3 +18,4 @@
 - [Rules vs history drift](rules-vs-history-drift.md) — the 41-of-103 duplication incident behind the rules-in-CLAUDE.md / history-in-memory split.
 - [Reply length ceiling](reply-length-ceiling.md) — a page and a half, hard; the real reason is output billing at 5×, not context, which is 0.4%.
 - [Memory is in a public repo](memory-is-in-a-public-repo.md) — pooling is OPT-IN via memory/PUBLIC; every note is written for a public audience; what gitleaks cannot catch.
+- [/tmp inode exhaustion](tmp-inode-exhaustion.md) — 2026-10-10 outage from leaked test temp dirs; fixes landed, how to diagnose.

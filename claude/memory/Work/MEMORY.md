@@ -1,1 +1,4 @@
 - [Anchor Omarchy branding](anchor-omarchy-branding.md) — host `anchor` is rebranded from OMARCHY across screensaver/login/boot; regenerate with `~/.config/omarchy/branding/tools/mkwordmark`
+- [rust-lld SIGBUS = tmpfs quota](rust-lld-sigbus-tmpfs-quota.md) — linker SIGBUS on anchor came from a cargo target dir in quota-limited /tmp
+- [node SIGABRT = agent vitest harness OOM](node-abort-nightly-vitest-root.md) — 2026-09-30 and 2026-10-12 node heap OOMs came from agent-written /tmp vitest harnesses (nightly + bob-day reviewers)
+- [Chrome SIGTRAP = /tmp quota](chrome-trap-tmp-quota.md) — 2026-10-05 Playwright chrome traps during nightly-gate e2e came from /tmp usrquota exhaustion

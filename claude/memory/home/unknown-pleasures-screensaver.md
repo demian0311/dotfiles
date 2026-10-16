@@ -25,6 +25,11 @@ background: `edge_fade()` gives each column a smoothstepped visibility level and
 `build_palette()` returns a 2D `[visibility][depth]` escape table. Fully invisible
 at the screen edge, full strength by ~13% in.
 
+As of 2026-09-27 ridge pitch is fixed (`RIDGE_SPACING`), not `h/30`: smaller
+terminals show fewer traces instead of squeezing all of them in. The constant was
+sized from the fullscreen foot window on the 2560x1440 DP-1 (43x182, measured with
+`stty size` under the screensaver's foot config), so fullscreen looks as before.
+
 **How to apply:** to revert, delete the Lua block in `hyprland.lua` and the
 `~/.local/share/unknown-pleasures` directory. Look-and-feel knobs live in `Field.__init__`
 (ridge spacing, amplitude, scroll speed, plot proportions) and `make_ridge` (pulse count,
