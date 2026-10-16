@@ -24,6 +24,9 @@ ln -s ~/code/dotfiles/config/ghostty/config      ~/.config/ghostty/config
 ln -s ~/code/dotfiles/config/ghostty/themes      ~/.config/ghostty/themes
 ```
 
+`config/bash/vi-mode.bash` turns on vi editing in bash. On Omarchy, source it at the
+end of `~/.bashrc`; `anchor/install.sh` adds that line.
+
 `claude/` goes into `~/.claude/` two different ways, because the two kinds of
 file behave differently. Run the installer rather than doing it by hand:
 

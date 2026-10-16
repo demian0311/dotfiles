@@ -29,6 +29,9 @@ install -m 0644 "$here"/environment.d/*.conf "$HOME/.config/environment.d/"
 # source .bashrc for it, so such a command still caches in /tmp. ~/.bashrc is Omarchy's file; it only gains a line.
 grep -q 'NODE_COMPILE_CACHE' "$HOME/.bashrc" 2>/dev/null ||
   sed -i '/^\[\[ \$- != \*i\* \]\] && return/i export NODE_COMPILE_CACHE="$HOME/.cache/node-compile-cache"  # off the RAM /tmp (diagrammo#1350)\n' "$HOME/.bashrc"
+# Vi editing mode; must follow Omarchy's rc, so it goes at the end of ~/.bashrc.
+grep -q 'config/bash/vi-mode.bash' "$HOME/.bashrc" 2>/dev/null ||
+  printf '\n[[ -r ~/code/dotfiles/config/bash/vi-mode.bash ]] && source ~/code/dotfiles/config/bash/vi-mode.bash\n' >> "$HOME/.bashrc"
 
 systemctl --user daemon-reload
 
