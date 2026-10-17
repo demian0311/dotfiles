@@ -28,6 +28,10 @@
 # "cpu idle" must be high (> 90 %) for a window to mean anything: a busy core
 # keeps the package awake by itself. Close Chromium and heavy agents first.
 #
+# Result 2026-10-17 15:46 (--ltr 8,1, cpu idle only 75-78 %): PC6+ stayed 0 %; not
+# conclusive at that idle level. GPU RC6 is fine (82 % residency). The Thunderbolt
+# NHI 06:00.0 has runtime_suspended_time 0 since boot: never once suspended.
+#
 # Result 2026-10-17 12:24 (dotfiles #15): all four steps left PC6+ at 0 % with cpu
 # idle at 94-97 %. Step 2 is refused on eagle: Apple firmware does not grant the OS
 # ASPM control ("OS doesn't have ASPM control" in dmesg), so the policy file is
@@ -68,7 +72,8 @@ declare -A pc0 pc1
 read_pkgc() { # $1 = array name
   local -n out=$1
   [[ -r $pkgc ]] || return 0
-  while read -r _ n _ v; do out[$n]=$v; done <"$pkgc" # "Package C2 : 123" -> n=C2 v=123 (microseconds)
+  local _w st _c val
+  while read -r _w st _c val; do out[$st]=$val; done <"$pkgc" # "Package C2 : 123" -> st=C2 val=123 (microseconds)
 }
 cpu_idle_ticks() { awk '/^cpu /{print $5+$6, $2+$3+$4+$5+$6+$7+$8}' /proc/stat; }
 watts() { # discharge watts, or "AC" when not discharging (charging current would read as draw)
@@ -130,12 +135,12 @@ measure "0 baseline"
 if [[ -n $ltr ]]; then
   [[ -w $ltr_ignore || $dry -eq 1 ]] || { echo "no $ltr_ignore (intel_pmc_core missing?)"; exit 1; }
   IFS=, read -ra ips <<<"$ltr"
-  n=1
+  step=1
   for ip in "${ips[@]}"; do
     name=$(awk -v i="$ip" '$1==i{print $2}' /sys/kernel/debug/pmc_core/ltr_show 2>/dev/null | sed 's/PMC0://')
     do_write "$ip" "$ltr_ignore" && ((dry==0)) && ltr_done+=("$ip")
-    measure "$n +LTR ignored: ${name:-IP $ip}"
-    ((n++))
+    measure "$step +LTR ignored: ${name:-IP $ip}"
+    ((step++))
   done
   echo; echo "Read: PC6+ share above a few percent means the ignored LTR was the cap. Any ping loss means"
   echo "that device needed its latency; do not persist that index."
