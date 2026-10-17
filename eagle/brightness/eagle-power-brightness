@@ -35,9 +35,12 @@ set_profile() {
   powerprofilesctl set "$1" 2>/dev/null
 }
 
-# Prints battery | charging | full.
+# Prints battery | charging | full. A charger too weak for the load (the iPad
+# one: adapter online, yet the battery reports Discharging) counts as battery,
+# so the low-draw settings apply. "Not charging" is the charger covering the
+# load with the battery at rest, and stays charging.
 power_state() {
-  local s ac=0 full=1 any_bat=0
+  local s ac=0 full=1 any_bat=0 draining=0
   for s in "$ps_path"/*; do
     [[ -r $s/type ]] || continue
     case $(<"$s/type") in
@@ -45,11 +48,15 @@ power_state() {
     Battery)
       [[ $(cat "$s/present" 2>/dev/null) == 0 ]] && continue
       any_bat=1
-      [[ $(cat "$s/status" 2>/dev/null) == Full ]] || full=0
+      case $(cat "$s/status" 2>/dev/null) in
+      Full) ;;
+      Discharging) full=0; draining=1 ;;
+      *) full=0 ;;
+      esac
       ;;
     esac
   done
-  if ((!ac)); then echo battery
+  if ((!ac || draining)); then echo battery
   elif ((any_bat && full)); then echo full
   else echo charging; fi
 }

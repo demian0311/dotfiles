@@ -20,4 +20,5 @@ check "AC charging -> 80, balanced"       1 Charging       80  balanced
 check "AC not charging -> 80, balanced"   1 "Not charging" 80  balanced
 check "AC full -> 100, balanced"          1 Full           100 balanced
 check "unplugged while full -> 33"        0 Full           33  power-saver
+check "weak charger, draining -> 33"      1 Discharging    33  power-saver
 exit $fail
