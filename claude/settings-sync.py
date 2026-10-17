@@ -51,7 +51,7 @@ def load(path):
 def dump(path, obj):
     tmp = path + ".tmp-%d" % os.getpid()
     with open(tmp, "w") as f:
-        json.dump(obj, f, indent=2)
+        json.dump(obj, f, indent=2, ensure_ascii=False)
         f.write("\n")
     os.replace(tmp, path)
 
