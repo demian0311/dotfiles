@@ -3,15 +3,19 @@
 # Installed by install.sh next to this file. Run by eagle-power-brightness.service
 # (systemd --user, graphical session).
 #
-# Sets the panel brightness when the power state CHANGES, and at session start:
-#   battery            -> 33%
-#   AC, charging       -> 80%
-#   AC, battery full   -> 100%
-# Between changes it never touches brightness, so manual adjustment sticks.
+# Sets the panel brightness AND the power-profiles-daemon profile when the
+# power state CHANGES, and at session start:
+#   battery            -> 33%, power-saver
+#   AC, charging       -> 80%, balanced
+#   AC, battery full   -> 100%, balanced
+# Between changes it touches neither, so manual adjustment sticks.
+# power-saver on battery: ppd sets intel_pstate EPP to "power" and the platform
+# profile to low-power. Measured 2026-10-16 (eagle-health-audit): balanced on
+# battery drew 38 W at 90 C with the fan idle.
 # Wakes on power_supply udev events, and polls every POLL seconds because
 # acpi-sbs does not reliably emit an event on the Charging -> Full flip.
 #
-# Env overrides exist for tests only: EAGLE_PS_PATH EAGLE_SET EAGLE_ONCE EAGLE_SETTLE
+# Env overrides exist for tests only: EAGLE_PS_PATH EAGLE_SET EAGLE_PROFILE_SET EAGLE_ONCE EAGLE_SETTLE
 set -u
 
 ps_path=${EAGLE_PS_PATH:-/sys/class/power_supply}
@@ -23,6 +27,12 @@ set_brightness() {
   local dev
   dev=$(omarchy-hw-display) || return
   brightnessctl -q -d "$dev" set "$1%"
+}
+
+set_profile() {
+  if [[ -n ${EAGLE_PROFILE_SET:-} ]]; then $EAGLE_PROFILE_SET "$1"; return; fi
+  command -v powerprofilesctl >/dev/null || return 0
+  powerprofilesctl set "$1" 2>/dev/null
 }
 
 # Prints battery | charging | full.
@@ -45,6 +55,7 @@ power_state() {
 }
 
 level() { case $1 in battery) echo 33 ;; charging) echo 80 ;; full) echo 100 ;; esac }
+profile() { case $1 in battery) echo power-saver ;; *) echo balanced ;; esac }
 
 last=""
 apply() {
@@ -52,7 +63,8 @@ apply() {
   now=$(power_state)
   [[ $now == "$last" ]] && return
   set_brightness "$(level "$now")"
-  logger -t eagle-power-brightness "$last -> $now: $(level "$now")%" 2>/dev/null
+  set_profile "$(profile "$now")"
+  logger -t eagle-power-brightness "$last -> $now: $(level "$now")%, $(profile "$now")" 2>/dev/null
   last=$now
 }
 

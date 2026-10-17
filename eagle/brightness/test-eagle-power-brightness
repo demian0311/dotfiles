@@ -3,20 +3,21 @@
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 t=$(mktemp -d); trap 'rm -rf "$t"' EXIT
-export EAGLE_PS_PATH=$t/ps EAGLE_SET="$t/set" EAGLE_ONCE=1
+export EAGLE_PS_PATH=$t/ps EAGLE_SET="$t/set" EAGLE_PROFILE_SET="$t/setp" EAGLE_ONCE=1
 printf '#!/bin/bash\necho "$1" > %q\n' "$t/got" > "$t/set"; chmod +x "$t/set"
+printf '#!/bin/bash\necho "$1" > %q\n' "$t/gotp" > "$t/setp"; chmod +x "$t/setp"
 fail=0
-check() { # name, ac online, battery status, expect
-  rm -rf "$t/ps" "$t/got"; mkdir -p "$t/ps/ADP1" "$t/ps/BAT0"
+check() { # name, ac online, battery status, expect level, expect profile
+  rm -rf "$t/ps" "$t/got" "$t/gotp"; mkdir -p "$t/ps/ADP1" "$t/ps/BAT0"
   echo Mains > "$t/ps/ADP1/type"; echo "$2" > "$t/ps/ADP1/online"
   echo Battery > "$t/ps/BAT0/type"; echo 1 > "$t/ps/BAT0/present"; echo "$3" > "$t/ps/BAT0/status"
   "$here/eagle-power-brightness"
-  local got; got=$(command cat "$t/got" 2>/dev/null)
-  [[ $got == "$4" ]] && echo "ok   $1" || { echo "FAIL $1: got=$got want=$4"; fail=1; }
+  local got gotp; got=$(command cat "$t/got" 2>/dev/null); gotp=$(command cat "$t/gotp" 2>/dev/null)
+  [[ $got == "$4" && $gotp == "$5" ]] && echo "ok   $1" || { echo "FAIL $1: got=$got/$gotp want=$4/$5"; fail=1; }
 }
-check "battery -> 33"            0 Discharging   33
-check "AC charging -> 80"        1 Charging      80
-check "AC not charging -> 80"    1 "Not charging" 80
-check "AC full -> 100"           1 Full          100
-check "unplugged while full -> 33" 0 Full        33
+check "battery -> 33, power-saver"        0 Discharging    33  power-saver
+check "AC charging -> 80, balanced"       1 Charging       80  balanced
+check "AC not charging -> 80, balanced"   1 "Not charging" 80  balanced
+check "AC full -> 100, balanced"          1 Full           100 balanced
+check "unplugged while full -> 33"        0 Full           33  power-saver
 exit $fail
