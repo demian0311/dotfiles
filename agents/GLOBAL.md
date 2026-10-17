@@ -30,6 +30,10 @@ inline "[1]/[2]" text. Reformat such questions to comply before asking.
   first. A mockup, doc or issue numbers its options **1, 2, 3**; conversation letters them
   **A, B, C** with the 🟢/🟡/🔵/🟣/🔴 scheme. Never greek letters for options, variants or scenarios.
 - One decision per question. Don't bundle multiple asks into one paragraph.
+- **One open question at a time.** While a question waits on the user, ask no other one and never
+  re-ask it. A turn woken by a background notification, not by the user, adds no question; if it
+  must say anything, one line, no option list. Prefer foreground agents when a question will be
+  open while they run. Owner, 2026-10-17, after the same inbox question was posted three times.
 - Minimize required typing. "Other" is always available for freeform, so don't pre-solicit prose.
 - A confirmation prompt for a command that will recur offers *"Yes, and add to permissions"* as a
   listed option upfront, and persisting it is in the `presenting-options` skill.
