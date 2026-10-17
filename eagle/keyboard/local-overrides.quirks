@@ -1,0 +1,13 @@
+# >>> eagle keyboard debounce >>>
+# debounced grabs the applespi keyboard and re-emits keys through a uinput
+# device named debounced-virtual-keyboard that copies the source bus (spi) and
+# vendor (0). libinput then sees keystrokes only on the virtual device, so the
+# touchpad's disable-while-typing must pair with it: give it the same
+# AttrKeyboardIntegration=internal as eagle/touchpad gives the real one.
+# Added 2026-10-16, dotfiles issue #7.
+[debounced virtual keyboard (eagle applespi)]
+MatchUdevType=keyboard
+MatchBus=spi
+MatchName=debounced-virtual-keyboard
+AttrKeyboardIntegration=internal
+# <<< eagle keyboard debounce <<<

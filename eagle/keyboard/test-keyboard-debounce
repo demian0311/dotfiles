@@ -1,0 +1,43 @@
+#!/bin/bash
+# Check that debounced is attached to the applespi keyboard and that keys now
+# arrive through the virtual device. Run as the user. Exit 0 when all pass.
+# `sudo` is needed for debouncectl: the daemon's socket is /tmp/debounced.sock,
+# and from a user shell debouncectl would look in /run/user/$UID and spawn a
+# second daemon there.
+set -uo pipefail
+fail=0
+
+if [[ $(systemctl is-active debounced.service) == active ]]; then
+  echo "ok    debounced.service active"
+else
+  echo "FAIL  debounced.service not active: $(systemctl is-active debounced.service)"
+  fail=1
+fi
+
+status="$(sudo env -u XDG_RUNTIME_DIR debouncectl status 2>&1)"
+if grep -q 'Running: Y' <<<"$status"; then
+  echo "ok    debouncectl status: $(tr '\n' ' ' <<<"$status")"
+else
+  echo "FAIL  debouncectl status: $(tr '\n' ' ' <<<"$status")"
+  fail=1
+fi
+
+if hyprctl devices 2>/dev/null | grep -q debounced-virtual-keyboard; then
+  echo "ok    Hyprland sees debounced-virtual-keyboard"
+else
+  echo "FAIL  Hyprland does not list debounced-virtual-keyboard"
+  fail=1
+fi
+
+run="${XDG_RUNTIME_DIR:-/run/user/$UID}/hypr"
+log="$(ls -t "$run"/*/hyprland.log 2>/dev/null | head -1)"
+if [[ -n $log ]] && grep -q 'palm: dwt activated with Apple SPI Touchpad<->debounced-virtual-keyboard' "$log"; then
+  echo "ok    touchpad disable-while-typing paired with the virtual keyboard"
+else
+  echo "FAIL  dwt not paired with debounced-virtual-keyboard this session (re-login after install)"
+  fail=1
+fi
+
+n="$(journalctl -u debounced.service -b --no-pager 2>/dev/null | grep -c 'canceled pending UP')"
+echo "info  chatter events swallowed this boot: $n  (journalctl -u debounced -b | grep 'canceled pending UP')"
+exit $fail

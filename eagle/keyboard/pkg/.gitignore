@@ -1,0 +1,5 @@
+src/
+pkg/
+key-debouncer/
+*.pkg.tar.zst
+*.log

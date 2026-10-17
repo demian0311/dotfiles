@@ -1,0 +1,27 @@
+# Local build of the AUR "debounced" package (same pkgname, same upstream,
+# same install layout) pinned to the v2.2 commit instead of codeberg's
+# generated tarball. The AUR PKGBUILD's sha256 for that tarball stopped
+# matching on 2026-10-16 (codeberg regenerates archives; the content was
+# byte-identical to the tag), so yay -S debounced fails validation.
+# Upstream: https://codeberg.org/Giantvince1/key-debouncer
+pkgname=debounced
+pkgver=2.2
+pkgrel=2
+pkgdesc="Userspace keyboard debounce daemon with FlashTap support"
+arch=('x86_64')
+url="https://codeberg.org/Giantvince1/key-debouncer"
+license=('GPL3')
+depends=('libevdev' 'systemd')
+makedepends=('gcc' 'make' 'git')
+source=("key-debouncer::git+https://codeberg.org/Giantvince1/key-debouncer.git#commit=804d802b97d97a497a53df132fb82aea166f73a7")
+sha256sums=('SKIP')
+
+build() {
+    cd key-debouncer
+    make
+}
+
+package() {
+    cd key-debouncer
+    make install DESTDIR="$pkgdir" PREFIX=/usr SYSTEMD_UNITDIR=/usr/lib/systemd/system
+}

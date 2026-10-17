@@ -21,7 +21,7 @@ if [[ -z $log ]]; then
   exit 1
 fi
 
-if grep -q 'palm: dwt activated with Apple SPI Touchpad<->Apple SPI Keyboard' "$log"; then
+if grep -qE 'palm: dwt activated with Apple SPI Touchpad<->(Apple SPI Keyboard|debounced-virtual-keyboard)' "$log"; then
   echo "ok    libinput paired touchpad<->keyboard for dwt (this session)"
 else
   echo "FAIL  no 'dwt activated' line in $log"

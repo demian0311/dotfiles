@@ -1,0 +1,15 @@
+#!/bin/bash
+# ExecStartPost for debounced.service: wait for the daemon's socket and the
+# keyboard node, then attach. Env comes from the drop-in (debounced.conf).
+# A failed attach fails the unit; Restart=on-failure retries after 5 s.
+set -uo pipefail
+: "${DEBOUNCE_DEV:?}" "${DEBOUNCE_MS:?}" "${DEBOUNCE_SOCK:?}"
+for _ in $(seq 1 100); do
+  [[ -S $DEBOUNCE_SOCK && -e $DEBOUNCE_DEV ]] && break
+  sleep 0.1
+done
+[[ -S $DEBOUNCE_SOCK ]] || { echo "no socket at $DEBOUNCE_SOCK after 10 s" >&2; exit 1; }
+[[ -e $DEBOUNCE_DEV ]] || { echo "no keyboard at $DEBOUNCE_DEV after 10 s" >&2; exit 1; }
+# debouncectl derives the socket path from XDG_RUNTIME_DIR; keep it unset so it
+# matches the daemon's.
+exec env -u XDG_RUNTIME_DIR debouncectl start "$DEBOUNCE_DEV" "$DEBOUNCE_MS" d
