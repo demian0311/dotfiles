@@ -10,6 +10,8 @@
 # directory to my GitHub profile". Machine and tooling notes pass. A product's
 # infrastructure, its private repo layout, its tracker, its billing state and
 # its security findings do not, however unglamorous each line looks alone.
+# A pool that must sync but must not be public goes in PRIVATE instead, which
+# points it at a directory in a private repo.
 
 home
 openclaw-workspace

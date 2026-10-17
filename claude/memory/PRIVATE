@@ -1,0 +1,11 @@
+# Pools that live in a PRIVATE repo instead of this public one.
+#
+# One "<pool> <root>" per line; "~" is expanded; "#" comments and blank lines are
+# ignored. link-memory.sh symlinks ~/.claude/projects/<slug>/memory at
+# <root>/<pool>. The root must already be a directory inside a private repo that
+# syncs between machines on its own -- this file only points at it.
+#
+# A pool named here must NOT also be in PUBLIC. A pool in neither file stays
+# wherever Claude Code wrote it, unlinked and unsynced.
+
+diagrammo ~/code/diagrammo/.claude/memory

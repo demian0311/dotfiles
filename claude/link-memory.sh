@@ -34,6 +34,26 @@ say() { $quiet || printf "$@"; }
 public_list="$pool_root/PUBLIC"
 is_public() { [ -f "$public_list" ] && grep -qxF "$1" "$public_list"; }
 
+# Private pools: claude/memory/PRIVATE maps a pool to a root OUTSIDE this repo,
+# one "<pool> <root>" per line, "~" allowed. The root is a directory in some
+# private repo that already syncs between machines; the pool becomes
+# <root>/<pool>, exactly as public pools become claude/memory/<pool>. A pool in
+# neither file is left where Claude Code put it. Added 2026-10-16 after the
+# diagrammo pool, deliberately kept out of PUBLIC, was copied into this repo by
+# hand because nothing else gave it a home (diagrammo#1379).
+private_list="$pool_root/PRIVATE"
+private_root_for() {
+  [ -f "$private_list" ] || return 1
+  local p r
+  while read -r p r; do
+    case "$p" in ''|'#'*) continue ;; esac
+    [ "$p" = "$1" ] || continue
+    printf '%s' "${r/#\~/$HOME}"
+    return 0
+  done < "$private_list"
+  return 1
+}
+
 # A directory's pool: the main checkout's name for anything in a git repo (so a
 # worktree resolves to its parent), else the directory's own name. $HOME is
 # "home" rather than the username, so the two machines agree.
@@ -73,7 +93,12 @@ link_one() {
   slug="$(slug_for "$dir")"
   mem="$projects/$slug/memory"
 
-  if ! is_public "$pool"; then
+  local root
+  if is_public "$pool"; then
+    root="$pool_root"
+  elif root="$(private_root_for "$pool")"; then
+    :
+  else
     # Already linked in means this pool IS publishing, whatever the list says --
     # the other machine may have linked it before the list existed. Say so every
     # run, loudly and even under --quiet, rather than leaving it to be noticed.
@@ -81,13 +106,15 @@ link_one() {
       printf 'WARN   memory/%s is linked into the PUBLIC repo and is not in memory/PUBLIC\n' "$pool"
       return 0
     fi
-    say 'skip   %s (pool "%s" not in memory/PUBLIC; notes stay private)\n' "$slug" "$pool"
+    say 'skip   %s (pool "%s" in neither memory/PUBLIC nor memory/PRIVATE; notes stay put)\n' "$slug" "$pool"
     return 0
   fi
+  # A private pool still linked at the old public location is re-pointed below;
+  # the notes themselves are moved by hand once (git mv), not by this script.
 
-  mkdir -p "$pool_root/$pool" "$projects/$slug"
+  mkdir -p "$root/$pool" "$projects/$slug"
 
-  if [ -L "$mem" ] && [ "$(readlink "$mem")" = "$pool_root/$pool" ]; then
+  if [ -L "$mem" ] && [ "$(readlink "$mem")" = "$root/$pool" ]; then
     say 'ok     memory/%s <- %s\n' "$pool" "$slug"
     return 0
   fi
@@ -98,15 +125,15 @@ link_one() {
     local moved=0
     for f in "$mem"/*; do
       [ -e "$f" ] || continue
-      if [ -e "$pool_root/$pool/$(basename "$f")" ]; then
+      if [ -e "$root/$pool/$(basename "$f")" ]; then
         # Keep both, but move BOTH in: a leftover here makes the rmdir below
         # fail, and the directory is then left with neither a link nor the
         # notes -- Claude reads nothing at all. Measured 2026-09-21.
         printf 'keep   memory/%s/%s (pool copy wins; local kept as %s.local)\n' \
           "$pool" "$(basename "$f")" "$(basename "$f")"
-        mv "$f" "$pool_root/$pool/$(basename "$f").local"
+        mv "$f" "$root/$pool/$(basename "$f").local"
       else
-        mv "$f" "$pool_root/$pool/" && moved=$((moved+1))
+        mv "$f" "$root/$pool/" && moved=$((moved+1))
       fi
     done
     if ! rmdir "$mem" 2>/dev/null; then
@@ -118,7 +145,7 @@ link_one() {
     rm -f "$mem"
   fi
 
-  ln -sfn "$pool_root/$pool" "$mem"
+  ln -sfn "$root/$pool" "$mem"
   printf 'link   memory/%s <- %s\n' "$pool" "$slug"
 }
 
