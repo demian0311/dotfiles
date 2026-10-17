@@ -3,7 +3,7 @@ command_timeout = 200
 format = "[$hostname$directory$git_branch$git_status]($style)$character"
 
 [hostname]
-ssh_only = false
+ssh_only = true
 format = "[$hostname]($style):"
 style = "bold cyan"
 
