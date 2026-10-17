@@ -21,3 +21,18 @@ gitleaks protect --staged --redact -v || {
   printf '\npre-commit: gitleaks found something in the staged changes. This repo is public.\n' >&2
   exit 1
 }
+
+# Always-loaded rule files have a byte ceiling. Every byte here is re-sent on
+# every request of every session, and the 2026-09-21 trim had regrown 35% by
+# 2026-10-16 because nothing stopped it (diagrammo#1379). To add a paragraph,
+# cut one; history goes to a memory note, procedure to a skill.
+check_ceiling() {
+  f="$1"; max="$2"
+  git diff --cached --quiet -- "$f" 2>/dev/null && return 0
+  n="$(git show ":$f" 2>/dev/null | wc -c | tr -d ' ')"
+  [ "$n" -le "$max" ] && return 0
+  printf 'pre-commit: %s is %s bytes, ceiling %s. Move history to memory or procedure to a skill.\n' "$f" "$n" "$max" >&2
+  exit 1
+}
+check_ceiling claude/CLAUDE.md 24000
+check_ceiling agents/GLOBAL.md 8200

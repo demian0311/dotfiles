@@ -1,0 +1,6 @@
+- [Read tool residency](read-tool-residency.md) — the tool-output audit numbers behind "never read a whole file"
+- [Subagent model routing](subagent-model-routing.md) — why `locate`/`Explore` are Haiku by definition and a hook gates model-less spawns
+- [Push-queue fan-out](push-queue-fanout.md) — 2026-10-09: seven parallel agents, one push queue, 20+ min each
+- [Verify the running system](verify-the-running-system.md) — the red-CI and one-repo incidents behind the rule
+- [Git hygiene incidents](git-hygiene-incidents.md) — what amend, checkout --, bare cat and -m each cost
+- [Next-steps offer incident](next-steps-offer-incident.md) — 2026-09-21: a diagnosis that offered options instead of listing them
