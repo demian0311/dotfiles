@@ -9,7 +9,15 @@
 # ones before it were necessary too. Everything is undone at exit (trap), in
 # reverse order, unless --keep. Nothing is persisted. Root only (debugfs, sysfs).
 #
-# Usage: sudo bash eagle-sleep-blockers [--window SEC] [--with-wifi] [--keep] [--dry-run]
+# Usage: sudo bash eagle-sleep-blockers [--window SEC] [--with-wifi] [--keep] [--dry-run] [--ltr LIST]
+#   --ltr 8,1     INSTEAD of the default steps: tell the PMC to ignore the latency
+#                 tolerance report (LTR) of these IP indexes, cumulatively, one per
+#                 step. Indexes are the first column of eagle-pc-limit-probe §4
+#                 (8 = SOUTHPORT_C: Wi-Fi + camera, reported 61 us on 2026-10-17;
+#                 1 = SOUTHPORT_B: Thunderbolt, reports nothing). Restored at exit
+#                 through pmc_core/ltr_restore when the kernel has it, else by reboot.
+#                 Each row also pings the default gateway: a device whose LTR was
+#                 real may stall, and Wi-Fi is the one that would show it.
 #   --window N    seconds per measurement window (default 45). Total ~ 5 x N.
 #   --with-wifi   add a last step: Wi-Fi power save on (brcmfmac is flaky; off by default).
 #   --keep        leave the changes in place at exit (reboot reverts them all).
@@ -30,13 +38,14 @@
 # keyboard or lid, input dies until the script ends; it ends on its own, so wait.
 set -u
 
-window=45 with_wifi=0 keep=0 dry=0
+window=45 with_wifi=0 keep=0 dry=0 ltr=""
 while (($#)); do
   case $1 in
   --window) window=$2; shift 2 ;;
   --with-wifi) with_wifi=1; shift ;;
   --keep) keep=1; shift ;;
   --dry-run) dry=1; shift ;;
+  --ltr) ltr=$2; shift 2 ;;
   *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -47,6 +56,9 @@ sci=/sys/firmware/acpi/interrupts/sci
 aspm=/sys/module/pcie_aspm/parameters/policy
 bat=/sys/class/power_supply/BAT0
 wifi=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')
+ltr_ignore=/sys/kernel/debug/pmc_core/ltr_ignore
+ltr_restore=/sys/kernel/debug/pmc_core/ltr_restore
+gw=$(ip route 2>/dev/null | awk '/^default/{print $3; exit}')
 
 if [[ $EUID -ne 0 && $dry -eq 0 ]]; then echo "needs root: sudo bash $0" >&2; exit 1; fi
 [[ -r $pkgc ]] || echo "warning: $pkgc unreadable; package C-state columns will be empty" >&2
@@ -69,6 +81,8 @@ measure() { # $1 = label
   read_pkgc pc0; read i0 t0 < <(cpu_idle_ticks); s0=$(sci_count); w0=$(watts)
   sleep "$window"
   read_pkgc pc1; read i1 t1 < <(cpu_idle_ticks); s1=$(sci_count); w1=$(watts)
+  local loss="-"
+  [[ -n $gw ]] && loss=$(ping -c3 -W1 -q "$gw" 2>/dev/null | grep -oE '[0-9]+% packet loss' | cut -d' ' -f1)
   local us=$((window * 1000000)) line="" k
   pc6=0
   for k in C2 C3 C6 C7 C8 C9 C10; do
@@ -77,14 +91,15 @@ measure() { # $1 = label
     line+=$(awk -v d="$d" -v us="$us" -v k="$k" 'BEGIN{printf " %s=%4.1f%%", k, 100*d/us}')
     [[ $k != C2 && $k != C3 ]] && pc6=$((pc6 + d))
   done
-  printf "%-28s cpu idle %5.1f%%  sci %4d/s  %s W -> %s W  PC6+ share %5.1f%% |%s\n" \
+  printf "%-28s cpu idle %5.1f%%  sci %4d/s  %s W -> %s W  ping loss %-4s PC6+ share %5.1f%% |%s\n" \
     "$label" "$(awk -v a="$i0" -v b="$i1" -v c="$t0" -v d="$t1" 'BEGIN{printf "%f", 100*(b-a)/((d-c)?(d-c):1)}')" \
-    $(( (s1 - s0) / window )) "$w0" "$w1" "$(awk -v p="$pc6" -v us="$us" 'BEGIN{printf "%f", 100*p/us}')" "$line"
+    $(( (s1 - s0) / window )) "$w0" "$w1" "$loss" "$(awk -v p="$pc6" -v us="$us" 'BEGIN{printf "%f", 100*p/us}')" "$line"
 }
 
 # ---- steps and their reverts -----------------------------------------------
 aspm_old=$(awk '{for(i=1;i<=NF;i++) if($i ~ /^\[/){gsub(/[\[\]]/,"",$i); print $i}}' "$aspm")
 did_gpe=0 did_aspm=0 did_cam=0 did_tb=0 did_wifi=0 bolt_was=inactive
+ltr_done=()
 do_write() { # $1 value $2 path; returns the write's status
   if ((dry)); then echo "  would: echo $1 > $2"; return 0; fi
   if ! echo "$1" >"$2" 2>/dev/null; then echo "  write to $2 refused (firmware owns it?), skipped"; return 1; fi
@@ -92,6 +107,10 @@ do_write() { # $1 value $2 path; returns the write's status
 revert() {
   ((keep)) && { echo "--keep: changes left in place; reboot reverts them."; return; }
   echo "reverting..."
+  if ((${#ltr_done[@]})); then
+    if [[ -w $ltr_restore ]]; then for i in "${ltr_done[@]}"; do echo "$i" >"$ltr_restore"; done; echo "  LTR restored for IP ${ltr_done[*]}"
+    else echo "  kernel has no $ltr_restore: LTR ignore for IP ${ltr_done[*]} stays until reboot"; fi
+  fi
   ((did_wifi)) && iw dev "$wifi" set power_save off
   if ((did_tb)); then modprobe thunderbolt; [[ $bolt_was == active ]] && systemctl start bolt; fi
   ((did_cam)) && modprobe facetimehd
@@ -107,6 +126,21 @@ echo "GPE17: $(cat "$gpe" 2>/dev/null)   ASPM: $aspm_old   facetimehd: $(lsmod |
 echo
 
 measure "0 baseline"
+
+if [[ -n $ltr ]]; then
+  [[ -w $ltr_ignore || $dry -eq 1 ]] || { echo "no $ltr_ignore (intel_pmc_core missing?)"; exit 1; }
+  IFS=, read -ra ips <<<"$ltr"
+  n=1
+  for ip in "${ips[@]}"; do
+    name=$(awk -v i="$ip" '$1==i{print $2}' /sys/kernel/debug/pmc_core/ltr_show 2>/dev/null | sed 's/PMC0://')
+    do_write "$ip" "$ltr_ignore" && ((dry==0)) && ltr_done+=("$ip")
+    measure "$n +LTR ignored: ${name:-IP $ip}"
+    ((n++))
+  done
+  echo; echo "Read: PC6+ share above a few percent means the ignored LTR was the cap. Any ping loss means"
+  echo "that device needed its latency; do not persist that index."
+  exit 0
+fi
 
 do_write disable "$gpe" && ((dry==0)) && did_gpe=1
 measure "1 +gpe17 disabled"
