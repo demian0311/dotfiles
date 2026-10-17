@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# eagle: why does the package never pass PC3? Read-only, root. Writes nothing
+# (loads the msr module to read one register, that is all).
+set -u
+echo "== 1. PCIe link ASPM state per root port and endpoint (firmware-owned) =="
+for d in 00:1c.0 00:1c.4 00:1d.0 00:1d.1 01:00.0 02:00.0 03:00.0 04:00.0 05:00.0 05:01.0 05:02.0 05:04.0 06:00.0 07:00.0; do
+  printf "%-8s %s\n" "$d" "$(lspci -vv -s "$d" 2>/dev/null | grep -E 'LnkCap:|LnkCtl:' | sed -E 's/.*(ASPM [^,;]*).*/\1/' | tr '\n' ' ')"
+done
+echo
+echo "== 2. MSR 0xE2 PKG_CST_CONFIG_CONTROL on cpu0 =="
+modprobe msr 2>/dev/null
+python3 - <<'PY'
+import struct
+try:
+    with open('/dev/cpu/0/msr','rb') as f:
+        f.seek(0xE2); v=struct.unpack('<Q', f.read(8))[0]
+    lim=v & 0xF; lock=(v>>15)&1
+    names={0:'C0/C1',1:'C2',2:'C3',3:'C6',4:'C7',5:'C7s',6:'C8',7:'C9',8:'C10'}
+    print(f"raw=0x{v:x}  package C-state limit = {names.get(lim,lim)}  CFG lock bit15 = {lock}  (KBL encoding)")
+except Exception as e:
+    print("msr read failed:", e)
+PY
+echo
+echo "== 3. PCH IP power gating (lines saying 'On' are blocking PCH sleep) =="
+cat /sys/kernel/debug/pmc_core/pch_ip_power_gating_status 2>/dev/null || echo "not available"
+echo
+echo "== 4. PMC: LTR, PLL, SLP_S0 =="
+cat /sys/kernel/debug/pmc_core/ltr_show 2>/dev/null | head -40
+cat /sys/kernel/debug/pmc_core/pll_status 2>/dev/null
+printf "slp_s0_residency_usec="; cat /sys/kernel/debug/pmc_core/slp_s0_residency_usec 2>/dev/null || echo n/a
+echo
+echo "== 5. Panel self refresh =="
+ls /sys/kernel/debug/dri/1/ 2>/dev/null | grep -iE 'psr|fbc|dc|power' | tr '\n' ' '; echo
+for f in /sys/kernel/debug/dri/1/*psr* /sys/kernel/debug/dri/1/eDP-1/*psr*; do [[ -r $f ]] && { echo "-- $f"; head -12 "$f"; }; done
+echo "-- i915_dmc_info"; head -6 /sys/kernel/debug/dri/1/i915_dmc_info 2>/dev/null
+echo "-- display power"; grep -E 'DC5|DC6|DC state|power well' /sys/kernel/debug/dri/1/i915_runtime_pm_status 2>/dev/null | head -8

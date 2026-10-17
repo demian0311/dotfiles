@@ -20,6 +20,12 @@
 # "cpu idle" must be high (> 90 %) for a window to mean anything: a busy core
 # keeps the package awake by itself. Close Chromium and heavy agents first.
 #
+# Result 2026-10-17 12:24 (dotfiles #15): all four steps left PC6+ at 0 % with cpu
+# idle at 94-97 %. Step 2 is refused on eagle: Apple firmware does not grant the OS
+# ASPM control ("OS doesn't have ASPM control" in dmesg), so the policy file is
+# read-only unless the kernel boots with pcie_aspm=force. The blocker is not among
+# these four; see eagle-pc-limit-probe (MSR 0xE2 limit, PCH IP power gating).
+#
 # Step 1 disables ACPI GPE17 for the remaining windows. If GPE17 feeds the
 # keyboard or lid, input dies until the script ends; it ends on its own, so wait.
 set -u
@@ -53,7 +59,9 @@ read_pkgc() { # $1 = array name
   while read -r _ n _ v; do out[$n]=$v; done <"$pkgc" # "Package C2 : 123" -> n=C2 v=123 (microseconds)
 }
 cpu_idle_ticks() { awk '/^cpu /{print $5+$6, $2+$3+$4+$5+$6+$7+$8}' /proc/stat; }
-watts() { awk -v c="$(<"$bat/current_now")" -v v="$(<"$bat/voltage_now")" 'BEGIN{printf "%.1f", c*v/1e12}' 2>/dev/null; }
+watts() { # discharge watts, or "AC" when not discharging (charging current would read as draw)
+  [[ $(<"$bat/status") == Discharging ]] || { echo AC; return; }
+  awk -v c="$(<"$bat/current_now")" -v v="$(<"$bat/voltage_now")" 'BEGIN{printf "%.1f", c*v/1e12}' 2>/dev/null; }
 sci_count() { awk '{print $1}' "$sci" 2>/dev/null || echo 0; }
 
 measure() { # $1 = label
@@ -77,8 +85,9 @@ measure() { # $1 = label
 # ---- steps and their reverts -----------------------------------------------
 aspm_old=$(awk '{for(i=1;i<=NF;i++) if($i ~ /^\[/){gsub(/[\[\]]/,"",$i); print $i}}' "$aspm")
 did_gpe=0 did_aspm=0 did_cam=0 did_tb=0 did_wifi=0 bolt_was=inactive
-do_write() { # $1 value $2 path
-  if ((dry)); then echo "  would: echo $1 > $2"; else echo "$1" >"$2"; fi
+do_write() { # $1 value $2 path; returns the write's status
+  if ((dry)); then echo "  would: echo $1 > $2"; return 0; fi
+  if ! echo "$1" >"$2" 2>/dev/null; then echo "  write to $2 refused (firmware owns it?), skipped"; return 1; fi
 }
 revert() {
   ((keep)) && { echo "--keep: changes left in place; reboot reverts them."; return; }
@@ -99,10 +108,10 @@ echo
 
 measure "0 baseline"
 
-do_write disable "$gpe"; ((dry)) || did_gpe=1
+do_write disable "$gpe" && ((dry==0)) && did_gpe=1
 measure "1 +gpe17 disabled"
 
-do_write powersupersave "$aspm"; ((dry)) || did_aspm=1
+do_write powersupersave "$aspm" && ((dry==0)) && did_aspm=1
 measure "2 +aspm powersupersave"
 
 if ((dry)); then echo "  would: modprobe -r facetimehd"
