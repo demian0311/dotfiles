@@ -19,3 +19,11 @@
 - [Reply length ceiling](reply-length-ceiling.md) — a page and a half, hard; the real reason is output billing at 5×, not context, which is 0.4%.
 - [Memory is in a public repo](memory-is-in-a-public-repo.md) — pooling is OPT-IN via memory/PUBLIC; every note is written for a public audience; what gitleaks cannot catch.
 - [/tmp inode exhaustion](tmp-inode-exhaustion.md) — 2026-10-10 outage from leaked test temp dirs; fixes landed, how to diagnose.
+- [eagle MBP sound and camera](eagle-mbp-sound-camera.md) — CS8409 DKMS amp fix and facetimehd camera; verified 2026-10-16; check `dkms status` after kernel updates.
+- [3-finger drag eats 4-finger swipe](libinput-3fg-drag-eats-4fg-swipe.md) — eagle: libinput’s no-tap fast path hides the 4th finger; fix 2026-10-17 is tap on + drag_3fg=1 + tap_and_drag off (dotfiles #9).
+- [eagle Wi-Fi faults](eagle-wifi-boot-off.md) — NM state file, card probe failure on warm reboot, iwd detour reverted 2026-10-16; `wifi-rescue` recovers.
+- [eagle lid suspend](eagle-lid-suspend.md) — deep S3 still hangs intermittently (20:49 regression); pm_async=0 not the fix; PM debug printk lead.
+- [eagle power brightness + profile](eagle-power-brightness.md) — user service sets 33/80/100% and power-saver/balanced on power-state change; eagle/tuneup/install.sh (mbpfan, rtkit, fstrim, limine) ran and verified 2026-10-16 22:42.
+- [eagle touchpad DWT quirk](eagle-touchpad-dwt-quirk.md) — disable-while-typing never paired (applespi keyboard vendor 0); fix in dotfiles/eagle/touchpad, verify via Hyprland log, 2026-10-16.
+- [eagle keyboard debounce](eagle-keyboard-debounce.md) — butterfly keyboard double-types; debounced daemon via dotfiles/eagle/keyboard, landed 2026-10-16, not yet installed; socket-path trap.
+- [Hyprland plugin dev crashes](hyprland-plugin-dev-crashes.md) — 2026-10-16/17 the eagle-zoom plugin killed Hyprland twice (dlclose on hot-unload, C++-mangled Lua symbol under lazy binding); link -z now, never hot-unload, test in a nested Hyprland.
