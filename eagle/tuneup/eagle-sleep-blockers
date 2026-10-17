@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# eagle: find what keeps the CPU package out of its deep sleep states (PC6..PC10).
+# Finding 2026-10-17 (dotfiles #15): PC6..PC10 residency was 0 over 11.9 h; PC2+PC3
+# together were 1.3 % of uptime. The package practically never leaves PC0.
+#
+# Method: measure a quiet window, then remove one suspected blocker at a time,
+# CUMULATIVELY, measuring after each. Deep states appear only once every blocker
+# is gone, so the step whose window first shows PC6+ is the last blocker, and the
+# ones before it were necessary too. Everything is undone at exit (trap), in
+# reverse order, unless --keep. Nothing is persisted. Root only (debugfs, sysfs).
+#
+# Usage: sudo bash eagle-sleep-blockers [--window SEC] [--with-wifi] [--keep] [--dry-run]
+#   --window N    seconds per measurement window (default 45). Total ~ 5 x N.
+#   --with-wifi   add a last step: Wi-Fi power save on (brcmfmac is flaky; off by default).
+#   --keep        leave the changes in place at exit (reboot reverts them all).
+#   --dry-run     print what would be written; still measures the baseline.
+#
+# Read the result as: "PC6+ share" is the fraction of the window the package
+# spent in PC6 or deeper. Idle Kaby Lake-U on battery should reach 50-90 %.
+# "cpu idle" must be high (> 90 %) for a window to mean anything: a busy core
+# keeps the package awake by itself. Close Chromium and heavy agents first.
+#
+# Step 1 disables ACPI GPE17 for the remaining windows. If GPE17 feeds the
+# keyboard or lid, input dies until the script ends; it ends on its own, so wait.
+set -u
+
+window=45 with_wifi=0 keep=0 dry=0
+while (($#)); do
+  case $1 in
+  --window) window=$2; shift 2 ;;
+  --with-wifi) with_wifi=1; shift ;;
+  --keep) keep=1; shift ;;
+  --dry-run) dry=1; shift ;;
+  *) echo "unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
+
+pkgc=/sys/kernel/debug/pmc_core/package_cstate_show
+gpe=/sys/firmware/acpi/interrupts/gpe17
+sci=/sys/firmware/acpi/interrupts/sci
+aspm=/sys/module/pcie_aspm/parameters/policy
+bat=/sys/class/power_supply/BAT0
+wifi=$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')
+
+if [[ $EUID -ne 0 && $dry -eq 0 ]]; then echo "needs root: sudo bash $0" >&2; exit 1; fi
+[[ -r $pkgc ]] || echo "warning: $pkgc unreadable; package C-state columns will be empty" >&2
+
+# ---- measurement -----------------------------------------------------------
+declare -A pc0 pc1
+read_pkgc() { # $1 = array name
+  local -n out=$1
+  [[ -r $pkgc ]] || return 0
+  while read -r _ n _ v; do out[$n]=$v; done <"$pkgc" # "Package C2 : 123" -> n=C2 v=123 (microseconds)
+}
+cpu_idle_ticks() { awk '/^cpu /{print $5+$6, $2+$3+$4+$5+$6+$7+$8}' /proc/stat; }
+watts() { awk -v c="$(<"$bat/current_now")" -v v="$(<"$bat/voltage_now")" 'BEGIN{printf "%.1f", c*v/1e12}' 2>/dev/null; }
+sci_count() { awk '{print $1}' "$sci" 2>/dev/null || echo 0; }
+
+measure() { # $1 = label
+  local label=$1 i0 t0 i1 t1 s0 s1 w0 w1 pc6
+  read_pkgc pc0; read i0 t0 < <(cpu_idle_ticks); s0=$(sci_count); w0=$(watts)
+  sleep "$window"
+  read_pkgc pc1; read i1 t1 < <(cpu_idle_ticks); s1=$(sci_count); w1=$(watts)
+  local us=$((window * 1000000)) line="" k
+  pc6=0
+  for k in C2 C3 C6 C7 C8 C9 C10; do
+    [[ -n ${pc1[$k]:-} ]] || continue
+    local d=$(( ${pc1[$k]} - ${pc0[$k]} ))
+    line+=$(awk -v d="$d" -v us="$us" -v k="$k" 'BEGIN{printf " %s=%4.1f%%", k, 100*d/us}')
+    [[ $k != C2 && $k != C3 ]] && pc6=$((pc6 + d))
+  done
+  printf "%-28s cpu idle %5.1f%%  sci %4d/s  %s W -> %s W  PC6+ share %5.1f%% |%s\n" \
+    "$label" "$(awk -v a="$i0" -v b="$i1" -v c="$t0" -v d="$t1" 'BEGIN{printf "%f", 100*(b-a)/((d-c)?(d-c):1)}')" \
+    $(( (s1 - s0) / window )) "$w0" "$w1" "$(awk -v p="$pc6" -v us="$us" 'BEGIN{printf "%f", 100*p/us}')" "$line"
+}
+
+# ---- steps and their reverts -----------------------------------------------
+aspm_old=$(awk '{for(i=1;i<=NF;i++) if($i ~ /^\[/){gsub(/[\[\]]/,"",$i); print $i}}' "$aspm")
+did_gpe=0 did_aspm=0 did_cam=0 did_tb=0 did_wifi=0 bolt_was=inactive
+do_write() { # $1 value $2 path
+  if ((dry)); then echo "  would: echo $1 > $2"; else echo "$1" >"$2"; fi
+}
+revert() {
+  ((keep)) && { echo "--keep: changes left in place; reboot reverts them."; return; }
+  echo "reverting..."
+  ((did_wifi)) && iw dev "$wifi" set power_save off
+  if ((did_tb)); then modprobe thunderbolt; [[ $bolt_was == active ]] && systemctl start bolt; fi
+  ((did_cam)) && modprobe facetimehd
+  ((did_aspm)) && echo "$aspm_old" >"$aspm"
+  ((did_gpe)) && echo enable >"$gpe"
+  echo "reverted."
+}
+trap revert EXIT
+
+echo "eagle-sleep-blockers  $(date '+%F %T')  window=${window}s  kernel $(uname -r)"
+echo "PSR: $(grep -hE 'Enabled|PSR mode' /sys/kernel/debug/dri/*/i915_edp_psr_status 2>/dev/null | tr '\n' ' ')"
+echo "GPE17: $(cat "$gpe" 2>/dev/null)   ASPM: $aspm_old   facetimehd: $(lsmod | grep -c '^facetimehd') thunderbolt: $(lsmod | grep -c '^thunderbolt ')"
+echo
+
+measure "0 baseline"
+
+do_write disable "$gpe"; ((dry)) || did_gpe=1
+measure "1 +gpe17 disabled"
+
+do_write powersupersave "$aspm"; ((dry)) || did_aspm=1
+measure "2 +aspm powersupersave"
+
+if ((dry)); then echo "  would: modprobe -r facetimehd"
+elif modprobe -r facetimehd 2>/dev/null; then did_cam=1
+else echo "  facetimehd busy (camera open?), skipped"; fi
+measure "3 +camera driver out"
+
+if ((dry)); then echo "  would: systemctl stop bolt; modprobe -r thunderbolt"
+else
+  bolt_was=$(systemctl is-active bolt)
+  systemctl stop bolt 2>/dev/null
+  if modprobe -r thunderbolt 2>/dev/null; then did_tb=1; else echo "  thunderbolt busy (device attached?), skipped"; fi
+fi
+measure "4 +thunderbolt driver out"
+
+if ((with_wifi)) && [[ -n $wifi ]]; then
+  if ((dry)); then echo "  would: iw dev $wifi set power_save on"; else iw dev "$wifi" set power_save on && did_wifi=1; fi
+  measure "5 +wifi power save"
+fi
+
+echo
+echo "Read: the first row whose PC6+ share rises above a few percent names the last blocker;"
+echo "every step before it was needed too. Rows with cpu idle under 90 % are not trustworthy."
