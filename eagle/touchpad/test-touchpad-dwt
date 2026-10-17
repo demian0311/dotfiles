@@ -1,0 +1,37 @@
+#!/bin/bash
+# Check that libinput paired the touchpad with the keyboard for
+# disable-while-typing. Run as the user, inside a Hyprland session, after
+# install.sh and a re-login. Exit 0 when paired.
+set -uo pipefail
+
+target=/etc/libinput/local-overrides.quirks
+fail=0
+
+if grep -qsF 'MatchName=Apple SPI Keyboard' "$target"; then
+  echo "ok    quirk present in $target"
+else
+  echo "FAIL  quirk missing from $target (run install.sh as root)"
+  fail=1
+fi
+
+run="${XDG_RUNTIME_DIR:-/run/user/$UID}/hypr"
+log="$(ls -t "$run"/*/hyprland.log 2>/dev/null | head -1)"
+if [[ -z $log ]]; then
+  echo "FAIL  no Hyprland log under $run"
+  exit 1
+fi
+
+if grep -q 'palm: dwt activated with Apple SPI Touchpad<->Apple SPI Keyboard' "$log"; then
+  echo "ok    libinput paired touchpad<->keyboard for dwt (this session)"
+else
+  echo "FAIL  no 'dwt activated' line in $log"
+  echo "      quirks load when Hyprland starts: log out and back in after install.sh"
+  fail=1
+fi
+
+typing=$(grep -c 'palm detected (typing)' "$log")
+size=$(grep -c 'palm detected (touch size)' "$log")
+touches=$(grep -c 'touch-size: begin touch' "$log")
+echo "info  this session: $touches touches, $size palm-by-size, $typing palm-by-typing"
+(( fail == 0 )) && echo "PASS" || echo "FAIL"
+exit "$fail"

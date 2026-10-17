@@ -1,0 +1,12 @@
+# >>> eagle touchpad dwt >>>
+# libinput pairs a touchpad with a keyboard for disable-while-typing only when
+# the keyboard carries AttrKeyboardIntegration=internal (tp_want_dwt, libinput
+# 1.31.3). The shipped [Apple Internal Keyboard (SPI)] quirk matches vendor
+# 0x05AC; the applespi keyboard on eagle reports vendor 0x0000, so it never
+# matched and dwt never activated. Diagnosed 2026-10-16, dotfiles issue #6.
+[Apple Internal Keyboard (applespi, vendor 0)]
+MatchUdevType=keyboard
+MatchBus=spi
+MatchName=Apple SPI Keyboard
+AttrKeyboardIntegration=internal
+# <<< eagle touchpad dwt <<<
