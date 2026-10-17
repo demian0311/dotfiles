@@ -1,0 +1,78 @@
+#!/bin/bash
+# Run a script on the Mac (demian-personal-air) from anchor or eagle — the
+# reverse of `anchor`. Same forms, same exit codes, same --timeout/--check,
+# because it IS `anchor` pointed at another host (#1390).
+#
+#   mac --timeout 7200 <<'EOF'
+#   cd ~/code/diagrammo && scripts/release-all.sh --app 0.60.0 dgmo=0.90.0 ...
+#   EOF
+#
+# What an SSH session on the Mac lacks, and what this adds in front of the
+# script:
+#   - ~/bin (dotfiles/bin) on PATH. Only zsh's interactive files add it, and
+#     `anchor`'s `bash -l` reads none of them — release-all.sh calls `anchor`.
+#   - GH_TOKEN. gh keeps its token in the login keychain, which an SSH session
+#     cannot read ("The token in default is invalid"). The token is copied to
+#     ~/.config/diagrammo/gh-token at the desk:
+#       gh auth token > ~/.config/diagrammo/gh-token && chmod 600 $_
+#   - caffeinate for the life of the script, so idle sleep cannot cut a
+#     release off half-way. It cannot wake a Mac that is already asleep; the
+#     pmset settings in #1390 do that.
+#   - The script's REAL exit code. Tailscale SSH on this Mac (brew tailscaled
+#     1.102.3) reports 0 for every command — `ssh -n demian-personal-air false`
+#     exits 0, measured from anchor 2026-10-17 — so a failed release would
+#     read as success. The script runs in a subshell that prints a sentinel
+#     line with its status; this strips the line and exits with it. No
+#     sentinel at all means the session died mid-script: exit 1.
+# The signing certificate is release.sh's business, not this wrapper's.
+
+set -uo pipefail
+
+self=$(readlink -f "$0" 2>/dev/null || echo "$0")
+anchor_bin="$(dirname "$self")/anchor"
+export ANCHOR_HOST=${MAC_HOST:-demian-personal-air}
+
+preamble='export PATH="$HOME/bin:$PATH"
+if [ -z "${GH_TOKEN:-}" ] && ! gh api user --jq .login >/dev/null 2>&1 && [ -r "$HOME/.config/diagrammo/gh-token" ]; then
+  export GH_TOKEN=$(<"$HOME/.config/diagrammo/gh-token")
+fi
+caffeinate -ims -w $$ &
+'
+
+args=() script=
+while [ $# -gt 0 ]; do
+  case $1 in
+    --check)     exec "$anchor_bin" --check ;;
+    --timeout)   args+=(--timeout "$2"); shift 2 ;;
+    --timeout=*) args+=("$1"); shift ;;
+    -h|--help)   sed -n '2,22p' "$self" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --)          shift; script=$*; break ;;
+    -*)          echo "mac: unknown option $1" >&2; exit 64 ;;
+    *)           script=$*; break ;;
+  esac
+done
+[ -z "$script" ] && script=$(cat)
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/mac.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+mark=__mac_exit_$$__
+
+{ printf '%s(\n%s\n)\nprintf "%s=%%s\\n" $?\n' "$preamble" "$script" "$mark" \
+    | "$anchor_bin" ${args[@]+"${args[@]}"}
+  echo $? > "$tmp/transport"
+} | while IFS= read -r line || [ -n "$line" ]; do
+  case $line in
+    *"$mark="*) # a final line with no newline arrives glued to the mark
+                [ -n "${line%%"$mark="*}" ] && printf '%s\n' "${line%%"$mark="*}"
+                echo "${line##*=}" > "$tmp/status" ;;
+    *)         printf '%s\n' "$line" ;;
+  esac
+done
+
+transport=$(cat "$tmp/transport")
+[ "$transport" != 0 ] && exit "$transport"   # 4, 124, 255: anchor's own codes
+if [ ! -s "$tmp/status" ]; then
+  echo "mac: the script reported no exit status — the session died before it finished." >&2
+  exit 1
+fi
+exit "$(cat "$tmp/status")"
