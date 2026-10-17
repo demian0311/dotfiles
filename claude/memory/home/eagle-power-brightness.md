@@ -27,3 +27,10 @@ Limine 12.8.0 source: a `timeout:` key in the config file beats the persistent `
 the earlier `timeout: 1` edit silently disabled the firmware fix. Firmware `0` = menu-hidden (0.5 s blank, any key
 opens the menu) and survives `omarchy-refresh-limine`. `systemctl reboot --boot-loader-menu=10` reboots at once
 and FORCES the menu for that boot; it killed five Claude sessions when run by mistake. Issue: dotfiles #8.
+
+2026-10-17 11:35, dotfiles commit c020f93: power-saver's EPP "power" pinned all cores at ~1.1 GHz
+even under a busy loop (Hyprland IPC 66-112 ms, Claude Code TUI startup 8 s, dotfiles #13).
+`eagle/epp/` (root timer every 20 s + charger udev rule) rewrites EPP to balance_power while the
+profile is power-saver; installed and verified live 11:35: busy core 2600 MHz, Hyprland IPC 6-7 ms,
+package temp 65 C vs 58 C before. ppd never re-applies EPP on its own (one rewrite logged, no
+repeats). Check with `eagle/epp/test-eagle-epp`; `journalctl -t eagle-epp` shows each rewrite.
