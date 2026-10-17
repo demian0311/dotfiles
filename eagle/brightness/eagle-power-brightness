@@ -11,7 +11,8 @@
 # Between changes it touches neither, so manual adjustment sticks.
 # power-saver on battery: ppd sets intel_pstate EPP to "power" and the platform
 # profile to low-power. Measured 2026-10-16 (eagle-health-audit): balanced on
-# battery drew 38 W at 90 C with the fan idle.
+# battery drew 38 W at 90 C with the fan idle. EPP "power" pins the cores at
+# ~1.1 GHz, so eagle/epp lifts it to balance_power under power-saver (#13).
 # Wakes on power_supply udev events, and polls every POLL seconds because
 # acpi-sbs does not reliably emit an event on the Charging -> Full flip.
 #

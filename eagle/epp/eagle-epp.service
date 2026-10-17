@@ -1,0 +1,9 @@
+[Unit]
+Description=Lift intel_pstate EPP from power to balance_power under power-saver (eagle)
+After=power-profiles-daemon.service
+
+[Service]
+Type=oneshot
+# the user service sets the profile ~2 s after a charger event; let ppd finish first
+ExecStartPre=/usr/bin/sleep 4
+ExecStart=/usr/local/bin/eagle-epp

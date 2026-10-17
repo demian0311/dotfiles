@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# eagle: while the profile is power-saver, lift intel_pstate EPP from "power" to
+# balance_power. power-profiles-daemon (0.30, no config file: checked the binary
+# and the package 2026-10-17) writes "power" when the profile becomes power-saver
+# and does not touch it again. On this i5-7360U "power" pins every core at
+# ~1.1 GHz even under a busy loop (dotfiles #13). balance_power keeps the
+# low-power platform profile and lets cores boost under load.
+# Idempotent: no-op unless profile is power-saver and some core still says "power".
+# Run by eagle-epp.timer (every EAGLE_EPP_EVERY seconds, see the timer) and by
+# 70-eagle-epp.rules after a charger event. Root only (sysfs write).
+set -euo pipefail
+want=${EAGLE_EPP:-balance_power}
+profile=$(powerprofilesctl get 2>/dev/null || echo unknown)
+[[ $profile == power-saver ]] || exit 0
+changed=0
+for f in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/energy_performance_preference; do
+  [[ $(<"$f") == power ]] || continue
+  echo "$want" >"$f" && changed=1
+done
+(( changed )) && logger -t eagle-epp "power-saver: EPP power -> $want"
+exit 0

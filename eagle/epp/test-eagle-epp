@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# User-runnable check: timer active, EPP lifted under power-saver, cores boost under load.
+fail=0
+if systemctl is-active -q eagle-epp.timer; then echo "ok    eagle-epp.timer active"; else echo "FAIL  eagle-epp.timer not active"; fail=1; fi
+profile=$(powerprofilesctl get 2>/dev/null)
+epp=$(cat /sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference)
+if [[ $profile == power-saver ]]; then
+  if [[ $epp == power ]]; then echo "FAIL  profile power-saver but EPP still 'power' (wait 25 s and rerun)"; fail=1; else echo "ok    profile power-saver, EPP $epp"; fi
+else
+  echo "info  profile $profile, EPP $epp (lift applies only under power-saver)"
+fi
+( timeout 2 sh -c 'while :; do :; done' & sleep 1.5; max=$(sort -n /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq | tail -1); wait; echo "info  busiest core during a 2 s busy loop: $((max/1000)) MHz (power-saver with EPP power sat at ~1100 on 2026-10-17)" )
+exit $fail
