@@ -38,6 +38,10 @@ else
   fail=1
 fi
 
-n="$(journalctl -u debounced.service -b --no-pager 2>/dev/null | grep -c 'canceled pending UP')"
-echo "info  chatter events swallowed this boot: $n  (journalctl -u debounced -b | grep 'canceled pending UP')"
+if systemctl show -p ExecStart debounced.service 2>/dev/null | grep -q -- ' -v'; then
+  echo "FAIL  debounced runs with -v: every keystroke (passwords included) goes to the journal"
+  fail=1
+else
+  echo "ok    debounced runs without -v (no keystroke logging)"
+fi
 exit $fail
