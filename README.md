@@ -22,7 +22,11 @@ mkdir -p ~/.config/cmux ~/.config/ghostty
 ln -s ~/code/dotfiles/config/cmux/cmux.json      ~/.config/cmux/cmux.json
 ln -s ~/code/dotfiles/config/ghostty/config      ~/.config/ghostty/config
 ln -s ~/code/dotfiles/config/ghostty/themes      ~/.config/ghostty/themes
+ln -s ~/code/dotfiles/config/starship/starship.toml ~/.config/starship.toml
 ```
+
+`config/starship/starship.toml` is Omarchy's default prompt with directory
+truncation turned off, so the prompt shows the full working directory.
 
 `config/bash/vi-mode.bash` turns on vi editing in bash. On Omarchy, source it at the
 end of `~/.bashrc`; `anchor/install.sh` adds that line.
