@@ -1,0 +1,69 @@
+#!/bin/bash
+# ~/.local/bin/eagle-power-brightness
+# Installed by install.sh next to this file. Run by eagle-power-brightness.service
+# (systemd --user, graphical session).
+#
+# Sets the panel brightness when the power state CHANGES, and at session start:
+#   battery            -> 33%
+#   AC, charging       -> 80%
+#   AC, battery full   -> 100%
+# Between changes it never touches brightness, so manual adjustment sticks.
+# Wakes on power_supply udev events, and polls every POLL seconds because
+# acpi-sbs does not reliably emit an event on the Charging -> Full flip.
+#
+# Env overrides exist for tests only: EAGLE_PS_PATH EAGLE_SET EAGLE_ONCE EAGLE_SETTLE
+set -u
+
+ps_path=${EAGLE_PS_PATH:-/sys/class/power_supply}
+poll=${EAGLE_POLL:-30}
+settle=${EAGLE_SETTLE:-2}
+
+set_brightness() {
+  if [[ -n ${EAGLE_SET:-} ]]; then $EAGLE_SET "$1"; return; fi
+  local dev
+  dev=$(omarchy-hw-display) || return
+  brightnessctl -q -d "$dev" set "$1%"
+}
+
+# Prints battery | charging | full.
+power_state() {
+  local s ac=0 full=1 any_bat=0
+  for s in "$ps_path"/*; do
+    [[ -r $s/type ]] || continue
+    case $(<"$s/type") in
+    Mains | USB) [[ $(cat "$s/online" 2>/dev/null) == 1 ]] && ac=1 ;;
+    Battery)
+      [[ $(cat "$s/present" 2>/dev/null) == 0 ]] && continue
+      any_bat=1
+      [[ $(cat "$s/status" 2>/dev/null) == Full ]] || full=0
+      ;;
+    esac
+  done
+  if ((!ac)); then echo battery
+  elif ((any_bat && full)); then echo full
+  else echo charging; fi
+}
+
+level() { case $1 in battery) echo 33 ;; charging) echo 80 ;; full) echo 100 ;; esac }
+
+last=""
+apply() {
+  local now
+  now=$(power_state)
+  [[ $now == "$last" ]] && return
+  set_brightness "$(level "$now")"
+  logger -t eagle-power-brightness "$last -> $now: $(level "$now")%" 2>/dev/null
+  last=$now
+}
+
+apply
+[[ -n ${EAGLE_ONCE:-} ]] && exit 0
+
+exec {ev}< <(exec udevadm monitor --udev --subsystem-match=power_supply)
+while :; do
+  if read -r -t "$poll" -u "$ev" _; then
+    sleep "$settle" # let both supplies report before reading
+    while read -r -t 0.2 -u "$ev" _; do :; done
+  fi
+  apply
+done

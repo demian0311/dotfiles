@@ -1,0 +1,12 @@
+[Unit]
+Description=Set panel brightness by power state: battery 33%, charging 80%, full 100% (eagle)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/eagle-power-brightness
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
